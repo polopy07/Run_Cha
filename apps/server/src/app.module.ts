@@ -3,6 +3,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { TerritoriesModule } from './territories/territories.module';
+import { RunningModule } from './running/running.module';
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { AppService } from './app.service';
       }),
       inject: [ConfigService],
     }),
+    TerritoriesModule,
+    RunningModule,
   ],
   controllers: [AppController],
   providers: [AppService],
