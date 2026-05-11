@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { RankingService } from './ranking.service';
 import { Territory } from '../territories/entities/territory.entity';
 import { User } from '../users/entities/user.entity';
@@ -22,7 +21,10 @@ describe('RankingService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RankingService,
-        { provide: getRepositoryToken(Territory), useFactory: mockTerritoryRepo },
+        {
+          provide: getRepositoryToken(Territory),
+          useFactory: mockTerritoryRepo,
+        },
         { provide: getRepositoryToken(User), useFactory: mockUserRepo },
       ],
     }).compile();
@@ -36,7 +38,7 @@ describe('RankingService', () => {
     it('면적 기준 내림차순으로 rank를 부여한다', async () => {
       const rawRows = [
         { userId: 1, nickname: 'alice', totalAreaSqm: '5000.5' },
-        { userId: 2, nickname: 'bob',   totalAreaSqm: '3000.0' },
+        { userId: 2, nickname: 'bob', totalAreaSqm: '3000.0' },
       ];
 
       const qb = {
@@ -54,8 +56,18 @@ describe('RankingService', () => {
       const result = await service.getAreaRanking();
 
       expect(result).toHaveLength(2);
-      expect(result[0]).toEqual({ rank: 1, userId: 1, nickname: 'alice', totalAreaSqm: 5000.5 });
-      expect(result[1]).toEqual({ rank: 2, userId: 2, nickname: 'bob',   totalAreaSqm: 3000.0 });
+      expect(result[0]).toEqual({
+        rank: 1,
+        userId: 1,
+        nickname: 'alice',
+        totalAreaSqm: 5000.5,
+      });
+      expect(result[1]).toEqual({
+        rank: 2,
+        userId: 2,
+        nickname: 'bob',
+        totalAreaSqm: 3000.0,
+      });
     });
 
     it('영토가 없으면 빈 배열을 반환한다', async () => {
@@ -111,8 +123,18 @@ describe('RankingService', () => {
       const result = await service.getDistanceRanking();
 
       expect(result).toHaveLength(2);
-      expect(result[0]).toEqual({ rank: 1, userId: 3, nickname: 'carol', totalDistanceKm: 200.5 });
-      expect(result[1]).toEqual({ rank: 2, userId: 1, nickname: 'alice', totalDistanceKm: 150.0 });
+      expect(result[0]).toEqual({
+        rank: 1,
+        userId: 3,
+        nickname: 'carol',
+        totalDistanceKm: 200.5,
+      });
+      expect(result[1]).toEqual({
+        rank: 2,
+        userId: 1,
+        nickname: 'alice',
+        totalDistanceKm: 150.0,
+      });
     });
 
     it('러닝 기록이 없으면 빈 배열을 반환한다', async () => {
