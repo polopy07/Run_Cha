@@ -24,8 +24,8 @@ describe('RunningService', () => {
   let service: RunningService;
 
   const mockRunningLogRepo = {
-    create: jest.fn((data) => data),
-    save: jest.fn((data) => Promise.resolve({ id: 1, ...data })),
+    create: jest.fn((data: Record<string, unknown>) => data),
+    save: jest.fn((data: Record<string, unknown>) => Promise.resolve({ id: 1, ...data })),
   };
   const mockTerritoriesService = {
     registerTerritory: jest.fn().mockResolvedValue({ id: 1, user_id: 1 }),
@@ -89,7 +89,7 @@ describe('RunningService', () => {
         [4.5, 1.0],  // 4~5분/km: run
         [6.0, 0.8],  // 5~7분/km: jog
         [7.5, 0.6],  // 7~8분/km: fast_walk
-      ])('유효 페이스 avg_pace=%f → multiplier=%f 적용', async (pace, multiplier) => {
+      ])('유효 페이스 avg_pace=%f → multiplier=%f 적용', async (pace: number, multiplier: number) => {
         const result = await service.finish(1, {
           path: CLOSED_LOOP,
           distance_km: 1.0,
@@ -103,7 +103,7 @@ describe('RunningService', () => {
       it.each([
         [2.5],  // < 3분/km
         [9.0],  // > 8분/km
-      ])('무효 페이스 avg_pace=%f → earned_points = 0, 영토는 등록됨 (포인트만 무효)', async (pace) => {
+      ])('무효 페이스 avg_pace=%f → earned_points = 0, 영토는 등록됨 (포인트만 무효)', async (pace: number) => {
         const result = await service.finish(1, {
           path: CLOSED_LOOP,
           distance_km: 1.0,
@@ -130,7 +130,7 @@ describe('RunningService', () => {
             path: OPEN_PATH,
             distance_km: 2.5,
             avg_pace: 5.0,
-            ended_at: expect.any(Date),
+            ended_at: expect.any(Date) as unknown,
           }),
         );
       });
@@ -152,10 +152,10 @@ describe('RunningService', () => {
 
         expect(result).toEqual(
           expect.objectContaining({
-            log: expect.anything(),
+            log: expect.anything() as unknown,
             territory: null,
-            earned_points: expect.any(Number),
-            area_sqm: expect.any(Number),
+            earned_points: expect.any(Number) as unknown,
+            area_sqm: expect.any(Number) as unknown,
           }),
         );
       });

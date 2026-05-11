@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { TerritoriesService } from './territories.service';
 import { Territory } from './entities/territory.entity';
 import { GetTerritoriesDto } from './dto/get-territories.dto';
+import { User } from '../users/entities/user.entity';
 
 const BOUNDS: GetTerritoriesDto = { minLat: 37.0, maxLat: 38.0, minLng: 126.0, maxLng: 128.0 };
 
@@ -14,7 +15,7 @@ function makeTerritory(lat: number, lng: number): Territory {
     area_sqm: 1000,
     occupation_rate: 100,
     last_active_at: new Date(),
-    user: { id: 1, nickname: 'tester' } as any,
+    user: { id: 1, nickname: 'tester' } as unknown as User,
   };
 }
 
@@ -23,8 +24,8 @@ describe('TerritoriesService', () => {
 
   const mockRepo = {
     find: jest.fn(),
-    create: jest.fn((data) => data),
-    save: jest.fn((data) => Promise.resolve({ id: 1, ...data })),
+    create: jest.fn((data: Record<string, unknown>) => data),
+    save: jest.fn((data: Record<string, unknown>) => Promise.resolve({ id: 1, ...data })),
   };
 
   beforeEach(async () => {
@@ -98,7 +99,7 @@ describe('TerritoriesService', () => {
       expect(mockRepo.find).toHaveBeenCalledWith(
         expect.objectContaining({
           relations: ['user'],
-          select: expect.objectContaining({ id: true, user_id: true }),
+          select: expect.objectContaining({ id: true, user_id: true }) as unknown,
         }),
       );
     });
