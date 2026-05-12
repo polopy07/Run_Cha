@@ -27,8 +27,6 @@ export class SeedCharacters1746921700001 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DELETE FROM gacha_log`);
-    await queryRunner.query(`DELETE FROM user_characters`);
     await queryRunner.query(`DELETE FROM characters`);
   }
 }
