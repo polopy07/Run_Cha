@@ -48,11 +48,11 @@ describe('RunningService', () => {
       it('폐곡선 경로 → 영토를 등록한다', async () => {
         const result = await service.finish(1, {
           path: CLOSED_LOOP,
-          distance_km: 1.0,
-          avg_pace: 4.5,
+          distanceKm: 1.0,
+          avgPace: 4.5,
         });
 
-        expect(result.territory).not.toBeNull();
+        expect(result.territoryId).not.toBeNull();
         expect(mockTerritoriesService.registerTerritory).toHaveBeenCalledWith(
           1,
           CLOSED_LOOP,
@@ -63,23 +63,23 @@ describe('RunningService', () => {
       it('열린 경로 → 영토를 등록하지 않는다', async () => {
         const result = await service.finish(1, {
           path: OPEN_PATH,
-          distance_km: 2.0,
-          avg_pace: 5.0,
+          distanceKm: 2.0,
+          avgPace: 5.0,
         });
 
-        expect(result.territory).toBeNull();
+        expect(result.territoryId).toBeNull();
         expect(mockTerritoriesService.registerTerritory).not.toHaveBeenCalled();
       });
 
-      it('좌표가 2개 이하 → 영토 없음, area_sqm = 0', async () => {
+      it('좌표가 2개 이하 → 영토 없음, areaSqm = 0', async () => {
         const result = await service.finish(1, {
           path: [{ lat: 37.5, lng: 127.0 }, { lat: 37.501, lng: 127.0 }],
-          distance_km: 0.1,
-          avg_pace: 5.0,
+          distanceKm: 0.1,
+          avgPace: 5.0,
         });
 
-        expect(result.territory).toBeNull();
-        expect(result.area_sqm).toBe(0);
+        expect(result.territoryId).toBeNull();
+        expect(result.areaSqm).toBe(0);
       });
     });
 
@@ -89,30 +89,30 @@ describe('RunningService', () => {
         [4.5, 1.0],  // 4~5분/km: run
         [6.0, 0.8],  // 5~7분/km: jog
         [7.5, 0.6],  // 7~8분/km: fast_walk
-      ])('유효 페이스 avg_pace=%f → multiplier=%f 적용', async (pace: number, multiplier: number) => {
+      ])('유효 페이스 avgPace=%f → multiplier=%f 적용', async (pace: number, multiplier: number) => {
         const result = await service.finish(1, {
           path: CLOSED_LOOP,
-          distance_km: 1.0,
-          avg_pace: pace,
+          distanceKm: 1.0,
+          avgPace: pace,
         });
 
-        const expected = Math.floor((result.area_sqm / 100) * multiplier);
-        expect(result.earned_points).toBe(expected);
+        const expected = Math.floor((result.areaSqm / 100) * multiplier);
+        expect(result.earnedPoints).toBe(expected);
       });
 
       it.each([
         [2.5],  // < 3분/km
         [9.0],  // > 8분/km
-      ])('무효 페이스 avg_pace=%f → earned_points = 0, 영토는 등록됨 (포인트만 무효)', async (pace: number) => {
+      ])('무효 페이스 avgPace=%f → earnedPoints = 0, 영토는 등록됨 (포인트만 무효)', async (pace: number) => {
         const result = await service.finish(1, {
           path: CLOSED_LOOP,
-          distance_km: 1.0,
-          avg_pace: pace,
+          distanceKm: 1.0,
+          avgPace: pace,
         });
 
-        expect(result.earned_points).toBe(0);
+        expect(result.earnedPoints).toBe(0);
         // 기획서 p.6: "포인트 무효"만 명시, 영토 등록은 막지 않음
-        expect(result.territory).not.toBeNull();
+        expect(result.territoryId).not.toBeNull();
       });
     });
 
@@ -120,8 +120,8 @@ describe('RunningService', () => {
       it('올바른 필드로 로그를 생성한다', async () => {
         await service.finish(1, {
           path: OPEN_PATH,
-          distance_km: 2.5,
-          avg_pace: 5.0,
+          distanceKm: 2.5,
+          avgPace: 5.0,
         });
 
         expect(mockRunningLogRepo.create).toHaveBeenCalledWith(
@@ -136,26 +136,26 @@ describe('RunningService', () => {
       });
 
       it('생성 후 save를 호출한다', async () => {
-        await service.finish(1, { path: OPEN_PATH, distance_km: 1.0, avg_pace: 5.0 });
+        await service.finish(1, { path: OPEN_PATH, distanceKm: 1.0, avgPace: 5.0 });
 
         expect(mockRunningLogRepo.save).toHaveBeenCalledTimes(1);
       });
     });
 
     describe('반환값 구조', () => {
-      it('log, territory, earned_points, area_sqm를 반환한다', async () => {
+      it('runningLogId, territoryId, areaSqm, earnedPoints를 반환한다', async () => {
         const result = await service.finish(1, {
           path: OPEN_PATH,
-          distance_km: 1.0,
-          avg_pace: 5.0,
+          distanceKm: 1.0,
+          avgPace: 5.0,
         });
 
         expect(result).toEqual(
           expect.objectContaining({
-            log: expect.anything() as unknown,
-            territory: null,
-            earned_points: expect.any(Number) as unknown,
-            area_sqm: expect.any(Number) as unknown,
+            runningLogId: expect.any(Number) as unknown,
+            territoryId: null,
+            earnedPoints: expect.any(Number) as unknown,
+            areaSqm: expect.any(Number) as unknown,
           }),
         );
       });

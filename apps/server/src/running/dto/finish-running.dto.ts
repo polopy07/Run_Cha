@@ -16,8 +16,8 @@ export class FinishRunningDto {
   path: CoordDto[];
 
   @IsNumber()
-  distance_km: number;
+  distanceKm: number;
 
   @IsNumber()
-  avg_pace: number;
+  avgPace: number;
 }

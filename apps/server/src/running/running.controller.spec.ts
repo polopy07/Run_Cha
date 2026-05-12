@@ -26,13 +26,13 @@ describe('RunningController', () => {
         { lat: 37.501, lng: 127.0 },
         { lat: 37.501, lng: 127.001 },
       ],
-      distance_km: 1.5,
-      avg_pace: 5.0,
+      distanceKm: 1.5,
+      avgPace: 5.0,
     };
     const mockReq = { user: { id: 42 } };
 
     it('서비스의 finish를 userId와 dto로 호출한다', async () => {
-      const expected = { log: {}, territory: null, earned_points: 0, area_sqm: 0 };
+      const expected = { runningLogId: 1, territoryId: null, areaSqm: 0, earnedPoints: 0 };
       mockService.finish.mockResolvedValue(expected);
 
       const result = await controller.finish(mockReq, dto);

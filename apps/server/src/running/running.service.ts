@@ -22,21 +22,21 @@ export class RunningService {
   ) {}
 
   async finish(userId: number, dto: FinishRunningDto) {
-    const { path, distance_km, avg_pace } = dto;
+    const { path, distanceKm, avgPace } = dto;
 
-    const paceMultiplier = this.getPaceMultiplier(avg_pace);
+    const paceMultiplier = this.getPaceMultiplier(avgPace);
     const areaSqm = this.calculateArea(path);
     const earnedPoints = Math.floor((areaSqm / 100) * paceMultiplier);
 
     const log = this.runningLogRepo.create({
       user_id: userId,
       path,
-      distance_km,
+      distance_km: distanceKm,
       earned_points: earnedPoints,
-      avg_pace,
+      avg_pace: avgPace,
       ended_at: new Date(),
     });
-    await this.runningLogRepo.save(log);
+    const savedLog = await this.runningLogRepo.save(log);
 
     // 폐곡선이 완성된 경우에만 영토 등록 (시작점-끝점 거리 50m 이내)
     const territory =
@@ -44,7 +44,12 @@ export class RunningService {
         ? await this.territoriesService.registerTerritory(userId, path, areaSqm)
         : null;
 
-    return { log, territory, earned_points: earnedPoints, area_sqm: areaSqm };
+    return {
+      runningLogId: savedLog.id,
+      territoryId: territory?.id ?? null,
+      areaSqm,
+      earnedPoints,
+    };
   }
 
   private calculateArea(path: { lat: number; lng: number }[]): number {

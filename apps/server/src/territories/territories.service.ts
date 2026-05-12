@@ -11,7 +11,7 @@ export class TerritoriesService {
     private readonly territoryRepo: Repository<Territory>,
   ) {}
 
-  async findInBounds(dto: GetTerritoriesDto): Promise<Territory[]> {
+  async findInBounds(dto: GetTerritoriesDto) {
     const { minLat, maxLat, minLng, maxLng } = dto;
 
     // coordinates는 JSON 배열이므로 MySQL에서 bounding box 필터링 불가
@@ -29,11 +29,19 @@ export class TerritoriesService {
       },
     });
 
-    return territories.filter((t) => {
-      if (!t.coordinates?.length) return false;
-      const { lat, lng } = t.coordinates[0];
-      return lat >= minLat && lat <= maxLat && lng >= minLng && lng <= maxLng;
-    });
+    return territories
+      .filter((t) => {
+        if (!t.coordinates?.length) return false;
+        const { lat, lng } = t.coordinates[0];
+        return lat >= minLat && lat <= maxLat && lng >= minLng && lng <= maxLng;
+      })
+      .map((t) => ({
+        id: t.id,
+        userId: t.user_id,
+        coordinates: t.coordinates,
+        areaSqm: t.area_sqm,
+        occupationRate: t.occupation_rate,
+      }));
   }
 
   async registerTerritory(
