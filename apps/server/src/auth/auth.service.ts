@@ -1,0 +1,36 @@
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import * as admin from 'firebase-admin';
+import * as serviceAccount from '../../firebase-service-key.json';
+import { UsersService } from '../users/users.service';
+
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
+  });
+}
+
+@Injectable()
+export class AuthService {
+  constructor(private readonly usersService: UsersService) {}
+
+  async verifyFirebaseToken(idToken: string) {
+    try {
+      const decodedToken = await admin.auth().verifyIdToken(idToken);
+
+      const user = await this.usersService.findOrCreateUser(
+        decodedToken.uid,
+        decodedToken.email || '',
+      );
+
+      return {
+        message: 'Firebase ID Token 검증 성공',
+        uid: decodedToken.uid,
+        email: decodedToken.email,
+        user,
+      };
+    } catch (error) {
+      console.log('Firebase token verify error:', error);
+      throw new UnauthorizedException('유효하지 않은 Firebase 토큰');
+    }
+  }
+}

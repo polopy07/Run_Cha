@@ -42,5 +42,6 @@ yarn-error.log*
 
 
 # Firebase 서비스 계정 키
-*serviceAccountKey*.json
+firebase-service-key.json
 firebase-adminsdk*.json
+*serviceAccountKey*.json

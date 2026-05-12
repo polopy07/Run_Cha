@@ -5,6 +5,8 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TerritoriesModule } from './territories/territories.module';
 import { RunningModule } from './running/running.module';
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -20,12 +22,14 @@ import { RunningModule } from './running/running.module';
         database: config.get('DB_NAME', 'run_territory'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         migrations: [__dirname + '/migrations/*{.ts,.js}'],
-        synchronize: false,
+        synchronize: true,
       }),
       inject: [ConfigService],
     }),
     TerritoriesModule,
     RunningModule,
+    AuthModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
