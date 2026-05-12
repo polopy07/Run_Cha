@@ -3,7 +3,9 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "android": "react-native run-android",
+    "android": "cross-env ANDROID_HOME=$ANDROID_SDK_ROOT react-native run-android",
+    "android:win": "cross-env ANDROID_HOME=C:\\Users\\%USERNAME%\\AppData\\Local\\Android\\Sdk react-native run-android",
+    "android:mac": "cross-env ANDROID_HOME=$HOME/Library/Android/sdk react-native run-android",
     "ios": "react-native run-ios",
     "lint": "eslint .",
     "start": "react-native start",
@@ -42,6 +44,7 @@
     "@types/jest": "^29.5.13",
     "@types/react": "^19.2.0",
     "@types/react-test-renderer": "^19.1.0",
+    "cross-env": "^10.1.0",
     "eslint": "^8.19.0",
     "jest": "^29.6.3",
     "prettier": "2.8.8",
