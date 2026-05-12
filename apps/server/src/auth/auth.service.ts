@@ -1,8 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import * as admin from 'firebase-admin';
 
 import { UsersService } from '../users/users.service';
-
+import { firebaseAdmin } from './firebase-admin.provider';
 
 
 @Injectable()
@@ -11,7 +10,7 @@ export class AuthService {
 
   async verifyFirebaseToken(idToken: string) {
     try {
-      const decodedToken = await admin.auth().verifyIdToken(idToken);
+      const decodedToken = await firebaseAdmin.auth().verifyIdToken(idToken);
 
       const user = await this.usersService.findOrCreateUser(
         decodedToken.uid,
