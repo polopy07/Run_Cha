@@ -2,7 +2,11 @@ import * as admin from 'firebase-admin';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-if (!admin.apps.length) {
+function initializeFirebaseAdmin() {
+  if (admin.apps.length) {
+    return admin;
+  }
+
   const serviceAccountPath =
     process.env.FIREBASE_SERVICE_ACCOUNT_PATH ??
     path.join(process.cwd(), 'firebase-service-key.json');
@@ -20,6 +24,10 @@ if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
   });
+
+  return admin;
 }
 
-export const firebaseAdmin = admin;
+export function getFirebaseAdmin() {
+  return initializeFirebaseAdmin();
+}

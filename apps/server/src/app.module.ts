@@ -6,6 +6,9 @@ import { AppService } from './app.service';
 import { TerritoriesModule } from './territories/territories.module';
 import { RunningModule } from './running/running.module';
 import { AuthModule } from './auth/auth.module';
+import { CharactersModule } from './characters/characters.module';
+import { GachaModule } from './gacha/gacha.module';
+import { RankingModule } from './ranking/ranking.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -30,6 +33,9 @@ import { UsersModule } from './users/users.module';
     RunningModule,
     AuthModule,
     UsersModule,
+    CharactersModule,
+    GachaModule,
+    RankingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

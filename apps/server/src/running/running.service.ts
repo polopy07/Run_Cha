@@ -7,10 +7,10 @@ import { TerritoriesService } from '../territories/territories.service';
 import { FinishRunningDto } from './dto/finish-running.dto';
 
 const PACE_MULTIPLIER: Record<string, number> = {
-  fast_walk: 0.6,  // 7~8분/km
-  jog: 0.8,        // 5~7분/km
-  run: 1.0,        // 4~5분/km
-  fast_run: 1.2,   // 3~4분/km
+  fast_walk: 0.6, // 7~8분/km
+  jog: 0.8, // 5~7분/km
+  run: 1.0, // 4~5분/km
+  fast_run: 1.2, // 3~4분/km
 };
 
 @Injectable()
@@ -63,17 +63,20 @@ export class RunningService {
   private isClosedLoop(path: { lat: number; lng: number }[]): boolean {
     if (path.length < 3) return false;
     const start = turf.point([path[0].lng, path[0].lat]);
-    const end = turf.point([path[path.length - 1].lng, path[path.length - 1].lat]);
+    const end = turf.point([
+      path[path.length - 1].lng,
+      path[path.length - 1].lat,
+    ]);
     return turf.distance(start, end, { units: 'meters' }) <= 50;
   }
 
   // avg_pace: 분/km
   private getPaceMultiplier(avgPace: number): number {
-    if (avgPace < 3) return 0;          // 무효
+    if (avgPace < 3) return 0; // 무효
     if (avgPace <= 4) return PACE_MULTIPLIER.fast_run;
     if (avgPace <= 5) return PACE_MULTIPLIER.run;
     if (avgPace <= 7) return PACE_MULTIPLIER.jog;
     if (avgPace <= 8) return PACE_MULTIPLIER.fast_walk;
-    return 0;                           // 무효 (너무 느림)
+    return 0; // 무효 (너무 느림)
   }
 }

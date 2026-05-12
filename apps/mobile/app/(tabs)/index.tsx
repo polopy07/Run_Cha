@@ -1,5 +1,5 @@
 import { Button, View } from 'react-native';
-import { login, signup } from '../../firebase-auth';
+import { login, signup } from '../../src/api/auth';
 
 export default function HomeScreen() {
   const handleLogin = async () => {
