@@ -19,7 +19,7 @@ export class CreateSeasonTables1747100000001 implements MigrationInterface {
       CREATE TABLE season_rankings (
         id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
         season_id     INT UNSIGNED NOT NULL,
-        user_id       INT UNSIGNED NOT NULL,
+        user_id       INT          NOT NULL,
         area_rank     INT UNSIGNED NOT NULL DEFAULT 0,
         distance_rank INT UNSIGNED NOT NULL DEFAULT 0,
         snapshot_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
