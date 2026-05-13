@@ -2,14 +2,11 @@ name: CI
 
 on:
   push:
-    branches: [ develop ]
+    branches: [develop]
   pull_request:
-    branches: [ develop, main ]
+    branches: [develop, main]
 
 jobs:
-  # ─────────────────────────
-  # 서버 린트 & 빌드 검사
-  # ─────────────────────────
   server:
     name: Server CI
     runs-on: ubuntu-latest
@@ -20,29 +17,25 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Node.js 세팅
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 20
-          cache: 'npm'
+          cache: npm
           cache-dependency-path: apps/server/package-lock.json
 
-      - name: 의존성 설치
+      - name: Install dependencies
         run: npm ci
 
-      - name: 린트 검사
+      - name: Lint
         run: npm run lint
 
-      - name: 빌드 검사
+      - name: Build
         run: npm run build
 
-  # ─────────────────────────
-  # 앱 린트 검사
-  # ─────────────────────────
   mobile:
     name: Mobile CI
     runs-on: ubuntu-latest
-    if: false # 팀원 B가 모바일 앱 초기화 후 활성화
     defaults:
       run:
         working-directory: apps/mobile
@@ -50,15 +43,18 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Node.js 세팅
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 20
-          cache: 'npm'
+          node-version: 22
+          cache: npm
           cache-dependency-path: apps/mobile/package-lock.json
 
-      - name: 의존성 설치
+      - name: Install dependencies
         run: npm ci
 
-      - name: 린트 검사
+      - name: Lint
         run: npm run lint
+
+      - name: Test
+        run: npm test -- --runInBand

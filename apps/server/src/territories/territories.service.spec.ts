@@ -5,7 +5,12 @@ import { Territory } from './entities/territory.entity';
 import { GetTerritoriesDto } from './dto/get-territories.dto';
 import { User } from '../users/entities/user.entity';
 
-const BOUNDS: GetTerritoriesDto = { minLat: 37.0, maxLat: 38.0, minLng: 126.0, maxLng: 128.0 };
+const BOUNDS: GetTerritoriesDto = {
+  minLat: 37.0,
+  maxLat: 38.0,
+  minLng: 126.0,
+  maxLng: 128.0,
+};
 
 function makeTerritory(lat: number, lng: number): Territory {
   return {
@@ -25,7 +30,9 @@ describe('TerritoriesService', () => {
   const mockRepo = {
     find: jest.fn(),
     create: jest.fn((data: Record<string, unknown>) => data),
-    save: jest.fn((data: Record<string, unknown>) => Promise.resolve({ id: 1, ...data })),
+    save: jest.fn((data: Record<string, unknown>) =>
+      Promise.resolve({ id: 1, ...data }),
+    ),
   };
 
   beforeEach(async () => {
@@ -99,7 +106,10 @@ describe('TerritoriesService', () => {
       expect(mockRepo.find).toHaveBeenCalledWith(
         expect.objectContaining({
           relations: ['user'],
-          select: expect.objectContaining({ id: true, user_id: true }) as unknown,
+          select: expect.objectContaining({
+            id: true,
+            user_id: true,
+          }) as unknown,
         }),
       );
     });
@@ -124,7 +134,12 @@ describe('TerritoriesService', () => {
     });
 
     it('저장된 영토를 반환한다', async () => {
-      const saved = { id: 42, user_id: 1, area_sqm: 5000, occupation_rate: 100 };
+      const saved = {
+        id: 42,
+        user_id: 1,
+        area_sqm: 5000,
+        occupation_rate: 100,
+      };
       mockRepo.save.mockResolvedValue(saved);
 
       const result = await service.registerTerritory(1, [], 5000);

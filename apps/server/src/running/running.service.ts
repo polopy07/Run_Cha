@@ -8,10 +8,10 @@ import { TerritoriesService } from '../territories/territories.service';
 import { FinishRunningDto } from './dto/finish-running.dto';
 
 const PACE_MULTIPLIER: Record<string, number> = {
-  fast_walk: 0.6,  // 7~8분/km
-  jog: 0.8,        // 5~7분/km
-  run: 1.0,        // 4~5분/km
-  fast_run: 1.2,   // 3~4분/km
+  fast_walk: 0.6, // 7~8분/km
+  jog: 0.8, // 5~7분/km
+  run: 1.0, // 4~5분/km
+  fast_run: 1.2, // 3~4분/km
 };
 
 @Injectable()
@@ -31,7 +31,9 @@ export class RunningService {
     const paceMultiplier = this.getPaceMultiplier(avg_pace);
     // 열린 경로는 영토/포인트 없음
     const area_sqm = closed ? this.calculateArea(path) : 0;
-    const earned_points = closed ? Math.floor((area_sqm / 100) * paceMultiplier) : 0;
+    const earned_points = closed
+      ? Math.floor((area_sqm / 100) * paceMultiplier)
+      : 0;
 
     const log = this.runningLogRepo.create({
       user_id: userId,
@@ -43,7 +45,11 @@ export class RunningService {
     });
     const savedLog = await this.runningLogRepo.save(log);
 
-    await this.userRepo.increment({ id: userId }, 'total_distance', distance_km);
+    await this.userRepo.increment(
+      { id: userId },
+      'total_distance',
+      distance_km,
+    );
     if (earned_points > 0) {
       await this.userRepo.increment({ id: userId }, 'points', earned_points);
     }
@@ -51,7 +57,11 @@ export class RunningService {
     // 폐곡선이 완성된 경우에만 영토 등록 (시작점-끝점 거리 50m 이내)
     const territory =
       area_sqm > 0
-        ? await this.territoriesService.registerTerritory(userId, path, area_sqm)
+        ? await this.territoriesService.registerTerritory(
+            userId,
+            path,
+            area_sqm,
+          )
         : null;
 
     return {
@@ -78,17 +88,20 @@ export class RunningService {
   private isClosedLoop(path: { lat: number; lng: number }[]): boolean {
     if (path.length < 3) return false;
     const start = turf.point([path[0].lng, path[0].lat]);
-    const end = turf.point([path[path.length - 1].lng, path[path.length - 1].lat]);
+    const end = turf.point([
+      path[path.length - 1].lng,
+      path[path.length - 1].lat,
+    ]);
     return turf.distance(start, end, { units: 'meters' }) <= 50;
   }
 
   // avg_pace: 분/km
   private getPaceMultiplier(avgPace: number): number {
-    if (avgPace < 3) return 0;          // 무효
+    if (avgPace < 3) return 0; // 무효
     if (avgPace <= 4) return PACE_MULTIPLIER.fast_run;
     if (avgPace <= 5) return PACE_MULTIPLIER.run;
     if (avgPace <= 7) return PACE_MULTIPLIER.jog;
     if (avgPace <= 8) return PACE_MULTIPLIER.fast_walk;
-    return 0;                           // 무효 (너무 느림)
+    return 0; // 무효 (너무 느림)
   }
 }

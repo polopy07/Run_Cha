@@ -7,18 +7,18 @@ import { TerritoriesService } from '../territories/territories.service';
 
 // 서울 기준 약 110m × 90m 정사각형 폐곡선 (시작점 == 끝점 → 거리 0m)
 const CLOSED_LOOP = [
-  { lat: 37.500, lng: 127.000 },
-  { lat: 37.501, lng: 127.000 },
+  { lat: 37.5, lng: 127.0 },
+  { lat: 37.501, lng: 127.0 },
   { lat: 37.501, lng: 127.001 },
-  { lat: 37.500, lng: 127.001 },
-  { lat: 37.500, lng: 127.000 }, // 시작점과 동일 → isClosedLoop = true
+  { lat: 37.5, lng: 127.001 },
+  { lat: 37.5, lng: 127.0 }, // 시작점과 동일 → isClosedLoop = true
 ];
 
 // 시작점과 끝점이 1km 이상 떨어진 열린 경로
 const OPEN_PATH = [
-  { lat: 37.500, lng: 127.000 },
-  { lat: 37.510, lng: 127.000 },
-  { lat: 37.510, lng: 127.010 },
+  { lat: 37.5, lng: 127.0 },
+  { lat: 37.51, lng: 127.0 },
+  { lat: 37.51, lng: 127.01 },
 ];
 
 describe('RunningService', () => {
@@ -26,7 +26,9 @@ describe('RunningService', () => {
 
   const mockRunningLogRepo = {
     create: jest.fn((data: Record<string, unknown>) => data),
-    save: jest.fn((data: Record<string, unknown>) => Promise.resolve({ id: 1, ...data })),
+    save: jest.fn((data: Record<string, unknown>) =>
+      Promise.resolve({ id: 1, ...data }),
+    ),
   };
   const mockUserRepo = {
     increment: jest.fn().mockResolvedValue(undefined),
@@ -40,7 +42,10 @@ describe('RunningService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RunningService,
-        { provide: getRepositoryToken(RunningLog), useValue: mockRunningLogRepo },
+        {
+          provide: getRepositoryToken(RunningLog),
+          useValue: mockRunningLogRepo,
+        },
         { provide: getRepositoryToken(User), useValue: mockUserRepo },
         { provide: TerritoriesService, useValue: mockTerritoriesService },
       ],
@@ -78,7 +83,10 @@ describe('RunningService', () => {
 
       it('좌표가 2개 이하 → 영토 없음, areaSqm = 0', async () => {
         const result = await service.finish(1, {
-          path: [{ lat: 37.5, lng: 127.0 }, { lat: 37.501, lng: 127.0 }],
+          path: [
+            { lat: 37.5, lng: 127.0 },
+            { lat: 37.501, lng: 127.0 },
+          ],
           distance_km: 0.1,
           avg_pace: 5.0,
         });
@@ -90,35 +98,41 @@ describe('RunningService', () => {
 
     describe('페이스 배율 (earnedPoints = floor(area / 100 * multiplier))', () => {
       it.each([
-        [3.5, 1.2],  // 3~4분/km: fast_run
-        [4.5, 1.0],  // 4~5분/km: run
-        [6.0, 0.8],  // 5~7분/km: jog
-        [7.5, 0.6],  // 7~8분/km: fast_walk
-      ])('유효 페이스 avgPace=%f → multiplier=%f 적용', async (pace: number, multiplier: number) => {
-        const result = await service.finish(1, {
-          path: CLOSED_LOOP,
-          distance_km: 1.0,
-          avg_pace: pace,
-        });
+        [3.5, 1.2], // 3~4분/km: fast_run
+        [4.5, 1.0], // 4~5분/km: run
+        [6.0, 0.8], // 5~7분/km: jog
+        [7.5, 0.6], // 7~8분/km: fast_walk
+      ])(
+        '유효 페이스 avgPace=%f → multiplier=%f 적용',
+        async (pace: number, multiplier: number) => {
+          const result = await service.finish(1, {
+            path: CLOSED_LOOP,
+            distance_km: 1.0,
+            avg_pace: pace,
+          });
 
-        const expected = Math.floor((result.area_sqm / 100) * multiplier);
-        expect(result.earned_points).toBe(expected);
-      });
+          const expected = Math.floor((result.area_sqm / 100) * multiplier);
+          expect(result.earned_points).toBe(expected);
+        },
+      );
 
       it.each([
-        [2.5],  // < 3분/km
-        [9.0],  // > 8분/km
-      ])('무효 페이스 avgPace=%f → earned_points = 0, 영토는 등록됨 (포인트만 무효)', async (pace: number) => {
-        const result = await service.finish(1, {
-          path: CLOSED_LOOP,
-          distance_km: 1.0,
-          avg_pace: pace,
-        });
+        [2.5], // < 3분/km
+        [9.0], // > 8분/km
+      ])(
+        '무효 페이스 avgPace=%f → earned_points = 0, 영토는 등록됨 (포인트만 무효)',
+        async (pace: number) => {
+          const result = await service.finish(1, {
+            path: CLOSED_LOOP,
+            distance_km: 1.0,
+            avg_pace: pace,
+          });
 
-        expect(result.earned_points).toBe(0);
-        // 기획서 p.6: "포인트 무효"만 명시, 영토 등록은 막지 않음
-        expect(result.territory).not.toBeNull();
-      });
+          expect(result.earned_points).toBe(0);
+          // 기획서 p.6: "포인트 무효"만 명시, 영토 등록은 막지 않음
+          expect(result.territory).not.toBeNull();
+        },
+      );
     });
 
     describe('RunningLog 저장', () => {
@@ -141,7 +155,11 @@ describe('RunningService', () => {
       });
 
       it('생성 후 save를 호출한다', async () => {
-        await service.finish(1, { path: OPEN_PATH, distance_km: 1.0, avg_pace: 5.0 });
+        await service.finish(1, {
+          path: OPEN_PATH,
+          distance_km: 1.0,
+          avg_pace: 5.0,
+        });
 
         expect(mockRunningLogRepo.save).toHaveBeenCalledTimes(1);
       });

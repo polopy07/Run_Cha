@@ -32,7 +32,12 @@ describe('RunningController', () => {
     const mockReq = { user: { id: 42 } };
 
     it('서비스의 finish를 userId와 dto로 호출한다', async () => {
-      const expected = { runningLogId: 1, territoryId: null, areaSqm: 0, earnedPoints: 0 };
+      const expected = {
+        runningLogId: 1,
+        territoryId: null,
+        areaSqm: 0,
+        earnedPoints: 0,
+      };
       mockService.finish.mockResolvedValue(expected);
 
       const result = await controller.finish(mockReq, dto);

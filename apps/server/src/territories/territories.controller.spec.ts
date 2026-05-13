@@ -21,7 +21,12 @@ describe('TerritoriesController', () => {
 
   describe('getInBounds', () => {
     it('서비스의 findInBounds를 DTO와 함께 호출한다', async () => {
-      const dto: GetTerritoriesDto = { minLat: 37.0, maxLat: 38.0, minLng: 126.0, maxLng: 128.0 };
+      const dto: GetTerritoriesDto = {
+        minLat: 37.0,
+        maxLat: 38.0,
+        minLng: 126.0,
+        maxLng: 128.0,
+      };
       const expected = [{ id: 1 }];
       mockService.findInBounds.mockResolvedValue(expected);
 

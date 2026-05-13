@@ -21,7 +21,9 @@ describe('RankingController', () => {
   });
 
   it('GET /ranking/area — RankingService.getAreaRanking에 위임한다', async () => {
-    const expected = [{ rank: 1, userId: 1, nickname: 'alice', totalAreaSqm: 5000 }];
+    const expected = [
+      { rank: 1, userId: 1, nickname: 'alice', totalAreaSqm: 5000 },
+    ];
     mockRankingService.getAreaRanking.mockResolvedValue(expected);
 
     const result = await controller.getAreaRanking();
@@ -31,7 +33,9 @@ describe('RankingController', () => {
   });
 
   it('GET /ranking/distance — RankingService.getDistanceRanking에 위임한다', async () => {
-    const expected = [{ rank: 1, userId: 2, nickname: 'bob', totalDistanceKm: 300 }];
+    const expected = [
+      { rank: 1, userId: 2, nickname: 'bob', totalDistanceKm: 300 },
+    ];
     mockRankingService.getDistanceRanking.mockResolvedValue(expected);
 
     const result = await controller.getDistanceRanking();
