@@ -123,7 +123,7 @@ export function MapScreen() {
     <View style={styles.container}>
       <MapView
         ref={mapRef}
-        style={StyleSheet.absoluteFillObject}
+        style={styles.map}
         provider={PROVIDER_GOOGLE}
         initialRegion={INITIAL_REGION}
         onRegionChangeComplete={r => { regionRef.current = r; }}
@@ -228,6 +228,7 @@ export function MapScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  map: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
 
   // 헤더
   header: {
