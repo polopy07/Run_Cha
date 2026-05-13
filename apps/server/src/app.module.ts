@@ -25,7 +25,7 @@ import { UsersModule } from './users/users.module';
         database: config.get('DB_NAME', 'run_territory'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         migrations: [__dirname + '/migrations/*{.ts,.js}'],
-        synchronize: true,
+        synchronize: false,
       }),
       inject: [ConfigService],
     }),

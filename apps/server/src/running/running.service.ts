@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as turf from '@turf/turf';
 import { RunningLog } from './entities/running-log.entity';
+import { User } from '../users/entities/user.entity';
 import { TerritoriesService } from '../territories/territories.service';
 import { FinishRunningDto } from './dto/finish-running.dto';
 
@@ -18,33 +19,57 @@ export class RunningService {
   constructor(
     @InjectRepository(RunningLog)
     private readonly runningLogRepo: Repository<RunningLog>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
     private readonly territoriesService: TerritoriesService,
   ) {}
 
   async finish(userId: number, dto: FinishRunningDto) {
     const { path, distance_km, avg_pace } = dto;
 
+    const closed = this.isClosedLoop(path);
     const paceMultiplier = this.getPaceMultiplier(avg_pace);
-    const areaSqm = this.calculateArea(path);
-    const earnedPoints = Math.floor((areaSqm / 100) * paceMultiplier);
+    // 열린 경로는 영토/포인트 없음
+    const area_sqm = closed ? this.calculateArea(path) : 0;
+    const earned_points = closed
+      ? Math.floor((area_sqm / 100) * paceMultiplier)
+      : 0;
 
     const log = this.runningLogRepo.create({
       user_id: userId,
       path,
       distance_km,
-      earned_points: earnedPoints,
+      earned_points,
       avg_pace,
       ended_at: new Date(),
     });
-    await this.runningLogRepo.save(log);
+    const savedLog = await this.runningLogRepo.save(log);
+
+    await this.userRepo.increment(
+      { id: userId },
+      'total_distance',
+      distance_km,
+    );
+    if (earned_points > 0) {
+      await this.userRepo.increment({ id: userId }, 'points', earned_points);
+    }
 
     // 폐곡선이 완성된 경우에만 영토 등록 (시작점-끝점 거리 50m 이내)
     const territory =
-      areaSqm > 0 && this.isClosedLoop(path)
-        ? await this.territoriesService.registerTerritory(userId, path, areaSqm)
+      area_sqm > 0
+        ? await this.territoriesService.registerTerritory(
+            userId,
+            path,
+            area_sqm,
+          )
         : null;
 
-    return { log, territory, earned_points: earnedPoints, area_sqm: areaSqm };
+    return {
+      log: savedLog,
+      territory: territory ?? null,
+      earned_points,
+      area_sqm,
+    };
   }
 
   private calculateArea(path: { lat: number; lng: number }[]): number {

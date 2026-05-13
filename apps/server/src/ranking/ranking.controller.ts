@@ -5,8 +5,13 @@ import { RankingService } from './ranking.service';
 export class RankingController {
   constructor(private readonly rankingService: RankingService) {}
 
-  @Get()
-  findAll() {
-    return this.rankingService.findAll();
+  @Get('area')
+  getAreaRanking() {
+    return this.rankingService.getAreaRanking();
+  }
+
+  @Get('distance')
+  getDistanceRanking() {
+    return this.rankingService.getDistanceRanking();
   }
 }
