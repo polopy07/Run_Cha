@@ -84,6 +84,10 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
+        def localProps = new Properties()
+        def localPropsFile = rootProject.file("local.properties")
+        if (localPropsFile.exists()) { localProps.load(new FileInputStream(localPropsFile)) }
+        manifestPlaceholders = [googleMapsApiKey: localProps.getProperty("GOOGLE_MAPS_API_KEY", "")]
     }
     signingConfigs {
         debug {
