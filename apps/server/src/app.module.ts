@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TerritoriesModule } from './territories/territories.module';
 import { RunningModule } from './running/running.module';
+import { RankingModule } from './ranking/ranking.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { RunningModule } from './running/running.module';
     }),
     TerritoriesModule,
     RunningModule,
+    RankingModule,
   ],
   controllers: [AppController],
   providers: [AppService],
