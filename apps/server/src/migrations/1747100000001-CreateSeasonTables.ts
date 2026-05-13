@@ -4,7 +4,7 @@ export class CreateSeasonTables1747100000001 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       CREATE TABLE seasons (
-        id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        id         INT          NOT NULL AUTO_INCREMENT,
         name       VARCHAR(50)  NOT NULL,
         started_at DATETIME     NOT NULL,
         ended_at   DATETIME     NOT NULL,
@@ -17,11 +17,11 @@ export class CreateSeasonTables1747100000001 implements MigrationInterface {
 
     await queryRunner.query(`
       CREATE TABLE season_rankings (
-        id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
-        season_id     INT UNSIGNED NOT NULL,
+        id            INT          NOT NULL AUTO_INCREMENT,
+        season_id     INT          NOT NULL,
         user_id       INT          NOT NULL,
-        area_rank     INT UNSIGNED NOT NULL DEFAULT 0,
-        distance_rank INT UNSIGNED NOT NULL DEFAULT 0,
+        area_rank     INT          NOT NULL DEFAULT 0,
+        distance_rank INT          NOT NULL DEFAULT 0,
         snapshot_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (id),
         CONSTRAINT FK_season_rankings_season FOREIGN KEY (season_id) REFERENCES seasons (id) ON DELETE CASCADE,
