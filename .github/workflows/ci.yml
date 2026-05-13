@@ -42,6 +42,7 @@ jobs:
   mobile:
     name: Mobile CI
     runs-on: ubuntu-latest
+    if: false # 팀원 B가 모바일 앱 초기화 후 활성화
     defaults:
       run:
         working-directory: apps/mobile
