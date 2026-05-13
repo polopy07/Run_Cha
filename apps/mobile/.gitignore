@@ -28,7 +28,6 @@ build/
 .idea
 .gradle
 local.properties
-android/app/src/main/AndroidManifest.xml
 *.iml
 *.hprof
 .cxx/
