@@ -124,7 +124,7 @@ export function MapScreen() {
       <MapView
         ref={mapRef}
         style={StyleSheet.absoluteFillObject}
-        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+        provider={PROVIDER_GOOGLE}
         initialRegion={INITIAL_REGION}
         onRegionChangeComplete={r => { regionRef.current = r; }}
         showsUserLocation
