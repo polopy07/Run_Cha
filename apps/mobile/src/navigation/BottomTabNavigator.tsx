@@ -2,7 +2,7 @@ import React from 'react';
 import { Text } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MapScreen } from '../screens/MapScreen';
-import { StorageScreen } from '../screens/StorageScreen';
+import CharacterStack from './CharacterStack';
 import { RunningScreen } from '../screens/RunningScreen';
 import { RankingScreen } from '../screens/RankingScreen';
 import { MenuScreen } from '../screens/MenuScreen';
@@ -40,7 +40,7 @@ export default function BottomTabNavigator() {
       />
       <Tab.Screen
         name="캐릭터"
-        component={StorageScreen}
+        component={CharacterStack}
         options={{ tabBarIcon: ({ focused }) => <TabIcon icon="👤" focused={focused} /> }}
       />
       <Tab.Screen

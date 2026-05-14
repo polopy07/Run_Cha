@@ -17,7 +17,7 @@ const INITIAL_REGION = {
   longitudeDelta: 0.02,
 };
 
-const MOCK_USER = { nickname: 'Runner123', level: 28, points: 12450, diamonds: 350 };
+const MOCK_USER = { nickname: 'Runner123', points: 12450 };
 
 const MOCK_TERRITORIES = [
   {
@@ -158,17 +158,12 @@ export function MapScreen() {
           </View>
           <View>
             <Text style={styles.nickname}>{MOCK_USER.nickname}</Text>
-            <Text style={styles.level}>Lv. {MOCK_USER.level}</Text>
           </View>
         </View>
         <View style={styles.statsRow}>
           <View style={styles.statBadge}>
             <Text style={styles.statIcon}>P</Text>
             <Text style={styles.statValue}>{MOCK_USER.points.toLocaleString()}</Text>
-          </View>
-          <View style={styles.statBadge}>
-            <Text style={styles.statIcon}>💎</Text>
-            <Text style={styles.statValue}>{MOCK_USER.diamonds}</Text>
           </View>
           <TouchableOpacity style={styles.bellBtn}>
             <Text style={{ fontSize: 18 }}>🔔</Text>
@@ -253,7 +248,6 @@ const styles = StyleSheet.create({
   },
   avatarText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
   nickname: { fontSize: 14, fontWeight: 'bold', color: '#1a1a1a' },
-  level: { fontSize: 12, color: '#888' },
   statsRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   statBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
