@@ -40,6 +40,7 @@ export class RunningService {
       path,
       distance_km,
       earned_points,
+      area_sqm,
       avg_pace,
       ended_at: new Date(),
     });
