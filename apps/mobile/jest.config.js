@@ -4,8 +4,8 @@ module.exports = {
     'node_modules/(?!(' +
       '@react-navigation|' +
       '@react-native|' +
+      '@react-native-firebase|' +
       'react-native|' +
-      'react-native-safe-area-context|' +
       '@rneui' +
     ')/)',
   ],
