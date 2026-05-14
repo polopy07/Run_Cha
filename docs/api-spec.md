@@ -18,13 +18,13 @@ http://localhost:3000
 
 ### 인증 방식
 
-인증이 필요한 API는 요청 헤더에 Firebase ID Token 또는 서버 발급 JWT를 전달한다.
+인증이 필요한 API는 요청 헤더에 서버 발급 JWT를 전달한다.
 
 ```http
 Authorization: Bearer {token}
 ```
 
-> 결정 필요: 기획서에는 Firebase ID Token 검증 후 서버 JWT 발급이 명시되어 있다. 현재 구현은 Firebase ID Token 검증 중심이므로, 이후 인증 API에서 서버 JWT를 사용할지 Firebase ID Token을 계속 사용할지 확정해야 한다.
+Firebase ID Token은 `POST /auth/login`에서만 사용한다. 서버는 Firebase ID Token을 검증한 뒤 서버 JWT를 발급하며, 이후 보호 API는 서버 JWT를 사용한다.
 
 ### 공통 에러 응답
 
@@ -71,12 +71,13 @@ Firebase Auth 로그인/회원가입 후 발급받은 ID Token을 서버에 전�
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
-| accessToken | string | 서버 발급 JWT. 추후 구현 예정 |
+| accessToken | string | 서버 발급 JWT. 이후 API 요청 시 Authorization 헤더에 사용 |
 | id | number | 사용자 ID |
 | email | string | 사용자 이메일 |
 | nickname | string | 사용자 닉네임 |
 | points | number | 보유 포인트 |
 | totalDistance | number | 누적 러닝 거리 |
+| pityCount | number | 가챠 천장 카운트 |
 
 #### 닉네임 초기값 정책
 
@@ -94,7 +95,7 @@ Firebase Auth 로그인/회원가입 후 발급받은 ID Token을 서버에 전�
 
 현재 로그인한 사용자의 기본 정보를 조회한다.
 
-> 구현 예정 API. `JwtAuthGuard`와 `CurrentUser`를 사용해 현재 사용자 식별 후 DB에서 사용자 정보를 조회한다.
+`JwtAuthGuard`와 `CurrentUser`를 사용해 현재 사용자 식별 후 DB에서 사용자 정보를 조회한다.
 
 #### Response
 
@@ -105,6 +106,7 @@ Firebase Auth 로그인/회원가입 후 발급받은 ID Token을 서버에 전�
 | nickname | string | 사용자 닉네임 |
 | points | number | 보유 포인트 |
 | totalDistance | number | 누적 러닝 거리 |
+| pityCount | number | 가챠 천장 카운트 |
 
 ---
 
@@ -319,8 +321,6 @@ Firebase Auth 로그인/회원가입 후 발급받은 ID Token을 서버에 전�
 
 ## 7. 앱 연동 전 결정 필요 항목
 
-1. `/auth/login`에서 서버 JWT를 실제로 발급할지 여부
-2. 이후 인증 API에서 Firebase ID Token과 서버 JWT 중 어떤 토큰을 사용할지 여부
-3. `/running/start` API 필요 여부
-4. `/territories/:id/attack` 요청 필드 최종 확정
-5. 공통 에러 메시지 세부 코드 정의
+1. `/running/start` API 필요 여부
+2. `/territories/:id/attack` 요청 필드 최종 확정
+3. 공통 에러 메시지 세부 코드 정의

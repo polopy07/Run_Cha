@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { JwtService } from '@nestjs/jwt';
 import { RunningController } from './running.controller';
 import { RunningService } from './running.service';
 import { FinishRunningDto } from './dto/finish-running.dto';
@@ -22,6 +23,13 @@ describe('RunningController', () => {
           provide: UsersService,
           useValue: {
             findOrCreateUser: jest.fn(),
+            findById: jest.fn(),
+          },
+        },
+        {
+          provide: JwtService,
+          useValue: {
+            verifyAsync: jest.fn(),
           },
         },
       ],

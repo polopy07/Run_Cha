@@ -126,9 +126,11 @@ Mobile App
   -> POST /auth/login
   -> Server Firebase Admin 검증
   -> users 테이블 조회/생성
+  -> Server JWT 발급
+  -> 이후 보호 API는 Server JWT 사용
 ```
 
-> 결정 필요: Firebase ID Token 검증 후 서버 JWT를 발급할지, 이후 API에서도 Firebase ID Token을 계속 사용할지 확정해야 한다.
+Firebase ID Token은 로그인 검증 단계에서만 사용하고, 이후 보호 API는 서버가 발급한 JWT를 사용한다.
 
 ### 2.5 turf.js
 
@@ -170,7 +172,7 @@ Mobile App
 5. 서버가 Firebase Admin SDK로 토큰 검증
 6. 서버가 users 테이블에서 사용자 조회
 7. 없으면 사용자 생성
-8. 서버가 사용자 정보를 응답
+8. 서버가 accessToken과 사용자 정보를 응답
 ```
 
 ### 3.2 러닝 종료 흐름
@@ -219,4 +221,4 @@ Math.floor(areaSqm / 100 * paceMultiplier)
 - 평균 페이스 단위는 `분/km`로 통일한다.
 - 영토 폐곡선 기준은 시작점-종료점 50m 이내로 통일한다.
 - `.env`, Firebase Admin 서비스 키, API Key는 저장소에 포함하지 않는다.
-- 서버 JWT 도입 여부가 확정되면 인증 흐름 문서를 갱신한다.
+- Firebase ID Token은 `/auth/login`에서만 사용하고, 이후 보호 API는 서버 JWT를 사용한다.

@@ -126,8 +126,6 @@ Math.floor(areaSqm / 100 * paceMultiplier)
 
 ## 6. 앱 연동 전 필수 결정 사항
 
-1. 서버 JWT 발급 여부와 인증 토큰 전략
-2. `/running/start` API 필요 여부
-3. 영토 침략 요청 필드
-4. 자연 감소 주기와 감소량
-5. 닉네임 변경 API 필요 여부
+1. `/running/start` API 필요 여부
+2. 영토 침략 요청 필드
+3. 자연 감소 주기와 감소량

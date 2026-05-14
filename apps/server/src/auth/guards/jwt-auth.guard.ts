@@ -4,10 +4,11 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
-import { getFirebaseAdmin } from '../firebase-admin.provider';
 import { UsersService } from '../../users/users.service';
 import type { User } from '../../users/entities/user.entity';
+import { AuthTokenPayload } from '../types/auth-token-payload';
 
 type AuthenticatedRequest = Request & {
   user?: User;
@@ -15,7 +16,10 @@ type AuthenticatedRequest = Request & {
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly usersService: UsersService,
+  ) {}
 
   async canActivate(context: ExecutionContext) {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
@@ -28,19 +32,15 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Authorization token is required');
     }
 
-    const idToken = authorization.replace('Bearer ', '');
+    const accessToken = authorization.replace('Bearer ', '');
 
     try {
-      const decodedToken = await getFirebaseAdmin()
-        .auth()
-        .verifyIdToken(idToken);
+      const payload =
+        await this.jwtService.verifyAsync<AuthTokenPayload>(accessToken);
 
-      request.user = await this.usersService.findOrCreateUser(
-        decodedToken.uid,
-        decodedToken.email || '',
-      );
+      request.user = await this.usersService.findById(payload.sub);
     } catch {
-      throw new UnauthorizedException('유효하지 않은 Firebase 토큰입니다.');
+      throw new UnauthorizedException('유효하지 않은 인증 토큰입니다.');
     }
 
     return true;

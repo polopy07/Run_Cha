@@ -1,13 +1,18 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 
 import { UsersService } from '../users/users.service';
 import { getFirebaseAdmin } from './firebase-admin.provider';
+import { AuthTokenPayload } from './types/auth-token-payload';
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly jwtService: JwtService,
+  ) {}
 
-  async verifyFirebaseToken(idToken: string) {
+  async login(idToken: string) {
     try {
       const decodedToken = await getFirebaseAdmin()
         .auth()
@@ -18,11 +23,15 @@ export class AuthService {
         decodedToken.email || '',
       );
 
+      const accessToken = await this.jwtService.signAsync({
+        sub: user.id,
+        firebaseUid: user.firebase_uid,
+        email: user.email,
+      } satisfies AuthTokenPayload);
+
       return {
-        message: 'Firebase ID Token 검증 성공',
-        uid: decodedToken.uid,
-        email: decodedToken.email,
-        user,
+        accessToken,
+        ...this.usersService.toResponse(user),
       };
     } catch {
       throw new UnauthorizedException('유효하지 않은 Firebase 토큰');

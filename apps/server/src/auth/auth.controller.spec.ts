@@ -12,7 +12,7 @@ describe('AuthController', () => {
         {
           provide: AuthService,
           useValue: {
-            verifyFirebaseToken: jest.fn(),
+            login: jest.fn(),
           },
         },
       ],
