@@ -25,6 +25,9 @@ export class RunningLog {
   @Column({ default: 0 })
   earned_points: number;
 
+  @Column({ type: 'float', default: 0 })
+  area_sqm: number;
+
   @Column({ type: 'float' })
   avg_pace: number;
 
