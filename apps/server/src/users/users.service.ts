@@ -14,16 +14,35 @@ export class UsersService {
     private readonly usersRepository: Repository<User>,
   ) {}
 
-  async findOrCreateUser(firebaseUid: string, email: string) {
+  async findOrCreateUser(
+    firebaseUid: string,
+    email: string,
+    displayName?: string,
+  ) {
     let user = await this.usersRepository.findOne({
       where: { firebase_uid: firebaseUid },
     });
+
+    if (user) {
+      return user;
+    }
+
+    if (email) {
+      user = await this.usersRepository.findOne({
+        where: { email },
+      });
+
+      if (user) {
+        user.firebase_uid = firebaseUid;
+        return this.usersRepository.save(user);
+      }
+    }
 
     if (!user) {
       user = this.usersRepository.create({
         firebase_uid: firebaseUid,
         email,
-        nickname: email ? email.split('@')[0] : 'user',
+        nickname: displayName || (email ? email.split('@')[0] : 'user'),
       });
 
       user = await this.usersRepository.save(user);
