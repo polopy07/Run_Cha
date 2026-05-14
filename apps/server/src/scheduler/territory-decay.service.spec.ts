@@ -9,7 +9,11 @@ function daysAgo(days: number): Date {
   return d;
 }
 
-function makeTerritory(id: number, occupation_rate: number, daysInactive: number): Territory {
+function makeTerritory(
+  id: number,
+  occupation_rate: number,
+  daysInactive: number,
+): Territory {
   return {
     id,
     user_id: 1,
@@ -134,7 +138,7 @@ describe('TerritoryDecayService', () => {
 
       expect(mockQb.set).toHaveBeenCalledWith(
         expect.objectContaining({
-          last_active_at: expect.any(Function),
+          last_active_at: expect.any(Function) as unknown,
         }),
       );
     });
@@ -143,10 +147,10 @@ describe('TerritoryDecayService', () => {
   describe('여러 영토 복합 처리', () => {
     it('감소/유지/중립화가 섞인 경우 각각 올바르게 처리한다', async () => {
       mockRepo.find.mockResolvedValue([
-        makeTerritory(1, 100, 2),   // 유지
-        makeTerritory(2, 100, 5),   // 75%로 감소
-        makeTerritory(3, 75, 10),   // 50%로 감소
-        makeTerritory(4, 100, 25),  // 중립화(삭제)
+        makeTerritory(1, 100, 2), // 유지
+        makeTerritory(2, 100, 5), // 75%로 감소
+        makeTerritory(3, 75, 10), // 50%로 감소
+        makeTerritory(4, 100, 25), // 중립화(삭제)
       ]);
 
       const result = await service.handleDecay();
