@@ -24,8 +24,7 @@ export class AuthService {
         email: decodedToken.email,
         user,
       };
-    } catch (error) {
-      console.log('Firebase token verify error:', error);
+    } catch {
       throw new UnauthorizedException('유효하지 않은 Firebase 토큰');
     }
   }

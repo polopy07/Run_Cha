@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
@@ -11,31 +15,56 @@ export class UsersService {
   ) {}
 
   async findOrCreateUser(firebaseUid: string, email: string) {
-    console.log('firebaseUid:', firebaseUid);
-    console.log('email:', email);
-
     let user = await this.usersRepository.findOne({
       where: { firebase_uid: firebaseUid },
     });
 
-    console.log('기존 유저 조회 결과:', user);
-
     if (!user) {
-      console.log('새 유저 생성 시작');
-
       user = this.usersRepository.create({
         firebase_uid: firebaseUid,
         email,
         nickname: email ? email.split('@')[0] : 'user',
       });
 
-      console.log('생성된 user 객체:', user);
-
       user = await this.usersRepository.save(user);
-
-      console.log('유저 저장 완료');
     }
 
     return user;
+  }
+
+  async findById(id: number) {
+    const user = await this.usersRepository.findOne({ where: { id } });
+
+    if (!user) {
+      throw new NotFoundException('사용자를 찾을 수 없습니다.');
+    }
+
+    return user;
+  }
+
+  async updateNickname(id: number, nickname: string) {
+    const user = await this.findById(id);
+    const trimmedNickname = nickname.trim();
+
+    if (!trimmedNickname || trimmedNickname.length > 50) {
+      throw new BadRequestException(
+        '닉네임은 1자 이상 50자 이하로 입력해야 합니다.',
+      );
+    }
+
+    user.nickname = trimmedNickname;
+
+    return this.usersRepository.save(user);
+  }
+
+  toResponse(user: User) {
+    return {
+      id: user.id,
+      email: user.email,
+      nickname: user.nickname,
+      points: user.points,
+      totalDistance: user.total_distance,
+      pityCount: user.pity_count,
+    };
   }
 }

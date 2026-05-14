@@ -1,9 +1,9 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-import type { DecodedIdToken } from 'firebase-admin/auth';
 import type { Request } from 'express';
+import type { User } from '../../users/entities/user.entity';
 
 type AuthenticatedRequest = Request & {
-  user?: DecodedIdToken;
+  user?: User;
 };
 
 export const CurrentUser = createParamDecorator(

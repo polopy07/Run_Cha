@@ -4,16 +4,19 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import type { DecodedIdToken } from 'firebase-admin/auth';
 import type { Request } from 'express';
 import { getFirebaseAdmin } from '../firebase-admin.provider';
+import { UsersService } from '../../users/users.service';
+import type { User } from '../../users/entities/user.entity';
 
 type AuthenticatedRequest = Request & {
-  user?: DecodedIdToken;
+  user?: User;
 };
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
+  constructor(private readonly usersService: UsersService) {}
+
   async canActivate(context: ExecutionContext) {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const authorization = request.headers.authorization;
@@ -26,7 +29,19 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     const idToken = authorization.replace('Bearer ', '');
-    request.user = await getFirebaseAdmin().auth().verifyIdToken(idToken);
+
+    try {
+      const decodedToken = await getFirebaseAdmin()
+        .auth()
+        .verifyIdToken(idToken);
+
+      request.user = await this.usersService.findOrCreateUser(
+        decodedToken.uid,
+        decodedToken.email || '',
+      );
+    } catch {
+      throw new UnauthorizedException('유효하지 않은 Firebase 토큰입니다.');
+    }
 
     return true;
   }
