@@ -1,5 +1,6 @@
 module.exports = {
   preset: '@react-native/jest-preset',
+  setupFiles: ['./node_modules/react-native-gesture-handler/jestSetup.js'],
   moduleNameMapper: {
     'react-native-maps': '<rootDir>/__mocks__/react-native-maps.js',
     'react-native-geolocation-service': '<rootDir>/__mocks__/react-native-geolocation-service.js',
