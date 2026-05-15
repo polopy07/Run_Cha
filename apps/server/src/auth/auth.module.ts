@@ -12,12 +12,20 @@ import { UsersModule } from '../users/users.module';
       global: true,
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        secret: config.get('JWT_SECRET', 'dev-only-change-me'),
-        signOptions: {
-          expiresIn: config.get('JWT_EXPIRES_IN', '7d'),
-        },
-      }),
+      useFactory: (config: ConfigService) => {
+        const secret = config.get<string>('JWT_SECRET');
+
+        if (!secret) {
+          throw new Error('JWT_SECRET is required');
+        }
+
+        return {
+          secret,
+          signOptions: {
+            expiresIn: config.get('JWT_EXPIRES_IN', '7d'),
+          },
+        };
+      },
     }),
   ],
   controllers: [AuthController],

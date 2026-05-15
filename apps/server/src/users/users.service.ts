@@ -27,28 +27,22 @@ export class UsersService {
       return user;
     }
 
-    if (email) {
-      user = await this.usersRepository.findOne({
-        where: { email },
-      });
+    user = await this.usersRepository.findOne({
+      where: { email },
+    });
 
-      if (user) {
-        user.firebase_uid = firebaseUid;
-        return this.usersRepository.save(user);
-      }
+    if (user) {
+      user.firebase_uid = firebaseUid;
+      return this.usersRepository.save(user);
     }
 
-    if (!user) {
-      user = this.usersRepository.create({
-        firebase_uid: firebaseUid,
-        email,
-        nickname: displayName || (email ? email.split('@')[0] : 'user'),
-      });
+    user = this.usersRepository.create({
+      firebase_uid: firebaseUid,
+      email,
+      nickname: displayName || email.split('@')[0],
+    });
 
-      user = await this.usersRepository.save(user);
-    }
-
-    return user;
+    return this.usersRepository.save(user);
   }
 
   async findById(id: number) {

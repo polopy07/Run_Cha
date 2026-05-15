@@ -29,7 +29,7 @@ export class JwtAuthGuard implements CanActivate {
       typeof authorization !== 'string' ||
       !authorization.startsWith('Bearer ')
     ) {
-      throw new UnauthorizedException('Authorization token is required');
+      throw new UnauthorizedException('인증 토큰이 필요합니다.');
     }
 
     const accessToken = authorization.replace('Bearer ', '');

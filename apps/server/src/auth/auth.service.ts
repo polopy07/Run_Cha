@@ -19,7 +19,13 @@ export class AuthService {
     try {
       decodedToken = await getFirebaseAdmin().auth().verifyIdToken(idToken);
     } catch {
-      throw new UnauthorizedException('Invalid Firebase token');
+      throw new UnauthorizedException('유효하지 않은 Firebase 토큰입니다.');
+    }
+
+    if (!decodedToken.email) {
+      throw new UnauthorizedException(
+        'Firebase 토큰에 이메일 정보가 없습니다.',
+      );
     }
 
     const displayName =
@@ -27,7 +33,7 @@ export class AuthService {
 
     const user = await this.usersService.findOrCreateUser(
       decodedToken.uid,
-      decodedToken.email || '',
+      decodedToken.email,
       displayName,
     );
 
