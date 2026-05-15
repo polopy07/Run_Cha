@@ -35,69 +35,64 @@ describe('RankingService', () => {
   });
 
   describe('getAreaRanking', () => {
-    it('면적 기준 내림차순으로 rank를 부여한다', async () => {
-      const rawRows = [
-        { userId: 1, nickname: 'alice', totalAreaSqm: '5000.5' },
-        { userId: 2, nickname: 'bob', totalAreaSqm: '3000.0' },
-      ];
+    const rawRows = [
+      { userId: 1, nickname: 'alice', totalAreaSqm: '5000.5' },
+      { userId: 2, nickname: 'bob', totalAreaSqm: '3000.0' },
+    ];
 
-      const qb = {
-        select: jest.fn().mockReturnThis(),
-        addSelect: jest.fn().mockReturnThis(),
-        innerJoin: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        groupBy: jest.fn().mockReturnThis(),
-        addGroupBy: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        getRawMany: jest.fn().mockResolvedValue(rawRows),
-      };
-      territoryRepo.createQueryBuilder.mockReturnValue(qb);
-
-      const result = await service.getAreaRanking();
-
-      expect(result).toHaveLength(2);
-      expect(result[0]).toEqual({
-        rank: 1,
-        userId: 1,
-        nickname: 'alice',
-        totalAreaSqm: 5000.5,
-      });
-      expect(result[1]).toEqual({
-        rank: 2,
-        userId: 2,
-        nickname: 'bob',
-        totalAreaSqm: 3000.0,
-      });
+    const makeQb = () => ({
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      innerJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      addGroupBy: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue(rawRows),
     });
 
-    it('영토가 없으면 빈 배열을 반환한다', async () => {
-      const qb = {
-        select: jest.fn().mockReturnThis(),
-        addSelect: jest.fn().mockReturnThis(),
-        innerJoin: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        groupBy: jest.fn().mockReturnThis(),
-        addGroupBy: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        getRawMany: jest.fn().mockResolvedValue([]),
-      };
-      territoryRepo.createQueryBuilder.mockReturnValue(qb);
+    it('면적 기준 내림차순으로 rank를 부여한다', async () => {
+      territoryRepo.createQueryBuilder.mockReturnValue(makeQb());
 
       const result = await service.getAreaRanking();
-      expect(result).toEqual([]);
+
+      expect(result.rankings).toHaveLength(2);
+      expect(result.rankings[0]).toEqual({ rank: 1, userId: 1, nickname: 'alice', totalAreaSqm: 5000.5 });
+      expect(result.rankings[1]).toEqual({ rank: 2, userId: 2, nickname: 'bob', totalAreaSqm: 3000.0 });
+    });
+
+    it('userId 없으면 myRank는 null이다', async () => {
+      territoryRepo.createQueryBuilder.mockReturnValue(makeQb());
+
+      const result = await service.getAreaRanking();
+      expect(result.myRank).toBeNull();
+    });
+
+    it('userId가 랭킹에 있으면 myRank를 반환한다', async () => {
+      territoryRepo.createQueryBuilder.mockReturnValue(makeQb());
+
+      const result = await service.getAreaRanking(2);
+      expect(result.myRank).toEqual({ rank: 2, userId: 2, nickname: 'bob', totalAreaSqm: 3000.0 });
+    });
+
+    it('userId가 랭킹에 없으면 myRank는 null이다', async () => {
+      territoryRepo.createQueryBuilder.mockReturnValue(makeQb());
+
+      const result = await service.getAreaRanking(99);
+      expect(result.myRank).toBeNull();
+    });
+
+    it('영토가 없으면 빈 배열과 null을 반환한다', async () => {
+      const qb = { ...makeQb(), getRawMany: jest.fn().mockResolvedValue([]) };
+      territoryRepo.createQueryBuilder.mockReturnValue(qb);
+
+      const result = await service.getAreaRanking(1);
+      expect(result.rankings).toEqual([]);
+      expect(result.myRank).toBeNull();
     });
 
     it('occupation_rate > 0 조건으로 where를 호출한다', async () => {
-      const qb = {
-        select: jest.fn().mockReturnThis(),
-        addSelect: jest.fn().mockReturnThis(),
-        innerJoin: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        groupBy: jest.fn().mockReturnThis(),
-        addGroupBy: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        getRawMany: jest.fn().mockResolvedValue([]),
-      };
+      const qb = makeQb();
       territoryRepo.createQueryBuilder.mockReturnValue(qb);
 
       await service.getAreaRanking();
@@ -106,57 +101,60 @@ describe('RankingService', () => {
   });
 
   describe('getDistanceRanking', () => {
-    it('누적 거리 기준 내림차순으로 rank를 부여한다', async () => {
-      const users = [
-        { id: 3, nickname: 'carol', total_distance: 200.5 },
-        { id: 1, nickname: 'alice', total_distance: 150.0 },
-      ] as User[];
+    const users = [
+      { id: 3, nickname: 'carol', total_distance: 200.5 },
+      { id: 1, nickname: 'alice', total_distance: 150.0 },
+    ] as User[];
 
-      const qb = {
-        select: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue(users),
-      };
-      userRepo.createQueryBuilder.mockReturnValue(qb);
-
-      const result = await service.getDistanceRanking();
-
-      expect(result).toHaveLength(2);
-      expect(result[0]).toEqual({
-        rank: 1,
-        userId: 3,
-        nickname: 'carol',
-        totalDistanceKm: 200.5,
-      });
-      expect(result[1]).toEqual({
-        rank: 2,
-        userId: 1,
-        nickname: 'alice',
-        totalDistanceKm: 150.0,
-      });
+    const makeQb = () => ({
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue(users),
     });
 
-    it('러닝 기록이 없으면 빈 배열을 반환한다', async () => {
-      const qb = {
-        select: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([]),
-      };
-      userRepo.createQueryBuilder.mockReturnValue(qb);
+    it('누적 거리 기준 내림차순으로 rank를 부여한다', async () => {
+      userRepo.createQueryBuilder.mockReturnValue(makeQb());
 
       const result = await service.getDistanceRanking();
-      expect(result).toEqual([]);
+
+      expect(result.rankings).toHaveLength(2);
+      expect(result.rankings[0]).toEqual({ rank: 1, userId: 3, nickname: 'carol', totalDistanceKm: 200.5 });
+      expect(result.rankings[1]).toEqual({ rank: 2, userId: 1, nickname: 'alice', totalDistanceKm: 150.0 });
+    });
+
+    it('userId 없으면 myRank는 null이다', async () => {
+      userRepo.createQueryBuilder.mockReturnValue(makeQb());
+
+      const result = await service.getDistanceRanking();
+      expect(result.myRank).toBeNull();
+    });
+
+    it('userId가 랭킹에 있으면 myRank를 반환한다', async () => {
+      userRepo.createQueryBuilder.mockReturnValue(makeQb());
+
+      const result = await service.getDistanceRanking(3);
+      expect(result.myRank).toEqual({ rank: 1, userId: 3, nickname: 'carol', totalDistanceKm: 200.5 });
+    });
+
+    it('userId가 랭킹에 없으면 myRank는 null이다', async () => {
+      userRepo.createQueryBuilder.mockReturnValue(makeQb());
+
+      const result = await service.getDistanceRanking(99);
+      expect(result.myRank).toBeNull();
+    });
+
+    it('러닝 기록이 없으면 빈 배열과 null을 반환한다', async () => {
+      const qb = { ...makeQb(), getMany: jest.fn().mockResolvedValue([]) };
+      userRepo.createQueryBuilder.mockReturnValue(qb);
+
+      const result = await service.getDistanceRanking(1);
+      expect(result.rankings).toEqual([]);
+      expect(result.myRank).toBeNull();
     });
 
     it('total_distance > 0 조건으로 where를 호출한다', async () => {
-      const qb = {
-        select: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([]),
-      };
+      const qb = makeQb();
       userRepo.createQueryBuilder.mockReturnValue(qb);
 
       await service.getDistanceRanking();

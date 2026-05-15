@@ -18,6 +18,16 @@ export interface DistanceRankingEntry {
   totalDistanceKm: number;
 }
 
+export interface AreaRankingResponse {
+  rankings: AreaRankingEntry[];
+  myRank: AreaRankingEntry | null;
+}
+
+export interface DistanceRankingResponse {
+  rankings: DistanceRankingEntry[];
+  myRank: DistanceRankingEntry | null;
+}
+
 @Injectable()
 export class RankingService {
   constructor(
@@ -27,7 +37,7 @@ export class RankingService {
     private readonly userRepo: Repository<User>,
   ) {}
 
-  async getAreaRanking(): Promise<AreaRankingEntry[]> {
+  async getAreaRanking(userId?: number): Promise<AreaRankingResponse> {
     const rows = await this.territoryRepo
       .createQueryBuilder('t')
       .select('t.user_id', 'userId')
@@ -40,15 +50,21 @@ export class RankingService {
       .orderBy('totalAreaSqm', 'DESC')
       .getRawMany<{ userId: number; nickname: string; totalAreaSqm: string }>();
 
-    return rows.map((row, i) => ({
+    const rankings = rows.map((row, i) => ({
       rank: i + 1,
       userId: Number(row.userId),
       nickname: row.nickname,
       totalAreaSqm: parseFloat(row.totalAreaSqm),
     }));
+
+    const myRank = userId
+      ? (rankings.find((r) => r.userId === userId) ?? null)
+      : null;
+
+    return { rankings, myRank };
   }
 
-  async getDistanceRanking(): Promise<DistanceRankingEntry[]> {
+  async getDistanceRanking(userId?: number): Promise<DistanceRankingResponse> {
     const users = await this.userRepo
       .createQueryBuilder('u')
       .select(['u.id', 'u.nickname', 'u.total_distance'])
@@ -56,11 +72,17 @@ export class RankingService {
       .orderBy('u.total_distance', 'DESC')
       .getMany();
 
-    return users.map((u, i) => ({
+    const rankings = users.map((u, i) => ({
       rank: i + 1,
       userId: u.id,
       nickname: u.nickname,
       totalDistanceKm: u.total_distance,
     }));
+
+    const myRank = userId
+      ? (rankings.find((r) => r.userId === userId) ?? null)
+      : null;
+
+    return { rankings, myRank };
   }
 }
