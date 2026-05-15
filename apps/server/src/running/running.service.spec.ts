@@ -1,25 +1,48 @@
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import * as turf from '@turf/turf';
 import { RunningService } from './running.service';
 import { RunningLog } from './entities/running-log.entity';
 import { User } from '../users/entities/user.entity';
 import { TerritoriesService } from '../territories/territories.service';
 
-// 서울 기준 약 110m × 90m 정사각형 폐곡선 (시작점 == 끝점 → 거리 0m)
 const CLOSED_LOOP = [
   { lat: 37.5, lng: 127.0 },
   { lat: 37.501, lng: 127.0 },
   { lat: 37.501, lng: 127.001 },
   { lat: 37.5, lng: 127.001 },
-  { lat: 37.5, lng: 127.0 }, // 시작점과 동일 → isClosedLoop = true
+  { lat: 37.5, lng: 127.0 },
 ];
 
-// 시작점과 끝점이 1km 이상 떨어진 열린 경로
 const OPEN_PATH = [
   { lat: 37.5, lng: 127.0 },
   { lat: 37.51, lng: 127.0 },
   { lat: 37.51, lng: 127.01 },
 ];
+
+function calculateDistanceKm(path: { lat: number; lng: number }[]) {
+  return turf.length(
+    turf.lineString(path.map((point) => [point.lng, point.lat])),
+    { units: 'kilometers' },
+  );
+}
+
+function createFinishDto(
+  path: { lat: number; lng: number }[],
+  avgPaceMinutesPerKm = 5,
+) {
+  const distanceKm = calculateDistanceKm(path);
+  const startedAt = new Date(
+    Date.now() - distanceKm * avgPaceMinutesPerKm * 60 * 1000,
+  );
+
+  return {
+    path,
+    distance_km: distanceKm,
+    started_at: startedAt.toISOString(),
+  };
+}
 
 describe('RunningService', () => {
   let service: RunningService;
@@ -55,12 +78,8 @@ describe('RunningService', () => {
 
   describe('finish', () => {
     describe('영토 등록 조건', () => {
-      it('폐곡선 경로 → 영토를 등록한다', async () => {
-        const result = await service.finish(1, {
-          path: CLOSED_LOOP,
-          distance_km: 1.0,
-          avg_pace: 4.5,
-        });
+      it('폐곡선 경로면 영토를 등록한다', async () => {
+        const result = await service.finish(1, createFinishDto(CLOSED_LOOP));
 
         expect(result.territory).not.toBeNull();
         expect(mockTerritoriesService.registerTerritory).toHaveBeenCalledWith(
@@ -70,108 +89,98 @@ describe('RunningService', () => {
         );
       });
 
-      it('열린 경로 → 영토를 등록하지 않는다', async () => {
-        const result = await service.finish(1, {
-          path: OPEN_PATH,
-          distance_km: 2.0,
-          avg_pace: 5.0,
-        });
+      it('열린 경로면 영토를 등록하지 않는다', async () => {
+        const result = await service.finish(1, createFinishDto(OPEN_PATH));
 
         expect(result.territory).toBeNull();
         expect(mockTerritoriesService.registerTerritory).not.toHaveBeenCalled();
       });
 
-      it('좌표가 2개 이하 → 영토 없음, areaSqm = 0', async () => {
-        const result = await service.finish(1, {
-          path: [
+      it('좌표가 2개 이하면 영토가 없고 area_sqm은 0이다', async () => {
+        const result = await service.finish(
+          1,
+          createFinishDto([
             { lat: 37.5, lng: 127.0 },
             { lat: 37.501, lng: 127.0 },
-          ],
-          distance_km: 0.1,
-          avg_pace: 5.0,
-        });
+          ]),
+        );
 
         expect(result.territory).toBeNull();
         expect(result.area_sqm).toBe(0);
       });
     });
 
-    describe('페이스 배율 (earnedPoints = floor(area / 100 * multiplier))', () => {
+    describe('서버 계산 페이스 배율', () => {
       it.each([
-        [3.5, 1.2], // 3~4분/km: fast_run
-        [4.5, 1.0], // 4~5분/km: run
-        [6.0, 0.8], // 5~7분/km: jog
-        [7.5, 0.6], // 7~8분/km: fast_walk
+        [3.5, 1.2],
+        [4.5, 1.0],
+        [6.0, 0.8],
+        [7.5, 0.6],
       ])(
-        '유효 페이스 avgPace=%f → multiplier=%f 적용',
+        '서버 계산 평균 페이스가 %f분/km이면 multiplier %f를 적용한다',
         async (pace: number, multiplier: number) => {
-          const result = await service.finish(1, {
-            path: CLOSED_LOOP,
-            distance_km: 1.0,
-            avg_pace: pace,
-          });
+          const result = await service.finish(
+            1,
+            createFinishDto(CLOSED_LOOP, pace),
+          );
 
           const expected = Math.floor((result.area_sqm / 100) * multiplier);
           expect(result.earned_points).toBe(expected);
         },
       );
 
-      it.each([
-        [2.5], // < 3분/km
-        [9.0], // > 8분/km
-      ])(
-        '무효 페이스 avgPace=%f → earned_points = 0, 영토는 등록됨 (포인트만 무효)',
+      it.each([[2.5], [16.0]])(
+        '유효 속도 범위 밖이면 포인트를 지급하지 않는다',
         async (pace: number) => {
-          const result = await service.finish(1, {
-            path: CLOSED_LOOP,
-            distance_km: 1.0,
-            avg_pace: pace,
-          });
+          const result = await service.finish(
+            1,
+            createFinishDto(CLOSED_LOOP, pace),
+          );
 
           expect(result.earned_points).toBe(0);
-          // 기획서 p.6: "포인트 무효"만 명시, 영토 등록은 막지 않음
           expect(result.territory).not.toBeNull();
         },
       );
     });
 
     describe('RunningLog 저장', () => {
-      it('올바른 필드로 로그를 생성한다', async () => {
-        await service.finish(1, {
-          path: OPEN_PATH,
-          distance_km: 2.5,
-          avg_pace: 5.0,
-        });
+      it('서버에서 계산한 거리, 페이스, 시작/종료 시각으로 로그를 생성한다', async () => {
+        const dto = createFinishDto(OPEN_PATH, 5);
+
+        await service.finish(1, dto);
 
         expect(mockRunningLogRepo.create).toHaveBeenCalledWith(
           expect.objectContaining({
             user_id: 1,
             path: OPEN_PATH,
-            distance_km: 2.5,
-            avg_pace: 5.0,
+            distance_km: expect.any(Number) as unknown,
+            avg_pace: expect.any(Number) as unknown,
+            started_at: expect.any(Date) as unknown,
             ended_at: expect.any(Date) as unknown,
           }),
         );
       });
 
       it('생성 후 save를 호출한다', async () => {
-        await service.finish(1, {
-          path: OPEN_PATH,
-          distance_km: 1.0,
-          avg_pace: 5.0,
-        });
+        await service.finish(1, createFinishDto(OPEN_PATH));
 
         expect(mockRunningLogRepo.save).toHaveBeenCalledTimes(1);
+      });
+
+      it('시작 시간이 종료 시간 이후면 예외를 던진다', async () => {
+        await expect(
+          service.finish(1, {
+            path: OPEN_PATH,
+            distance_km: 1,
+            started_at: new Date(Date.now() + 60_000).toISOString(),
+          }),
+        ).rejects.toBeInstanceOf(BadRequestException);
       });
     });
 
     describe('반환값 구조', () => {
-      it('runningLogId, territoryId, areaSqm, earnedPoints를 반환한다', async () => {
-        const result = await service.finish(1, {
-          path: OPEN_PATH,
-          distance_km: 1.0,
-          avg_pace: 5.0,
-        });
+      it('log, territory, earned_points, area_sqm을 반환한다', async () => {
+        const result = await service.finish(1, createFinishDto(OPEN_PATH));
 
         expect(result).toEqual(
           expect.objectContaining({

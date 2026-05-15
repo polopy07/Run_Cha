@@ -27,15 +27,6 @@ export class UsersService {
       return user;
     }
 
-    user = await this.usersRepository.findOne({
-      where: { email },
-    });
-
-    if (user) {
-      user.firebase_uid = firebaseUid;
-      return this.usersRepository.save(user);
-    }
-
     user = this.usersRepository.create({
       firebase_uid: firebaseUid,
       email,

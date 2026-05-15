@@ -54,6 +54,7 @@ Firebase ID Token은 `POST /auth/login`에서만 사용한다. 서버는 Firebas
 |---|---|---|---|
 | POST | `/auth/login` | X | Firebase ID Token 검증 및 사용자 생성/조회 |
 | GET | `/users/me` | O | 현재 로그인한 사용자 정보 조회 |
+| PATCH | `/users/me/nickname` | O | 현재 로그인한 사용자 닉네임 변경 |
 
 ### POST `/auth/login`
 
@@ -87,9 +88,10 @@ Firebase Auth 로그인/회원가입 후 발급받은 ID Token을 서버에 전�
 
 1. Firebase `displayName`이 있으면 사용
 2. 없으면 이메일의 `@` 앞부분 사용
-3. 이메일도 없으면 `user` 사용
 
-추후 별도 닉네임 변경 API를 추가할 수 있다.
+Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처리한다.
+
+닉네임 변경은 `PATCH /users/me/nickname` API를 사용한다.
 
 ### GET `/users/me`
 
@@ -104,6 +106,27 @@ Firebase Auth 로그인/회원가입 후 발급받은 ID Token을 서버에 전�
 | id | number | 사용자 ID |
 | email | string | 사용자 이메일 |
 | nickname | string | 사용자 닉네임 |
+| points | number | 보유 포인트 |
+| totalDistance | number | 누적 러닝 거리 |
+| pityCount | number | 가챠 천장 카운트 |
+
+### PATCH `/users/me/nickname`
+
+현재 로그인한 사용자의 닉네임을 변경한다.
+
+#### Request Body
+
+| 필드 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| nickname | string | O | 변경할 닉네임. 1자 이상 50자 이하 |
+
+#### Response
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| id | number | 사용자 ID |
+| email | string | 사용자 이메일 |
+| nickname | string | 변경된 사용자 닉네임 |
 | points | number | 보유 포인트 |
 | totalDistance | number | 누적 러닝 거리 |
 | pityCount | number | 가챠 천장 카운트 |
@@ -129,15 +152,15 @@ Firebase Auth 로그인/회원가입 후 발급받은 ID Token을 서버에 전�
 
 러닝 종료 후 GPS 경로와 러닝 정보를 서버에 저장한다.
 
-서버는 경로 기반 면적, 평균 페이스, 획득 포인트를 계산하고 조건을 만족하면 영토를 생성한다.
+서버는 경로 기반 거리와 러닝 시간을 이용해 평균 속도/페이스를 직접 계산하고, 면적과 획득 포인트를 계산한 뒤 조건을 만족하면 영토를 생성한다.
 
 #### Request Body
 
 | 필드 | 타입 | 필수 | 설명 |
 |---|---|---|---|
 | path | `{ lat: number, lng: number }[]` | O | GPS 좌표 배열 |
-| distance_km | number | O | 총 이동 거리(km) |
-| avg_pace | number | O | 평균 페이스(분/km) |
+| distance_km | number | O | 클라이언트가 측정한 총 이동 거리(km). 서버는 포인트 검증 시 path 기반 계산값을 사용 |
+| started_at | string | O | 러닝 시작 시각. ISO 8601 문자열 |
 
 #### path 예시
 
@@ -167,6 +190,15 @@ Firebase Auth 로그인/회원가입 후 발급받은 ID Token을 서버에 전�
 - 좌표가 3개 이상이어야 한다.
 - 시작점과 종료점의 거리가 50m 이내이면 폐곡선으로 판단한다.
 - 폐곡선이 아니면 러닝 로그는 저장하지만 영토는 생성하지 않는다.
+
+#### 속도 / 포인트 검증 기준
+
+서버 기준:
+
+- 클라이언트가 보낸 `avg_pace` 값은 신뢰하지 않는다.
+- 서버가 `path` 기반 이동 거리와 `started_at`부터 종료 시각까지의 시간으로 평균 속도와 평균 페이스를 계산한다.
+- 평균 속도가 4km/h 미만 또는 20km/h 초과이면 포인트는 0으로 처리한다.
+- 유효 속도 범위 안에서는 서버 계산 평균 페이스에 따라 포인트 보정값을 적용한다.
 
 ### GET `/territories`
 

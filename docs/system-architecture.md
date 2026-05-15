@@ -181,19 +181,20 @@ Firebase ID Token은 로그인 검증 단계에서만 사용하고, 이후 보�
 1. 앱이 GPS 좌표를 수집
 2. 사용자가 러닝 종료
 3. 앱이 POST /running/finish 호출
-4. 서버가 path, distance_km, avg_pace 검증
-5. 서버가 turf.js로 면적 계산
-6. 서버가 시작점-종료점 50m 이내 여부 확인
-7. 서버가 포인트 계산
-8. 서버가 running_log 저장
-9. 폐곡선이면 territories 저장
-10. 서버가 러닝 결과 응답
+4. 서버가 path, distance_km, started_at 검증
+5. 서버가 path 기반 이동 거리와 러닝 시간으로 평균 속도/페이스 계산
+6. 서버가 turf.js로 면적 계산
+7. 서버가 시작점-종료점 50m 이내 여부 확인
+8. 서버가 포인트 계산
+9. 서버가 running_log 저장
+10. 폐곡선이면 territories 저장
+11. 서버가 러닝 결과 응답
 ```
 
 ### 3.3 포인트 계산 흐름
 
 ```text
-areaSqm -> avg_pace -> paceMultiplier -> earnedPoints
+path + started_at -> serverAvgSpeed/serverAvgPace -> paceMultiplier -> areaSqm -> earnedPoints
 ```
 
 공식:

@@ -42,24 +42,6 @@ describe('UsersService', () => {
     expect(mockRepository.save).not.toHaveBeenCalled();
   });
 
-  it('기존 이메일 사용자가 있으면 Firebase uid를 연결한다', async () => {
-    const user = { id: 1, email: 'test@example.com', firebase_uid: null };
-    mockRepository.findOne
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(user);
-    mockRepository.save.mockImplementation((value: User) =>
-      Promise.resolve(value),
-    );
-
-    await expect(
-      service.findOrCreateUser('firebase-uid', 'test@example.com'),
-    ).resolves.toEqual({ ...user, firebase_uid: 'firebase-uid' });
-    expect(mockRepository.save).toHaveBeenCalledWith({
-      ...user,
-      firebase_uid: 'firebase-uid',
-    });
-  });
-
   it('기존 사용자가 없으면 이메일 앞부분을 기본 닉네임으로 생성한다', async () => {
     const createdUser = {
       firebase_uid: 'firebase-uid',

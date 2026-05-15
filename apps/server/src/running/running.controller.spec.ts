@@ -44,8 +44,8 @@ describe('RunningController', () => {
         { lat: 37.501, lng: 127.0 },
         { lat: 37.501, lng: 127.001 },
       ],
-      distanceKm: 1.5,
-      avgPace: 5.0,
+      distance_km: 1.5,
+      started_at: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
     };
     const mockUser = { id: 42 };
 
