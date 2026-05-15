@@ -18,13 +18,13 @@ http://localhost:3000
 
 ### 인증 방식
 
-인증이 필요한 API는 요청 헤더에 서버 발급 JWT를 전달한다.
+인증이 필요한 API는 요청 헤더에 Firebase ID Token 또는 서버 발급 JWT를 전달한다.
 
 ```http
 Authorization: Bearer {token}
 ```
 
-Firebase ID Token은 `POST /auth/login`에서만 사용한다. 서버는 Firebase ID Token을 검증한 뒤 서버 JWT를 발급하며, 이후 보호 API는 서버 JWT를 사용한다.
+> 결정 필요: 기획서에는 Firebase ID Token 검증 후 서버 JWT 발급이 명시되어 있다. 현재 구현은 Firebase ID Token 검증 중심이므로, 이후 인증 API에서 서버 JWT를 사용할지 Firebase ID Token을 계속 사용할지 확정해야 한다.
 
 ### 공통 에러 응답
 
@@ -54,7 +54,6 @@ Firebase ID Token은 `POST /auth/login`에서만 사용한다. 서버는 Firebas
 |---|---|---|---|
 | POST | `/auth/login` | X | Firebase ID Token 검증 및 사용자 생성/조회 |
 | GET | `/users/me` | O | 현재 로그인한 사용자 정보 조회 |
-| PATCH | `/users/me/nickname` | O | 현재 로그인한 사용자 닉네임 변경 |
 
 ### POST `/auth/login`
 
@@ -72,13 +71,12 @@ Firebase Auth 로그인/회원가입 후 발급받은 ID Token을 서버에 전�
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
-| accessToken | string | 서버 발급 JWT. 이후 API 요청 시 Authorization 헤더에 사용 |
+| accessToken | string | 서버 발급 JWT. 추후 구현 예정 |
 | id | number | 사용자 ID |
 | email | string | 사용자 이메일 |
 | nickname | string | 사용자 닉네임 |
 | points | number | 보유 포인트 |
 | totalDistance | number | 누적 러닝 거리 |
-| pityCount | number | 가챠 천장 카운트 |
 
 #### 닉네임 초기값 정책
 
@@ -88,16 +86,15 @@ Firebase Auth 로그인/회원가입 후 발급받은 ID Token을 서버에 전�
 
 1. Firebase `displayName`이 있으면 사용
 2. 없으면 이메일의 `@` 앞부분 사용
+3. 이메일도 없으면 `user` 사용
 
-Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처리한다.
-
-닉네임 변경은 `PATCH /users/me/nickname` API를 사용한다.
+추후 별도 닉네임 변경 API를 추가할 수 있다.
 
 ### GET `/users/me`
 
 현재 로그인한 사용자의 기본 정보를 조회한다.
 
-`JwtAuthGuard`와 `CurrentUser`를 사용해 현재 사용자 식별 후 DB에서 사용자 정보를 조회한다.
+> 구현 예정 API. `JwtAuthGuard`와 `CurrentUser`를 사용해 현재 사용자 식별 후 DB에서 사용자 정보를 조회한다.
 
 #### Response
 
@@ -108,28 +105,6 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | nickname | string | 사용자 닉네임 |
 | points | number | 보유 포인트 |
 | totalDistance | number | 누적 러닝 거리 |
-| pityCount | number | 가챠 천장 카운트 |
-
-### PATCH `/users/me/nickname`
-
-현재 로그인한 사용자의 닉네임을 변경한다.
-
-#### Request Body
-
-| 필드 | 타입 | 필수 | 설명 |
-|---|---|---|---|
-| nickname | string | O | 변경할 닉네임. 1자 이상 50자 이하 |
-
-#### Response
-
-| 필드 | 타입 | 설명 |
-|---|---|---|
-| id | number | 사용자 ID |
-| email | string | 사용자 이메일 |
-| nickname | string | 변경된 사용자 닉네임 |
-| points | number | 보유 포인트 |
-| totalDistance | number | 누적 러닝 거리 |
-| pityCount | number | 가챠 천장 카운트 |
 
 ---
 
@@ -152,15 +127,15 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 
 러닝 종료 후 GPS 경로와 러닝 정보를 서버에 저장한다.
 
-서버는 경로 기반 거리와 러닝 시간을 이용해 평균 속도/페이스를 직접 계산하고, 면적과 획득 포인트를 계산한 뒤 조건을 만족하면 영토를 생성한다.
+서버는 경로 기반 면적, 평균 페이스, 획득 포인트를 계산하고 조건을 만족하면 영토를 생성한다.
 
 #### Request Body
 
 | 필드 | 타입 | 필수 | 설명 |
 |---|---|---|---|
 | path | `{ lat: number, lng: number }[]` | O | GPS 좌표 배열 |
-| distance_km | number | O | 클라이언트가 측정한 총 이동 거리(km). 서버는 포인트 검증 시 path 기반 계산값을 사용 |
-| started_at | string | O | 러닝 시작 시각. ISO 8601 문자열 |
+| distance_km | number | O | 총 이동 거리(km) |
+| avg_pace | number | O | 평균 페이스(분/km) |
 
 #### path 예시
 
@@ -190,15 +165,6 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 - 좌표가 3개 이상이어야 한다.
 - 시작점과 종료점의 거리가 50m 이내이면 폐곡선으로 판단한다.
 - 폐곡선이 아니면 러닝 로그는 저장하지만 영토는 생성하지 않는다.
-
-#### 속도 / 포인트 검증 기준
-
-서버 기준:
-
-- 클라이언트가 보낸 `avg_pace` 값은 신뢰하지 않는다.
-- 서버가 `path` 기반 이동 거리와 `started_at`부터 종료 시각까지의 시간으로 평균 속도와 평균 페이스를 계산한다.
-- 평균 속도가 4km/h 미만 또는 20km/h 초과이면 포인트는 0으로 처리한다.
-- 유효 속도 범위 안에서는 서버 계산 평균 페이스에 따라 포인트 보정값을 적용한다.
 
 ### GET `/territories`
 
@@ -353,6 +319,8 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 
 ## 7. 앱 연동 전 결정 필요 항목
 
-1. `/running/start` API 필요 여부
-2. `/territories/:id/attack` 요청 필드 최종 확정
-3. 공통 에러 메시지 세부 코드 정의
+1. `/auth/login`에서 서버 JWT를 실제로 발급할지 여부
+2. 이후 인증 API에서 Firebase ID Token과 서버 JWT 중 어떤 토큰을 사용할지 여부
+3. `/running/start` API 필요 여부
+4. `/territories/:id/attack` 요청 필드 최종 확정
+5. 공통 에러 메시지 세부 코드 정의

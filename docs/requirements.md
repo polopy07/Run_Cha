@@ -46,7 +46,7 @@ RUN TERRITORY는 사용자가 실제 러닝을 통해 GPS 경로를 기록하고
 - 사용자 닉네임은 필수값이며, 기본값 정책이 필요하다.
   - Firebase `displayName` 우선
   - 없으면 이메일 앞부분 사용
-  - Firebase 이메일 정보가 없는 토큰은 인증 실패 처리
+  - 이메일도 없으면 `user` 사용
 
 ### 4.2 GPS 러닝 / 영토
 
@@ -126,6 +126,8 @@ Math.floor(areaSqm / 100 * paceMultiplier)
 
 ## 6. 앱 연동 전 필수 결정 사항
 
-1. `/running/start` API 필요 여부
-2. 영토 침략 요청 필드
-3. 자연 감소 주기와 감소량
+1. 서버 JWT 발급 여부와 인증 토큰 전략
+2. `/running/start` API 필요 여부
+3. 영토 침략 요청 필드
+4. 자연 감소 주기와 감소량
+5. 닉네임 변경 API 필요 여부
