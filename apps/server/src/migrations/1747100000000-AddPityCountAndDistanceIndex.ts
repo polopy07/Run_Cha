@@ -14,7 +14,9 @@ export class AddPityCountAndDistanceIndex1747100000000 implements MigrationInter
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`ALTER TABLE users DROP INDEX IDX_users_total_distance`);
+    await queryRunner.query(
+      `ALTER TABLE users DROP INDEX IDX_users_total_distance`,
+    );
     await queryRunner.query(`ALTER TABLE users DROP COLUMN pity_count`);
   }
 }
