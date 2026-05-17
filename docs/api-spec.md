@@ -18,13 +18,13 @@ http://localhost:3000
 
 ### 인증 방식
 
-인증이 필요한 API는 요청 헤더에 Firebase ID Token 또는 서버 발급 JWT를 전달한다.
+인증이 필요한 API는 요청 헤더에 서버 발급 JWT를 전달한다.
 
 ```http
 Authorization: Bearer {token}
 ```
 
-> 결정 필요: 기획서에는 Firebase ID Token 검증 후 서버 JWT 발급이 명시되어 있다. 현재 구현은 Firebase ID Token 검증 중심이므로, 이후 인증 API에서 서버 JWT를 사용할지 Firebase ID Token을 계속 사용할지 확정해야 한다.
+Firebase ID Token은 `POST /auth/login`에서만 사용한다. 서버는 Firebase ID Token을 검증한 뒤 서버 JWT를 발급하며, 이후 보호 API는 서버 JWT를 사용한다.
 
 ### 공통 에러 응답
 
@@ -54,6 +54,7 @@ Authorization: Bearer {token}
 |---|---|---|---|
 | POST | `/auth/login` | X | Firebase ID Token 검증 및 사용자 생성/조회 |
 | GET | `/users/me` | O | 현재 로그인한 사용자 정보 조회 |
+| PATCH | `/users/me/nickname` | O | 현재 로그인한 사용자 닉네임 변경 |
 
 ### POST `/auth/login`
 
@@ -71,12 +72,13 @@ Firebase Auth 로그인/회원가입 후 발급받은 ID Token을 서버에 전�
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
-| accessToken | string | 서버 발급 JWT. 추후 구현 예정 |
+| accessToken | string | 서버 발급 JWT. 이후 API 요청 시 Authorization 헤더에 사용 |
 | id | number | 사용자 ID |
 | email | string | 사용자 이메일 |
 | nickname | string | 사용자 닉네임 |
 | points | number | 보유 포인트 |
 | totalDistance | number | 누적 러닝 거리 |
+| pityCount | number | 가챠 천장 카운트 |
 
 #### 닉네임 초기값 정책
 
@@ -86,15 +88,16 @@ Firebase Auth 로그인/회원가입 후 발급받은 ID Token을 서버에 전�
 
 1. Firebase `displayName`이 있으면 사용
 2. 없으면 이메일의 `@` 앞부분 사용
-3. 이메일도 없으면 `user` 사용
 
-추후 별도 닉네임 변경 API를 추가할 수 있다.
+Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처리한다.
+
+닉네임 변경은 `PATCH /users/me/nickname` API를 사용한다.
 
 ### GET `/users/me`
 
 현재 로그인한 사용자의 기본 정보를 조회한다.
 
-> 구현 예정 API. `JwtAuthGuard`와 `CurrentUser`를 사용해 현재 사용자 식별 후 DB에서 사용자 정보를 조회한다.
+`JwtAuthGuard`와 `CurrentUser`를 사용해 현재 사용자 식별 후 DB에서 사용자 정보를 조회한다.
 
 #### Response
 
@@ -105,6 +108,28 @@ Firebase Auth 로그인/회원가입 후 발급받은 ID Token을 서버에 전�
 | nickname | string | 사용자 닉네임 |
 | points | number | 보유 포인트 |
 | totalDistance | number | 누적 러닝 거리 |
+| pityCount | number | 가챠 천장 카운트 |
+
+### PATCH `/users/me/nickname`
+
+현재 로그인한 사용자의 닉네임을 변경한다.
+
+#### Request Body
+
+| 필드 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| nickname | string | O | 변경할 닉네임. 1자 이상 50자 이하 |
+
+#### Response
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| id | number | 사용자 ID |
+| email | string | 사용자 이메일 |
+| nickname | string | 변경된 사용자 닉네임 |
+| points | number | 보유 포인트 |
+| totalDistance | number | 누적 러닝 거리 |
+| pityCount | number | 가챠 천장 카운트 |
 
 ---
 
@@ -127,15 +152,15 @@ Firebase Auth 로그인/회원가입 후 발급받은 ID Token을 서버에 전�
 
 러닝 종료 후 GPS 경로와 러닝 정보를 서버에 저장한다.
 
-서버는 경로 기반 면적, 평균 페이스, 획득 포인트를 계산하고 조건을 만족하면 영토를 생성한다.
+서버는 경로 기반 거리와 러닝 시간을 이용해 평균 속도/페이스를 직접 계산하고, 면적과 획득 포인트를 계산한 뒤 조건을 만족하면 영토를 생성한다.
 
 #### Request Body
 
 | 필드 | 타입 | 필수 | 설명 |
 |---|---|---|---|
 | path | `{ lat: number, lng: number }[]` | O | GPS 좌표 배열 |
-| distance_km | number | O | 총 이동 거리(km) |
-| avg_pace | number | O | 평균 페이스(분/km) |
+| distance_km | number | O | 클라이언트가 측정한 총 이동 거리(km). 서버는 포인트 검증 시 path 기반 계산값을 사용 |
+| started_at | string | O | 러닝 시작 시각. ISO 8601 문자열 |
 
 #### path 예시
 
@@ -166,6 +191,15 @@ Firebase Auth 로그인/회원가입 후 발급받은 ID Token을 서버에 전�
 - 시작점과 종료점의 거리가 50m 이내이면 폐곡선으로 판단한다.
 - 폐곡선이 아니면 러닝 로그는 저장하지만 영토는 생성하지 않는다.
 
+#### 속도 / 포인트 검증 기준
+
+서버 기준:
+
+- 클라이언트가 보낸 `avg_pace` 값은 신뢰하지 않는다.
+- 서버가 `path` 기반 이동 거리와 `started_at`부터 종료 시각까지의 시간으로 평균 속도와 평균 페이스를 계산한다.
+- 평균 속도가 4km/h 미만 또는 20km/h 초과이면 포인트는 0으로 처리한다.
+- 유효 속도 범위 안에서는 서버 계산 평균 페이스에 따라 포인트 보정값을 적용한다.
+
 ### GET `/territories`
 
 현재 지도 범위 내 영토 목록을 조회한다.
@@ -193,21 +227,47 @@ Firebase Auth 로그인/회원가입 후 발급받은 ID Token을 서버에 전�
 
 특정 영토에 대한 침략 요청을 처리한다.
 
-> 현재 서버 미구현 API다. 구현 전 요청 파라미터를 확정해야 한다.
+> 현재 서버 미구현 API다. 아래 내용은 앱/서버 연동 전 합의용 초안이며 구현 전 최종 확정이 필요하다.
+
+#### 침략 가능 조건 초안
+
+- 대상은 다른 사용자가 점령 중인 영토여야 한다.
+- 공격자는 대상 영토 면적의 최소 30% 이상을 직접 러닝으로 지나가야 한다.
+- 서버는 러닝 로그의 GPS 경로와 대상 영토의 겹친 면적을 기준으로 침략 가능 여부를 판단한다.
+- 침략 가능 조건을 만족하면 공격 캐릭터와 방어 캐릭터의 전투를 진행한다.
+- 공격 캐릭터가 승리하면 공격자가 직접 뛴 겹친 면적만큼 대상 영토를 점령한다.
+- 공격 캐릭터가 패배하면 대상 점령 영토는 획득하지 못한다.
+- 대상 영토에 포함되지 않은 새 폐곡선 면적은 일반 러닝 보상/영토 생성 규칙에 따라 처리한다.
 
 #### Request Body 초안
 
 | 필드 | 타입 | 필수 | 설명 |
 |---|---|---|---|
-| characterId | number | O | 침략에 사용할 보유 캐릭터 ID |
+| runningLogId | number | O | 침략 판정에 사용할 러닝 로그 ID |
+| characterId | number | O | 침략에 사용할 보유 공격 캐릭터 ID |
 
 #### Response
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
 | success | boolean | 침략 성공 여부 |
-| acquiredAreaSqm | number | 획득 면적 |
+| battleResult | string | 전투 결과. `win` 또는 `lose` |
+| overlapRate | number | 대상 영토 기준 직접 러닝으로 겹친 비율 |
+| contestedAreaSqm | number | 대상 영토와 직접 러닝 경로가 겹친 면적 |
+| acquiredAreaSqm | number | 승리 시 획득한 점령 면적. 패배 시 0 |
+| neutralAreaSqm | number | 기존 점령 영토에 포함되지 않아 일반 규칙으로 처리된 면적 |
+| nextAttackAvailableAt | string \| null | 다음 침략 가능 시각. 쿨타임 확정 후 사용 |
+| remainingDailyAttacks | number \| null | 당일 남은 침략 횟수. 하루 제한 확정 후 사용 |
 | message | string | 처리 결과 메시지 |
+
+#### 결정 필요
+
+- 공격/방어 능력치 계산 공식
+  - 공격 캐릭터 단일 스탯만 사용할지, 배치된 버프형 캐릭터 효과까지 합산할지 확정해야 한다.
+  - 방어 측은 배치된 수비형 캐릭터를 사용할지, 대표 캐릭터를 사용할지 확정해야 한다.
+- 침략 쿨타임과 하루 5회 제한 저장 방식
+  - `users`, `territory_attacks`, 별도 쿨타임 테이블 중 어디에 저장할지 확정 후 마이그레이션이 필요하다.
+- 응답에 `nextAttackAvailableAt`, `remainingDailyAttacks`를 포함할지 확정해야 한다.
 
 ---
 
@@ -218,6 +278,7 @@ Firebase Auth 로그인/회원가입 후 발급받은 ID Token을 서버에 전�
 | POST | `/gacha/draw` | O | 포인트를 사용해 캐릭터 뽑기 수행 |
 | GET | `/characters/me` | O | 현재 사용자의 보유 캐릭터 목록 조회 |
 | PATCH | `/characters/:id/upgrade` | O | 캐릭터 스탯 강화 처리 |
+| PATCH | `/characters/:id/deploy` | O | 보유 캐릭터 배치/해제 처리. 스펙 확정 필요 |
 
 ### POST `/gacha/draw`
 
@@ -264,6 +325,7 @@ Firebase Auth 로그인/회원가입 후 발급받은 ID Token을 서버에 전�
 | speedLv | number | 속도 레벨 |
 | pointLv | number | 포인트 배율 레벨 |
 | isDeployed | boolean | 배치 여부 |
+| deployedTerritoryId | number \| null | 배치된 영토 ID. 배치 스펙 확정 필요 |
 
 ### PATCH `/characters/:id/upgrade`
 
@@ -283,6 +345,34 @@ Firebase Auth 로그인/회원가입 후 발급받은 ID Token을 서버에 전�
 | upgradedStat | string | 강화된 스탯 |
 | newLevel | number | 강화 후 레벨 |
 | remainingPoints | number | 강화 후 남은 포인트 |
+
+### PATCH `/characters/:id/deploy`
+
+보유 캐릭터를 사용자의 영토에 배치하거나 배치를 해제한다.
+
+> 현재 서버 미구현 API다. 수비형/버프형 캐릭터가 사용자 영토에 배치되는 구조를 전제로 한 초안이며, 구현 전 최종 확정이 필요하다.
+
+#### Request Body 초안
+
+| 필드 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| isDeployed | boolean | O | 배치 여부. `false`면 배치 해제 |
+| territoryId | number \| null | 조건부 | 배치할 사용자 소유 영토 ID. `isDeployed`가 `true`이면 필요 |
+
+#### Response 초안
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| id | number | 유저 캐릭터 ID |
+| characterId | number | 캐릭터 원본 ID |
+| isDeployed | boolean | 배치 여부 |
+| deployedTerritoryId | number \| null | 배치된 영토 ID |
+
+#### 결정 필요
+
+- 단순 `is_deployed` 토글만 사용할지, `territory_id`로 특정 영토까지 지정할지 확정해야 한다.
+- 수비형/버프형 캐릭터 효과가 자연 감소 스케줄러에 적용되는지 확정해야 한다.
+- 스케줄러 버프 연동은 배치 스펙 확정 후 반영한다.
 
 ---
 
@@ -319,8 +409,13 @@ Firebase Auth 로그인/회원가입 후 발급받은 ID Token을 서버에 전�
 
 ## 7. 앱 연동 전 결정 필요 항목
 
-1. `/auth/login`에서 서버 JWT를 실제로 발급할지 여부
-2. 이후 인증 API에서 Firebase ID Token과 서버 JWT 중 어떤 토큰을 사용할지 여부
-3. `/running/start` API 필요 여부
-4. `/territories/:id/attack` 요청 필드 최종 확정
-5. 공통 에러 메시지 세부 코드 정의
+1. `/running/start` API 필요 여부
+2. `/territories/:id/attack` 요청 필드 최종 확정
+3. 대상 영토 30% 직접 러닝 판정 방식
+4. 공격/방어 능력치 계산 공식
+5. 침략 쿨타임 및 하루 5회 제한 저장 방식
+6. 침략 응답에 다음 가능 시각과 남은 횟수 포함 여부
+7. 캐릭터 배치 API 담당과 스펙
+8. 캐릭터 배치가 `is_deployed` 토글만인지, `territory_id` 지정까지 포함하는지 여부
+9. 버프형/수비형 캐릭터의 자연 감소 스케줄러 연동 여부
+10. 공통 에러 메시지 세부 코드 정의

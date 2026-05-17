@@ -96,6 +96,8 @@ apps/server/src/common
 - 캐릭터 데이터 저장
 - 사용자 보유 캐릭터 저장
 - 가챠 로그 저장
+- 캐릭터 배치 정보 저장
+- 침략 기록 및 쿨타임 정보 저장. 확정 후 테이블 설계 필요
 
 주요 테이블:
 
@@ -107,6 +109,8 @@ apps/server/src/common
 | user_characters | 사용자 보유 캐릭터 |
 | running_log | 러닝 기록 |
 | gacha_log | 가챠 기록 |
+| character_deployments | 캐릭터 배치 정보. 테이블 필요 여부 확정 필요 |
+| territory_attacks | 영토 침략 기록/쿨타임. 테이블 필요 여부 확정 필요 |
 
 ### 2.4 Firebase Auth
 
@@ -126,9 +130,11 @@ Mobile App
   -> POST /auth/login
   -> Server Firebase Admin 검증
   -> users 테이블 조회/생성
+  -> Server JWT 발급
+  -> 이후 보호 API는 Server JWT 사용
 ```
 
-> 결정 필요: Firebase ID Token 검증 후 서버 JWT를 발급할지, 이후 API에서도 Firebase ID Token을 계속 사용할지 확정해야 한다.
+Firebase ID Token은 로그인 검증 단계에서만 사용하고, 이후 보호 API는 서버가 발급한 JWT를 사용한다.
 
 ### 2.5 turf.js
 
@@ -170,7 +176,7 @@ Mobile App
 5. 서버가 Firebase Admin SDK로 토큰 검증
 6. 서버가 users 테이블에서 사용자 조회
 7. 없으면 사용자 생성
-8. 서버가 사용자 정보를 응답
+8. 서버가 accessToken과 사용자 정보를 응답
 ```
 
 ### 3.2 러닝 종료 흐름
@@ -179,19 +185,22 @@ Mobile App
 1. 앱이 GPS 좌표를 수집
 2. 사용자가 러닝 종료
 3. 앱이 POST /running/finish 호출
-4. 서버가 path, distance_km, avg_pace 검증
-5. 서버가 turf.js로 면적 계산
-6. 서버가 시작점-종료점 50m 이내 여부 확인
-7. 서버가 포인트 계산
-8. 서버가 running_log 저장
-9. 폐곡선이면 territories 저장
-10. 서버가 러닝 결과 응답
+4. 서버가 path, distance_km, started_at 검증
+5. 서버가 path 기반 이동 거리와 러닝 시간으로 평균 속도/페이스 계산
+6. 서버가 turf.js로 면적 계산
+7. 서버가 시작점-종료점 50m 이내 여부 확인
+8. 서버가 포인트 계산
+9. 서버가 running_log 저장
+10. 폐곡선이면 territories 저장
+11. 서버가 대표 캐릭터에 경험치 지급
+12. 서버가 소량의 가챠 재화 또는 포인트 지급
+13. 서버가 러닝 결과 응답
 ```
 
 ### 3.3 포인트 계산 흐름
 
 ```text
-areaSqm -> avg_pace -> paceMultiplier -> earnedPoints
+path + started_at -> serverAvgSpeed/serverAvgPace -> paceMultiplier -> areaSqm -> earnedPoints
 ```
 
 공식:
@@ -211,6 +220,41 @@ Math.floor(areaSqm / 100 * paceMultiplier)
 6. 서버가 results와 remainingPoints 응답
 ```
 
+### 3.5 캐릭터 배치 흐름
+
+```text
+1. 앱이 GET /characters/me로 보유 캐릭터 목록 조회
+2. 사용자가 수비형 또는 버프형 캐릭터를 선택
+3. 앱이 배치할 사용자 영토를 선택
+4. 앱이 PATCH /characters/:id/deploy 호출
+5. 서버가 캐릭터 소유자와 영토 소유자가 같은지 검증
+6. 서버가 배치 상태와 territory_id를 저장
+7. 이후 침략 방어 또는 자연 감소 스케줄러에서 배치 효과를 참조
+```
+
+배치 스펙 결정 필요:
+
+- 단순 `is_deployed` 토글만 사용할지, `territory_id`로 특정 영토를 지정할지 확정해야 한다.
+- 버프형 캐릭터가 자연 감소 스케줄러에 영향을 주는지 확정해야 한다.
+
+### 3.6 영토 침략 흐름
+
+```text
+1. 사용자가 다른 사용자의 점령 영토 근처 또는 내부를 러닝
+2. 앱이 POST /running/finish로 러닝 로그 저장
+3. 서버가 대상 영토와 러닝 경로의 겹친 면적을 계산
+4. 겹친 면적이 대상 영토의 30% 이상이면 침략 가능 상태가 됨
+5. 앱이 POST /territories/:id/attack 호출
+6. 서버가 runningLogId, 공격 캐릭터, 쿨타임, 하루 제한을 검증
+7. 서버가 공격 캐릭터와 방어 캐릭터의 능력치를 계산
+8. 전투 결과에 따라 승리 시 직접 뛴 겹친 면적만큼 점령
+9. 패배 시 대상 점령 영토는 획득하지 못함
+10. 대상 영토 밖의 새 면적은 일반 러닝 영토 생성 규칙에 따라 처리
+11. 서버가 침략 결과, 다음 가능 시각, 남은 횟수를 응답
+```
+
+공격/방어 계산 공식, 쿨타임 저장 방식, 하루 5회 제한 저장 방식은 구현 전 확정이 필요하다.
+
 ---
 
 ## 4. 앱 연동 전 주의사항
@@ -218,5 +262,7 @@ Math.floor(areaSqm / 100 * paceMultiplier)
 - 모바일과 서버는 GPS 좌표 타입을 `{ lat, lng }`로 통일한다.
 - 평균 페이스 단위는 `분/km`로 통일한다.
 - 영토 폐곡선 기준은 시작점-종료점 50m 이내로 통일한다.
+- 침략 가능 기준은 대상 영토 면적의 30% 이상을 직접 러닝으로 겹쳐야 한다.
+- 캐릭터 배치가 스케줄러에 영향을 주는 경우 배치 데이터와 자연 감소 로직을 함께 갱신한다.
 - `.env`, Firebase Admin 서비스 키, API Key는 저장소에 포함하지 않는다.
-- 서버 JWT 도입 여부가 확정되면 인증 흐름 문서를 갱신한다.
+- Firebase ID Token은 `/auth/login`에서만 사용하고, 이후 보호 API는 서버 JWT를 사용한다.
