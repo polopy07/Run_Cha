@@ -1,0 +1,39 @@
+import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import type { Request } from 'express';
+import { UsersService } from '../../users/users.service';
+import type { User } from '../../users/entities/user.entity';
+import { AuthTokenPayload } from '../types/auth-token-payload';
+
+type AuthenticatedRequest = Request & {
+  user?: User;
+};
+
+@Injectable()
+export class OptionalJwtAuthGuard implements CanActivate {
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly usersService: UsersService,
+  ) {}
+
+  async canActivate(context: ExecutionContext) {
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const authorization = request.headers.authorization;
+
+    if (
+      typeof authorization === 'string' &&
+      authorization.startsWith('Bearer ')
+    ) {
+      const accessToken = authorization.replace('Bearer ', '');
+      try {
+        const payload =
+          await this.jwtService.verifyAsync<AuthTokenPayload>(accessToken);
+        request.user = await this.usersService.findById(payload.sub);
+      } catch {
+        // 유효하지 않은 토큰은 무시하고 비인증 상태로 통과
+      }
+    }
+
+    return true;
+  }
+}
