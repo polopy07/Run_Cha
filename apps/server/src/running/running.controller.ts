@@ -1,13 +1,17 @@
-import { Body, Controller, Post, Req } from '@nestjs/common';
+import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { RunningService } from './running.service';
 import { FinishRunningDto } from './dto/finish-running.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { User } from '../users/entities/user.entity';
 
 @Controller('running')
 export class RunningController {
   constructor(private readonly runningService: RunningService) {}
 
+  @UseGuards(JwtAuthGuard)
   @Post('finish')
-  finish(@Req() req: { user: { id: number } }, @Body() dto: FinishRunningDto) {
-    return this.runningService.finish(req.user.id, dto);
+  finish(@CurrentUser() user: User, @Body() dto: FinishRunningDto) {
+    return this.runningService.finish(user.id, dto);
   }
 }

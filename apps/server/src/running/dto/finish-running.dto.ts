@@ -1,5 +1,11 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsNumber, ValidateNested } from 'class-validator';
+import {
+  IsArray,
+  IsDateString,
+  IsNumber,
+  IsPositive,
+  ValidateNested,
+} from 'class-validator';
 
 class CoordDto {
   @IsNumber()
@@ -16,8 +22,9 @@ export class FinishRunningDto {
   path: CoordDto[];
 
   @IsNumber()
+  @IsPositive()
   distance_km: number;
 
-  @IsNumber()
-  avg_pace: number;
+  @IsDateString()
+  started_at: string;
 }

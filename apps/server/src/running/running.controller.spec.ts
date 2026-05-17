@@ -1,7 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { JwtService } from '@nestjs/jwt';
 import { RunningController } from './running.controller';
 import { RunningService } from './running.service';
 import { FinishRunningDto } from './dto/finish-running.dto';
+import { UsersService } from '../users/users.service';
+import { User } from '../users/entities/user.entity';
 
 describe('RunningController', () => {
   let controller: RunningController;
@@ -14,7 +17,22 @@ describe('RunningController', () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
       controllers: [RunningController],
-      providers: [{ provide: RunningService, useValue: mockService }],
+      providers: [
+        { provide: RunningService, useValue: mockService },
+        {
+          provide: UsersService,
+          useValue: {
+            findOrCreateUser: jest.fn(),
+            findById: jest.fn(),
+          },
+        },
+        {
+          provide: JwtService,
+          useValue: {
+            verifyAsync: jest.fn(),
+          },
+        },
+      ],
     }).compile();
     controller = module.get<RunningController>(RunningController);
   });
@@ -26,10 +44,10 @@ describe('RunningController', () => {
         { lat: 37.501, lng: 127.0 },
         { lat: 37.501, lng: 127.001 },
       ],
-      distanceKm: 1.5,
-      avgPace: 5.0,
+      distance_km: 1.5,
+      started_at: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
     };
-    const mockReq = { user: { id: 42 } };
+    const mockUser = { id: 42 };
 
     it('서비스의 finish를 userId와 dto로 호출한다', async () => {
       const expected = {
@@ -40,7 +58,7 @@ describe('RunningController', () => {
       };
       mockService.finish.mockResolvedValue(expected);
 
-      const result = await controller.finish(mockReq, dto);
+      const result = await controller.finish(mockUser as User, dto);
 
       expect(mockService.finish).toHaveBeenCalledWith(42, dto);
       expect(result).toEqual(expected);
@@ -48,9 +66,9 @@ describe('RunningController', () => {
 
     it('req.user.id를 userId로 전달한다', async () => {
       mockService.finish.mockResolvedValue({});
-      const reqWithDifferentId = { user: { id: 99 } };
+      const differentUser = { id: 99 };
 
-      await controller.finish(reqWithDifferentId, dto);
+      await controller.finish(differentUser as User, dto);
 
       expect(mockService.finish).toHaveBeenCalledWith(99, dto);
     });

@@ -4,9 +4,10 @@ import { Character } from '../characters/entities/character.entity';
 import { GachaController } from './gacha.controller';
 import { GachaService } from './gacha.service';
 import { GachaLog } from './entities/gacha-log.entity';
+import { UsersModule } from '../users/users.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Character, GachaLog])],
+  imports: [TypeOrmModule.forFeature([Character, GachaLog]), UsersModule],
   controllers: [GachaController],
   providers: [GachaService],
 })
