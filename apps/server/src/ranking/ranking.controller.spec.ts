@@ -1,4 +1,6 @@
+import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
+import { UsersService } from '../users/users.service';
 import { RankingController } from './ranking.controller';
 import { RankingService } from './ranking.service';
 
@@ -13,7 +15,11 @@ describe('RankingController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [RankingController],
-      providers: [{ provide: RankingService, useValue: mockRankingService }],
+      providers: [
+        { provide: RankingService, useValue: mockRankingService },
+        { provide: UsersService, useValue: { findById: jest.fn() } },
+        { provide: JwtService, useValue: { verifyAsync: jest.fn() } },
+      ],
     }).compile();
 
     controller = module.get<RankingController>(RankingController);

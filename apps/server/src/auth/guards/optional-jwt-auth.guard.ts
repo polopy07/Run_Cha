@@ -1,14 +1,21 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
-import type { DecodedIdToken } from 'firebase-admin/auth';
+import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
-import { getFirebaseAdmin } from '../firebase-admin.provider';
+import { UsersService } from '../../users/users.service';
+import type { User } from '../../users/entities/user.entity';
+import { AuthTokenPayload } from '../types/auth-token-payload';
 
 type AuthenticatedRequest = Request & {
-  user?: DecodedIdToken;
+  user?: User;
 };
 
 @Injectable()
 export class OptionalJwtAuthGuard implements CanActivate {
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly usersService: UsersService,
+  ) {}
+
   async canActivate(context: ExecutionContext) {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const authorization = request.headers.authorization;
@@ -17,9 +24,11 @@ export class OptionalJwtAuthGuard implements CanActivate {
       typeof authorization === 'string' &&
       authorization.startsWith('Bearer ')
     ) {
-      const idToken = authorization.replace('Bearer ', '');
+      const accessToken = authorization.replace('Bearer ', '');
       try {
-        request.user = await getFirebaseAdmin().auth().verifyIdToken(idToken);
+        const payload =
+          await this.jwtService.verifyAsync<AuthTokenPayload>(accessToken);
+        request.user = await this.usersService.findById(payload.sub);
       } catch {
         // 유효하지 않은 토큰은 무시하고 비인증 상태로 통과
       }
