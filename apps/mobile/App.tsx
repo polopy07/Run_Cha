@@ -10,8 +10,16 @@ export default function App() {
   const { isLoading, isLoggedIn, restoreSession } = useAuthStore();
 
   useEffect(() => {
-    // Firebase 인증 상태 변화 감지 → 세션 복원
-    const unsubscribe = auth.onAuthStateChanged(() => {
+    let isFirst = true;
+    const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
+      if (isFirst) {
+        isFirst = false;
+        restoreSession();
+        return;
+      }
+      if (!firebaseUser) {
+        return;
+      }
       restoreSession();
     });
 

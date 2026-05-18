@@ -15,10 +15,10 @@ export async function removeToken() {
   await AsyncStorage.removeItem(TOKEN_KEY);
 }
 
-export async function apiFetch(
+export async function apiFetch<T = unknown>(
   path: string,
   options: RequestInit = {},
-): Promise<any> {
+): Promise<T> {
   const token = await getToken();
 
   const headers: Record<string, string> = {
@@ -35,11 +35,16 @@ export async function apiFetch(
     headers,
   });
 
-  const data = await response.json();
-
   if (!response.ok) {
-    throw new Error(data?.message ?? `Request failed: ${path}`);
+    let message = `Request failed: ${path}`;
+    try {
+      const error = await response.json();
+      if (error?.message) {
+        message = error.message;
+      }
+    } catch {}
+    throw new Error(message);
   }
 
-  return data;
+  return response.json();
 }

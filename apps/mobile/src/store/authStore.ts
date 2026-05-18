@@ -11,6 +11,19 @@ export type User = {
   pityCount: number;
 };
 
+type LoginResponse = User & { accessToken: string };
+
+function toUser(data: User): User {
+  return {
+    id: data.id,
+    email: data.email,
+    nickname: data.nickname,
+    points: data.points,
+    totalDistance: data.totalDistance,
+    pityCount: data.pityCount,
+  };
+}
+
 type AuthState = {
   user: User | null;
   accessToken: string | null;
@@ -24,6 +37,19 @@ type AuthState = {
   fetchMe: () => Promise<void>;
 };
 
+async function authenticateWithServer(
+  idToken: string,
+  set: (state: Partial<AuthState>) => void,
+) {
+  const data = await apiFetch<LoginResponse>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ idToken }),
+  });
+
+  await saveToken(data.accessToken);
+  set({ user: toUser(data), accessToken: data.accessToken, isLoggedIn: true });
+}
+
 const useAuthStore = create<AuthState>((set) => ({
   user: null,
   accessToken: null,
@@ -33,26 +59,7 @@ const useAuthStore = create<AuthState>((set) => ({
   login: async (email, password) => {
     const credential = await auth.signInWithEmailAndPassword(email, password);
     const idToken = await credential.user.getIdToken();
-
-    const data = await apiFetch('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ idToken }),
-    });
-
-    await saveToken(data.accessToken);
-
-    set({
-      user: {
-        id: data.id,
-        email: data.email,
-        nickname: data.nickname,
-        points: data.points,
-        totalDistance: data.totalDistance,
-        pityCount: data.pityCount,
-      },
-      accessToken: data.accessToken,
-      isLoggedIn: true,
-    });
+    await authenticateWithServer(idToken, set);
   },
 
   signup: async (email, password) => {
@@ -61,26 +68,7 @@ const useAuthStore = create<AuthState>((set) => ({
       password,
     );
     const idToken = await credential.user.getIdToken();
-
-    const data = await apiFetch('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ idToken }),
-    });
-
-    await saveToken(data.accessToken);
-
-    set({
-      user: {
-        id: data.id,
-        email: data.email,
-        nickname: data.nickname,
-        points: data.points,
-        totalDistance: data.totalDistance,
-        pityCount: data.pityCount,
-      },
-      accessToken: data.accessToken,
-      isLoggedIn: true,
-    });
+    await authenticateWithServer(idToken, set);
   },
 
   logout: async () => {
@@ -94,45 +82,18 @@ const useAuthStore = create<AuthState>((set) => ({
       const token = await getToken();
       const firebaseUser = auth.currentUser;
 
-      if (token && firebaseUser) {
-        // JWT 있고 Firebase 세션도 살아있음 → 유저 정보 조회
-        const data = await apiFetch('/users/me');
-        set({
-          user: {
-            id: data.id,
-            email: data.email,
-            nickname: data.nickname,
-            points: data.points,
-            totalDistance: data.totalDistance,
-            pityCount: data.pityCount,
-          },
-          accessToken: token,
-          isLoggedIn: true,
-        });
-      } else if (firebaseUser) {
-        // JWT 만료됐지만 Firebase 세션 살아있음 → 재발급
-        const idToken = await firebaseUser.getIdToken(true);
-        const data = await apiFetch('/auth/login', {
-          method: 'POST',
-          body: JSON.stringify({ idToken }),
-        });
+      if (!firebaseUser) {
+        return;
+      }
 
-        await saveToken(data.accessToken);
-        set({
-          user: {
-            id: data.id,
-            email: data.email,
-            nickname: data.nickname,
-            points: data.points,
-            totalDistance: data.totalDistance,
-            pityCount: data.pityCount,
-          },
-          accessToken: data.accessToken,
-          isLoggedIn: true,
-        });
+      if (token) {
+        const data = await apiFetch<User>('/users/me');
+        set({ user: toUser(data), accessToken: token, isLoggedIn: true });
+      } else {
+        const idToken = await firebaseUser.getIdToken(true);
+        await authenticateWithServer(idToken, set);
       }
     } catch {
-      // 복원 실패 → 로그아웃 상태로
       await removeToken();
       set({ user: null, accessToken: null, isLoggedIn: false });
     } finally {
@@ -141,17 +102,8 @@ const useAuthStore = create<AuthState>((set) => ({
   },
 
   fetchMe: async () => {
-    const data = await apiFetch('/users/me');
-    set({
-      user: {
-        id: data.id,
-        email: data.email,
-        nickname: data.nickname,
-        points: data.points,
-        totalDistance: data.totalDistance,
-        pityCount: data.pityCount,
-      },
-    });
+    const data = await apiFetch<User>('/users/me');
+    set({ user: data });
   },
 }));
 
