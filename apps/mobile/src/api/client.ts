@@ -1,6 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const API_URL = process.env.API_URL ?? 'http://localhost:3000';
+import { API_URL } from '@env';
 const TOKEN_KEY = 'accessToken';
 
 export async function saveToken(token: string) {
