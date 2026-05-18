@@ -3,7 +3,6 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
-  onAuthStateChanged,
 } from 'firebase/auth';
 import { auth } from '../api/firebase';
 import { apiFetch, saveToken, getToken, removeToken } from '../api/client';
