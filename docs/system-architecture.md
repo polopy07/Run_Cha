@@ -185,7 +185,8 @@ Firebase ID Token은 로그인 검증 단계에서만 사용하고, 이후 보�
 1. 앱이 GPS 좌표를 수집
 2. 사용자가 러닝 종료
 3. 앱이 POST /running/finish 호출
-4. 서버가 path, distance_km, started_at 검증
+4. 서버가 path, started_at을 기준으로 러닝 기록 검증
+   - distance_km은 앱 참고값으로만 취급하며 서버 검증/저장 기준으로 사용하지 않음
 5. 서버가 path 기반 이동 거리와 러닝 시간으로 평균 속도/페이스 계산
 6. 서버가 turf.js로 면적 계산
 7. 서버가 시작점-종료점 50m 이내 여부 확인
