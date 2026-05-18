@@ -29,7 +29,7 @@ const useCharacterStore = create<CharacterState>((set, get) => ({
   fetchCharacters: async () => {
     set({ isLoading: true });
     try {
-      const data = await apiFetch('/characters/me');
+      const data = await apiFetch<Character[]>('/characters/me');
       set({ characters: data });
     } finally {
       set({ isLoading: false });
