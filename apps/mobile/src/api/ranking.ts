@@ -1,5 +1,9 @@
 import { apiFetch } from './client';
 
-export async function getRankings() {
-  return apiFetch('/ranking');
+export async function getAreaRanking() {
+  return apiFetch('/ranking/area');
+}
+
+export async function getDistanceRanking() {
+  return apiFetch('/ranking/distance');
 }
