@@ -1,17 +1,19 @@
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+import { apiFetch } from './client';
+import { Coordinate } from '../utils/geoUtils';
 
-export async function finishRunning(payload: unknown) {
-  const response = await fetch(`${API_URL}/running/finish`, {
+type FinishRunningPayload = {
+  path: Coordinate[];
+  distance_km: number;
+  started_at: string;
+};
+
+export async function finishRunning(payload: FinishRunningPayload) {
+  return apiFetch('/running/finish', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      path: payload.path.map((c) => ({ lat: c.latitude, lng: c.longitude })),
+      distance_km: payload.distance_km,
+      started_at: payload.started_at,
+    }),
   });
-
-  if (!response.ok) {
-    throw new Error('Failed to finish running');
-  }
-
-  return response.json();
 }
