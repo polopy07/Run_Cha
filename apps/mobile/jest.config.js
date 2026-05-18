@@ -4,6 +4,10 @@ module.exports = {
   moduleNameMapper: {
     'react-native-maps': '<rootDir>/__mocks__/react-native-maps.js',
     'react-native-geolocation-service': '<rootDir>/__mocks__/react-native-geolocation-service.js',
+    '@react-native-async-storage/async-storage':
+      '<rootDir>/__mocks__/@react-native-async-storage/async-storage.js',
+    '@react-native-firebase/auth':
+      '<rootDir>/__mocks__/@react-native-firebase/auth.js',
   },
   transformIgnorePatterns: [
     'node_modules/(?!(' +

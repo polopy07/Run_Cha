@@ -1,11 +1,5 @@
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+import { apiFetch } from './client';
 
 export async function getRankings() {
-  const response = await fetch(`${API_URL}/ranking`);
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch rankings');
-  }
-
-  return response.json();
+  return apiFetch('/ranking');
 }
