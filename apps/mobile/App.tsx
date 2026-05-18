@@ -7,7 +7,7 @@ import useAuthStore from './src/store/authStore';
 import BottomTabNavigator from './src/navigation/BottomTabNavigator';
 
 export default function App() {
-  const { isLoading, isLoggedIn, restoreSession } = useAuthStore();
+  const { isLoading, restoreSession } = useAuthStore();
 
   useEffect(() => {
     let isFirst = true;
