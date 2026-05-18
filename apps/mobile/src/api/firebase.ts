@@ -1,5 +1,7 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { initializeAuth, getReactNativePersistence, getAuth } from 'firebase/auth';
+import { initializeAuth, getAuth } from 'firebase/auth';
+// @ts-ignore react-native 조건부 export — 런타임에서 정상 동작
+import { getReactNativePersistence } from 'firebase/auth';
 import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 import {
   FIREBASE_API_KEY,
