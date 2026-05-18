@@ -3,6 +3,7 @@ import {
   IsArray,
   IsDateString,
   IsNumber,
+  IsOptional,
   IsPositive,
   ValidateNested,
 } from 'class-validator';
@@ -21,9 +22,10 @@ export class FinishRunningDto {
   @Type(() => CoordDto)
   path: CoordDto[];
 
+  @IsOptional()
   @IsNumber()
   @IsPositive()
-  distance_km: number;
+  distance_km?: number;
 
   @IsDateString()
   started_at: string;
