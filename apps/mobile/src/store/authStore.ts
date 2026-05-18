@@ -1,4 +1,10 @@
 import { create } from 'zustand';
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+} from 'firebase/auth';
 import { auth } from '../api/firebase';
 import { apiFetch, saveToken, getToken, removeToken } from '../api/client';
 
@@ -57,13 +63,14 @@ const useAuthStore = create<AuthState>((set) => ({
   isLoading: true,
 
   login: async (email, password) => {
-    const credential = await auth.signInWithEmailAndPassword(email, password);
+    const credential = await signInWithEmailAndPassword(auth, email, password);
     const idToken = await credential.user.getIdToken();
     await authenticateWithServer(idToken, set);
   },
 
   signup: async (email, password) => {
-    const credential = await auth.createUserWithEmailAndPassword(
+    const credential = await createUserWithEmailAndPassword(
+      auth,
       email,
       password,
     );
@@ -72,7 +79,7 @@ const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
-    await auth.signOut();
+    await signOut(auth);
     await removeToken();
     set({ user: null, accessToken: null, isLoggedIn: false });
   },

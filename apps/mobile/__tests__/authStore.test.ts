@@ -94,9 +94,9 @@ describe('authStore', () => {
     });
 
     it('복원 실패 시 로그아웃 상태로 전환', async () => {
-      const authMock = require('@react-native-firebase/auth');
-      const original = authMock();
-      original.currentUser = { getIdToken: jest.fn(() => Promise.resolve('id-tok')) };
+      const { getAuth } = require('firebase/auth');
+      const mockAuthInstance = getAuth();
+      mockAuthInstance.currentUser = { getIdToken: jest.fn(() => Promise.resolve('id-tok')) };
 
       (global.fetch as jest.Mock).mockRejectedValue(new Error('network error'));
 
@@ -107,7 +107,7 @@ describe('authStore', () => {
       expect(state.user).toBeNull();
       expect(state.isLoading).toBe(false);
 
-      original.currentUser = null;
+      mockAuthInstance.currentUser = null;
     });
   });
 
