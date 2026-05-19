@@ -103,7 +103,7 @@ const useAuthStore = create<AuthState>((set) => ({
 
   fetchMe: async () => {
     const data = await apiFetch<User>('/users/me');
-    set({ user: data });
+    set({ user: toUser(data) });
   },
 }));
 
