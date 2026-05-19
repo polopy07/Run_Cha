@@ -1,7 +1,9 @@
 import {
+  Check,
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -15,6 +17,9 @@ export enum AttackResult {
   DEFENDER_WIN = 'defender_win',
 }
 
+@Check(`"occupation_rate_before" >= 0 AND "occupation_rate_before" <= 100`)
+@Check(`"occupation_rate_after" >= 0 AND "occupation_rate_after" <= 100`)
+@Index('IDX_attack_logs_created_at', ['created_at'])
 @Entity('attack_logs')
 export class AttackLog {
   @PrimaryGeneratedColumn()
@@ -29,8 +34,8 @@ export class AttackLog {
   @Column()
   territory_id: number;
 
-  @Column()
-  attacker_character_id: number;
+  @Column({ type: 'int', nullable: true, default: null })
+  attacker_character_id: number | null;
 
   @Column({ type: 'int', nullable: true, default: null })
   defender_character_id: number | null;
@@ -59,9 +64,9 @@ export class AttackLog {
   @JoinColumn({ name: 'territory_id' })
   territory: Territory;
 
-  @ManyToOne(() => UserCharacter, { onDelete: 'CASCADE' })
+  @ManyToOne(() => UserCharacter, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'attacker_character_id' })
-  attacker_character: UserCharacter;
+  attacker_character: UserCharacter | null;
 
   @ManyToOne(() => UserCharacter, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'defender_character_id' })

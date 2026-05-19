@@ -35,7 +35,7 @@ export class UserCharacter {
   @Column({ type: 'int', nullable: true, default: null })
   deployed_territory_id: number | null;
 
-  @ManyToOne(() => User, (user) => user.territories, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, (user) => user.user_characters, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: User;
 
