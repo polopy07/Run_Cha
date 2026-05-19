@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_URL = process.env.API_URL ?? 'http://localhost:3000';
+// react-native-dotenv 적용 후 @env import로 전환 예정 (feature/Jae/auth-flow)
+const API_URL = process.env.API_URL ?? 'http://10.0.2.2:3000';
 const TOKEN_KEY = 'accessToken';
 
 export async function saveToken(token: string) {
