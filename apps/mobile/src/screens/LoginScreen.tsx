@@ -30,10 +30,11 @@ export function LoginScreen() {
       } else {
         await login(email, password);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '다시 시도해주세요.';
       Alert.alert(
         isSignUp ? '회원가입 실패' : '로그인 실패',
-        error?.message ?? '다시 시도해주세요.',
+        message,
       );
     } finally {
       setLoading(false);
