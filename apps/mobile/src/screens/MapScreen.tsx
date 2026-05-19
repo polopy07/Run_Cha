@@ -5,13 +5,10 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  Platform,
-  PermissionsAndroid,
 } from 'react-native';
 import MapView, { Polygon, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import Geolocation from 'react-native-geolocation-service';
 
 const INITIAL_REGION = {
   latitude: 37.5665,
@@ -91,6 +88,7 @@ export function MapScreen() {
   const navigation = useNavigation();
   const mapRef = useRef<MapView>(null);
   const regionRef = useRef(INITIAL_REGION);
+  const userLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
 
   const zoomIn = () => {
     const r = regionRef.current;
@@ -108,33 +106,15 @@ export function MapScreen() {
     );
   };
 
-  const goToMyLocation = async () => {
-    if (Platform.OS === 'android') {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-      );
-      if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-        Alert.alert('위치 오류', '위치 권한이 거부되었습니다. 설정에서 위치 권한을 허용해주세요.');
-        return;
-      }
+  const goToMyLocation = () => {
+    const loc = userLocationRef.current;
+    if (!loc) {
+      Alert.alert('위치 오류', '현재 위치를 확인할 수 없습니다. 위치 권한을 허용했는지 확인해주세요.');
+      return;
     }
-
-    Geolocation.getCurrentPosition(
-      ({ coords }) => {
-        mapRef.current?.animateToRegion(
-          { latitude: coords.latitude, longitude: coords.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 },
-          500,
-        );
-      },
-      (error) => {
-        const messages: Record<number, string> = {
-          1: '위치 권한이 거부되었습니다. 설정에서 위치 권한을 허용해주세요.',
-          2: '현재 위치를 확인할 수 없습니다. 잠시 후 다시 시도해주세요.',
-          3: '위치 요청 시간이 초과되었습니다.',
-        };
-        Alert.alert('위치 오류', messages[error.code] ?? '위치를 가져올 수 없습니다.');
-      },
-      { enableHighAccuracy: true, timeout: 5000 },
+    mapRef.current?.animateToRegion(
+      { latitude: loc.latitude, longitude: loc.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 },
+      500,
     );
   };
 
@@ -146,6 +126,10 @@ export function MapScreen() {
         provider={PROVIDER_GOOGLE}
         initialRegion={INITIAL_REGION}
         onRegionChangeComplete={r => { regionRef.current = r; }}
+        onUserLocationChange={e => {
+          const { latitude, longitude } = e.nativeEvent.coordinate;
+          userLocationRef.current = { latitude, longitude };
+        }}
         showsUserLocation
         showsMyLocationButton={false}
       >
