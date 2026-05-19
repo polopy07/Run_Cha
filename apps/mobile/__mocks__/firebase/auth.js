@@ -3,9 +3,13 @@ const mockUser = {
 };
 
 module.exports = {
+  initializeAuth: jest.fn(() => ({
+    currentUser: null,
+  })),
   getAuth: jest.fn(() => ({
     currentUser: null,
   })),
+  getReactNativePersistence: jest.fn(() => 'mock-persistence'),
   signInWithEmailAndPassword: jest.fn(() =>
     Promise.resolve({ user: mockUser }),
   ),
