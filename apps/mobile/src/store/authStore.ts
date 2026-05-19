@@ -18,17 +18,6 @@ export type User = {
 
 type LoginResponse = User & { accessToken: string };
 
-function toUser(data: User): User {
-  return {
-    id: data.id,
-    email: data.email,
-    nickname: data.nickname,
-    points: data.points,
-    totalDistance: data.totalDistance,
-    pityCount: data.pityCount,
-  };
-}
-
 type AuthState = {
   user: User | null;
   accessToken: string | null;
@@ -51,8 +40,9 @@ async function authenticateWithServer(
     body: JSON.stringify({ idToken }),
   });
 
-  await saveToken(data.accessToken);
-  set({ user: toUser(data), accessToken: data.accessToken, isLoggedIn: true });
+  const { accessToken, ...user } = data;
+  await saveToken(accessToken);
+  set({ user, accessToken, isLoggedIn: true });
 }
 
 const useAuthStore = create<AuthState>((set) => ({
@@ -94,7 +84,7 @@ const useAuthStore = create<AuthState>((set) => ({
 
       if (token) {
         const data = await apiFetch<User>('/users/me');
-        set({ user: toUser(data), accessToken: token, isLoggedIn: true });
+        set({ user: data, accessToken: token, isLoggedIn: true });
       } else {
         const idToken = await firebaseUser.getIdToken(true);
         await authenticateWithServer(idToken, set);
