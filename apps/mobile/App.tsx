@@ -19,7 +19,7 @@ export default function App() {
         restoreSession();
         return;
       }
-      if (!firebaseUser) {
+      if (!firebaseUser || useAuthStore.getState().isLoggedIn) {
         return;
       }
       restoreSession();
