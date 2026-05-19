@@ -5,6 +5,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  Platform,
+  PermissionsAndroid,
 } from 'react-native';
 import MapView, { Polygon, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -106,7 +108,17 @@ export function MapScreen() {
     );
   };
 
-  const goToMyLocation = () => {
+  const goToMyLocation = async () => {
+    if (Platform.OS === 'android') {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+      );
+      if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+        Alert.alert('위치 오류', '위치 권한이 거부되었습니다. 설정에서 위치 권한을 허용해주세요.');
+        return;
+      }
+    }
+
     Geolocation.getCurrentPosition(
       ({ coords }) => {
         mapRef.current?.animateToRegion(
