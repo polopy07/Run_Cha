@@ -10,7 +10,7 @@ type RunningState = {
 
   startRunning: () => void;
   updatePosition: (coord: Coordinate) => void;
-  finishRunning: () => { path: Coordinate[]; distance: number; startedAt: string | null };
+  finishRunning: () => { path: Coordinate[]; distance: number; startedAt: string | null; earnedPoints: number };
   resetRunning: () => void;
 };
 
@@ -46,10 +46,11 @@ const useRunningStore = create<RunningState>((set, get) => ({
     });
   },
 
+  // TODO: earnedPoints는 서버 러닝 완료 API 연동 시 응답값으로 업데이트 예정
   finishRunning: () => {
-    const { path, distance, startedAt } = get();
+    const { path, distance, startedAt, earnedPoints } = get();
     set({ isRunning: false });
-    return { path, distance, startedAt };
+    return { path, distance, startedAt, earnedPoints };
   },
 
   resetRunning: () => {
