@@ -40,8 +40,9 @@ const useRunningStore = create<RunningState>((set, get) => ({
       newDistance += calculateDistanceInMeters(lastCoord, coord);
     }
 
+    path.push(coord);
     set({
-      path: [...path, coord],
+      path,
       distance: newDistance,
     });
   },
