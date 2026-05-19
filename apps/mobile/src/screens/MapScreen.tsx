@@ -4,6 +4,7 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
+  Alert,
 } from 'react-native';
 import MapView, { Polygon, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -113,7 +114,14 @@ export function MapScreen() {
           500,
         );
       },
-      () => {},
+      (error) => {
+        const messages: Record<number, string> = {
+          1: '위치 권한이 거부되었습니다. 설정에서 위치 권한을 허용해주세요.',
+          2: '현재 위치를 확인할 수 없습니다. 잠시 후 다시 시도해주세요.',
+          3: '위치 요청 시간이 초과되었습니다.',
+        };
+        Alert.alert('위치 오류', messages[error.code] ?? '위치를 가져올 수 없습니다.');
+      },
       { enableHighAccuracy: true, timeout: 5000 },
     );
   };
