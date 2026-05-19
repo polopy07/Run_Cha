@@ -1,4 +1,9 @@
 import { create } from 'zustand';
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+} from 'firebase/auth';
 import { auth } from '../api/firebase';
 import { apiFetch, saveToken, getToken, removeToken } from '../api/client';
 
@@ -12,17 +17,6 @@ export type User = {
 };
 
 type LoginResponse = User & { accessToken: string };
-
-function toUser(data: User): User {
-  return {
-    id: data.id,
-    email: data.email,
-    nickname: data.nickname,
-    points: data.points,
-    totalDistance: data.totalDistance,
-    pityCount: data.pityCount,
-  };
-}
 
 type AuthState = {
   user: User | null;
@@ -46,8 +40,9 @@ async function authenticateWithServer(
     body: JSON.stringify({ idToken }),
   });
 
-  await saveToken(data.accessToken);
-  set({ user: toUser(data), accessToken: data.accessToken, isLoggedIn: true });
+  const { accessToken, ...user } = data;
+  await saveToken(accessToken);
+  set({ user, accessToken, isLoggedIn: true });
 }
 
 const useAuthStore = create<AuthState>((set) => ({
@@ -57,13 +52,14 @@ const useAuthStore = create<AuthState>((set) => ({
   isLoading: true,
 
   login: async (email, password) => {
-    const credential = await auth.signInWithEmailAndPassword(email, password);
+    const credential = await signInWithEmailAndPassword(auth, email, password);
     const idToken = await credential.user.getIdToken();
     await authenticateWithServer(idToken, set);
   },
 
   signup: async (email, password) => {
-    const credential = await auth.createUserWithEmailAndPassword(
+    const credential = await createUserWithEmailAndPassword(
+      auth,
       email,
       password,
     );
@@ -72,7 +68,7 @@ const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
-    await auth.signOut();
+    await signOut(auth);
     await removeToken();
     set({ user: null, accessToken: null, isLoggedIn: false });
   },
@@ -88,7 +84,7 @@ const useAuthStore = create<AuthState>((set) => ({
 
       if (token) {
         const data = await apiFetch<User>('/users/me');
-        set({ user: toUser(data), accessToken: token, isLoggedIn: true });
+        set({ user: data, accessToken: token, isLoggedIn: true });
       } else {
         const idToken = await firebaseUser.getIdToken(true);
         await authenticateWithServer(idToken, set);
@@ -103,7 +99,7 @@ const useAuthStore = create<AuthState>((set) => ({
 
   fetchMe: async () => {
     const data = await apiFetch<User>('/users/me');
-    set({ user: toUser(data) });
+    set({ user: data });
   },
 }));
 
