@@ -14,6 +14,11 @@ const PACE_MULTIPLIER: Record<string, number> = {
   fast_run: 1.2,
 };
 
+const DISTANCE_POINT_RATE = 100;
+const NON_CLOSED_BONUS_MULTIPLIER = 1.3;
+const DISTANCE_BONUS_BASE = 1.1;
+const DISTANCE_BONUS_CAP = 3.0;
+
 const MIN_VALID_SPEED_KMH = 4;
 const MAX_VALID_SPEED_KMH = 20;
 
@@ -48,9 +53,16 @@ export class RunningService {
     const speedValid = this.isValidSpeed(avgSpeedKmh);
     const paceMultiplier = speedValid ? this.getPaceMultiplier(avgPace) : 0;
     const area_sqm = closed ? this.calculateArea(path) : 0;
+    const distanceMultiplier = Math.min(
+      Math.pow(DISTANCE_BONUS_BASE, distanceKm),
+      DISTANCE_BONUS_CAP,
+    );
+    const basePoints = Math.floor(
+      distanceKm * DISTANCE_POINT_RATE * paceMultiplier * distanceMultiplier,
+    );
     const earned_points = closed
-      ? Math.floor((area_sqm / 100) * paceMultiplier)
-      : 0;
+      ? basePoints
+      : Math.floor(basePoints * NON_CLOSED_BONUS_MULTIPLIER);
 
     const log = this.runningLogRepo.create({
       user_id: userId,
