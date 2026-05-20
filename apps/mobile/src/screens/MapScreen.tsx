@@ -4,11 +4,11 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
+  Alert,
 } from 'react-native';
 import MapView, { Polygon, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import Geolocation from 'react-native-geolocation-service';
 
 const INITIAL_REGION = {
   latitude: 37.5665,
@@ -88,6 +88,7 @@ export function MapScreen() {
   const navigation = useNavigation();
   const mapRef = useRef<MapView>(null);
   const regionRef = useRef(INITIAL_REGION);
+  const userLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
 
   const zoomIn = () => {
     const r = regionRef.current;
@@ -106,15 +107,14 @@ export function MapScreen() {
   };
 
   const goToMyLocation = () => {
-    Geolocation.getCurrentPosition(
-      ({ coords }) => {
-        mapRef.current?.animateToRegion(
-          { latitude: coords.latitude, longitude: coords.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 },
-          500,
-        );
-      },
-      () => {},
-      { enableHighAccuracy: true, timeout: 5000 },
+    const loc = userLocationRef.current;
+    if (!loc) {
+      Alert.alert('위치 오류', '현재 위치를 확인할 수 없습니다. 위치 권한을 허용했는지 확인해주세요.');
+      return;
+    }
+    mapRef.current?.animateToRegion(
+      { latitude: loc.latitude, longitude: loc.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 },
+      500,
     );
   };
 
@@ -126,6 +126,10 @@ export function MapScreen() {
         provider={PROVIDER_GOOGLE}
         initialRegion={INITIAL_REGION}
         onRegionChangeComplete={r => { regionRef.current = r; }}
+        onUserLocationChange={e => {
+          const { latitude, longitude } = e.nativeEvent.coordinate;
+          userLocationRef.current = { latitude, longitude };
+        }}
         showsUserLocation
         showsMyLocationButton={false}
       >
