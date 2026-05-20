@@ -109,8 +109,9 @@ apps/server/src/common
 | user_characters | 사용자 보유 캐릭터 |
 | running_log | 러닝 기록 |
 | gacha_log | 가챠 기록 |
-| character_deployments | 캐릭터 배치 정보. 테이블 필요 여부 확정 필요 |
-| territory_attacks | 영토 침략 기록/쿨타임. 테이블 필요 여부 확정 필요 |
+| attack_logs | 영토 침략 전투 기록 |
+| character_deployments | 별도 배치 테이블. 현재는 `user_characters.deployed_territory_id` 기준으로 대체 |
+| territory_attacks | 영토 침략 쿨타임/횟수. 테이블 필요 여부 확정 필요 |
 
 ### 2.4 Firebase Auth
 
@@ -229,13 +230,13 @@ Math.floor(areaSqm / 100 * paceMultiplier)
 3. 앱이 배치할 사용자 영토를 선택
 4. 앱이 PATCH /characters/:id/deploy 호출
 5. 서버가 캐릭터 소유자와 영토 소유자가 같은지 검증
-6. 서버가 배치 상태와 territory_id를 저장
+6. 서버가 `user_characters.deployed_territory_id`에 배치된 영토 ID를 저장
 7. 이후 침략 방어 또는 자연 감소 스케줄러에서 배치 효과를 참조
 ```
 
-배치 스펙 결정 필요:
+배치 스펙 기준:
 
-- 단순 `is_deployed` 토글만 사용할지, `territory_id`로 특정 영토를 지정할지 확정해야 한다.
+- 배치 여부는 단순 토글이 아니라 `deployed_territory_id`가 존재하는지로 판단한다.
 - 버프형 캐릭터가 자연 감소 스케줄러에 영향을 주는지 확정해야 한다.
 
 ### 3.6 영토 침략 흐름
