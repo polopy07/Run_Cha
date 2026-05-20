@@ -281,7 +281,7 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | POST | `/gacha/draw` | O | 포인트를 사용해 캐릭터 뽑기 수행 |
 | GET | `/characters/me` | O | 현재 사용자의 보유 캐릭터 목록 조회 |
 | PATCH | `/characters/:id/upgrade` | O | 캐릭터 스탯 강화 처리 |
-| PATCH | `/characters/:id/deploy` | O | 보유 캐릭터 배치/해제 처리. 스펙 확정 필요 |
+| PATCH | `/characters/:id/deploy` | O | 수비형/버프형 캐릭터를 사용자 영토에 배치 또는 회수 |
 
 ### POST `/gacha/draw`
 
@@ -307,7 +307,7 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | characterId | number | 뽑힌 캐릭터 ID |
 | name | string | 캐릭터 이름 |
 | grade | string | 등급. `common`, `rare`, `epic`, `legendary` |
-| type | string | 종류. `attack`, `defense`, `territory`, `buff` |
+| type | string | 종류. `attack`, `defense`, `buff` |
 | isNew | boolean | 신규 캐릭터 여부 |
 | isGuaranteed | boolean | 천장 보장 여부 |
 
@@ -323,12 +323,13 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | characterId | number | 캐릭터 원본 ID |
 | name | string | 캐릭터 이름 |
 | grade | string | 캐릭터 등급 |
+| type | string | 캐릭터 타입. `attack`, `defense`, `buff` |
 | attackLv | number | 공격 레벨 |
 | defenseLv | number | 방어 레벨 |
 | speedLv | number | 속도 레벨 |
 | pointLv | number | 포인트 배율 레벨 |
 | isDeployed | boolean | 배치 여부 |
-| deployedTerritoryId | number \| null | 배치된 영토 ID. 배치 스펙 확정 필요 |
+| deployedTerritoryId | number \| null | 배치된 영토 ID. `null`이면 미배치 |
 
 ### PATCH `/characters/:id/upgrade`
 
@@ -353,29 +354,32 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 
 보유 캐릭터를 사용자의 영토에 배치하거나 배치를 해제한다.
 
-> 현재 서버 미구현 API다. 수비형/버프형 캐릭터가 사용자 영토에 배치되는 구조를 전제로 한 초안이며, 구현 전 최종 확정이 필요하다.
+수비형/버프형 캐릭터만 배치할 수 있으며, 배치 여부는 `user_characters.deployed_territory_id` 값으로 판단한다.
 
-#### Request Body 초안
+#### Request Body
 
 | 필드 | 타입 | 필수 | 설명 |
 |---|---|---|---|
-| isDeployed | boolean | O | 배치 여부. `false`면 배치 해제 |
-| territoryId | number \| null | 조건부 | 배치할 사용자 소유 영토 ID. `isDeployed`가 `true`이면 필요 |
+| territory_id | number \| null | O | 배치할 사용자 소유 영토 ID. `null`이면 회수 |
 
-#### Response 초안
+#### Response
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
 | id | number | 유저 캐릭터 ID |
 | characterId | number | 캐릭터 원본 ID |
+| name | string | 캐릭터 이름 |
+| grade | string | 캐릭터 등급 |
+| type | string | 캐릭터 타입 |
 | isDeployed | boolean | 배치 여부 |
 | deployedTerritoryId | number \| null | 배치된 영토 ID |
 
-#### 결정 필요
+#### 예외
 
-- 단순 `is_deployed` 토글만 사용할지, `territory_id`로 특정 영토까지 지정할지 확정해야 한다.
-- 수비형/버프형 캐릭터 효과가 자연 감소 스케줄러에 적용되는지 확정해야 한다.
-- 스케줄러 버프 연동은 배치 스펙 확정 후 반영한다.
+- 공격형 캐릭터 배치 요청 시 400
+- 보유하지 않은 캐릭터 배치 요청 시 404
+- 사용자가 소유하지 않은 영토 배치 요청 시 404
+- 수비형/버프형 캐릭터 효과가 침략/자연 감소 계산에 적용되는 방식은 후속 구현에서 확정한다.
 
 ---
 
@@ -418,7 +422,5 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 4. 공격/방어 능력치 계산 공식
 5. 침략 쿨타임 및 하루 5회 제한 저장 방식
 6. 침략 응답에 다음 가능 시각과 남은 횟수 포함 여부
-7. 캐릭터 배치 API 담당과 스펙
-8. 캐릭터 배치가 `is_deployed` 토글만인지, `territory_id` 지정까지 포함하는지 여부
-9. 버프형/수비형 캐릭터의 자연 감소 스케줄러 연동 여부
-10. 공통 에러 메시지 세부 코드 정의
+7. 버프형/수비형 캐릭터의 침략/자연 감소 계산 반영 방식
+8. 공통 에러 메시지 세부 코드 정의
