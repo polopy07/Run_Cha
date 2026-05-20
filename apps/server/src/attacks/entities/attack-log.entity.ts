@@ -15,6 +15,9 @@ import { AttackResult } from '../enums/attack-result.enum';
 
 @Check(`occupation_rate_before >= 0 AND occupation_rate_before <= 100`)
 @Check(`occupation_rate_after >= 0 AND occupation_rate_after <= 100`)
+@Index('IDX_attack_logs_attacker', ['attacker_id'])
+@Index('IDX_attack_logs_defender', ['defender_id'])
+@Index('IDX_attack_logs_territory', ['territory_id'])
 @Index('IDX_attack_logs_created_at', ['created_at'])
 @Entity('attack_logs')
 export class AttackLog {
