@@ -12,3 +12,13 @@ export async function upgradeCharacter(characterId: number, stat: UpgradeStat) {
     body: JSON.stringify({ stat }),
   });
 }
+
+export async function deployCharacter(
+  characterId: number,
+  territoryId: number | null,
+) {
+  return apiFetch(`/characters/${characterId}/deploy`, {
+    method: 'PATCH',
+    body: JSON.stringify({ territory_id: territoryId }),
+  });
+}

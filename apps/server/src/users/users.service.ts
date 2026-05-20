@@ -4,14 +4,30 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
+import {
+  Character,
+  CharacterGrade,
+  CharacterType,
+} from '../characters/entities/character.entity';
+import { UserCharacter } from '../characters/entities/user-character.entity';
 import { User } from './entities/user.entity';
+
+const STARTER_CHARACTER_TYPES = [
+  CharacterType.ATTACK,
+  CharacterType.DEFENSE,
+  CharacterType.BUFF,
+];
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
+    @InjectRepository(Character)
+    private readonly charactersRepository: Repository<Character>,
+    @InjectRepository(UserCharacter)
+    private readonly userCharactersRepository: Repository<UserCharacter>,
   ) {}
 
   async findOrCreateUser(
@@ -33,7 +49,33 @@ export class UsersService {
       nickname: displayName || email.split('@')[0],
     });
 
-    return this.usersRepository.save(user);
+    const savedUser = await this.usersRepository.save(user);
+    await this.grantStarterCharacter(savedUser.id);
+
+    return savedUser;
+  }
+
+  private async grantStarterCharacter(userId: number) {
+    const starterCharacters = await this.charactersRepository.find({
+      where: {
+        grade: CharacterGrade.COMMON,
+        type: In(STARTER_CHARACTER_TYPES),
+      },
+    });
+
+    if (starterCharacters.length === 0) {
+      return;
+    }
+
+    const selectedCharacter =
+      starterCharacters[Math.floor(Math.random() * starterCharacters.length)];
+
+    const userCharacter = this.userCharactersRepository.create({
+      user_id: userId,
+      character_id: selectedCharacter.id,
+    });
+
+    await this.userCharactersRepository.save(userCharacter);
   }
 
   async findById(id: number) {

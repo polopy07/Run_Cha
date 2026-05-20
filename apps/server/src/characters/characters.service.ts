@@ -5,8 +5,9 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Territory } from '../territories/entities/territory.entity';
 import { User } from '../users/entities/user.entity';
-import { CharacterGrade } from './entities/character.entity';
+import { CharacterGrade, CharacterType } from './entities/character.entity';
 import { UserCharacter } from './entities/user-character.entity';
 import { UpgradeStat } from './dto/upgrade-character.dto';
 
@@ -28,11 +29,6 @@ const STAT_LEVEL_COLUMN: Record<UpgradeStat, StatLevelColumn> = {
   point: 'point_lv',
 };
 
-type DeploymentFields = {
-  is_deployed?: boolean;
-  deployed_territory_id?: number | null;
-};
-
 @Injectable()
 export class CharactersService {
   constructor(
@@ -40,6 +36,8 @@ export class CharactersService {
     private readonly userCharactersRepository: Repository<UserCharacter>,
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
+    @InjectRepository(Territory)
+    private readonly territoriesRepository: Repository<Territory>,
   ) {}
 
   async findMine(userId: number) {
@@ -98,13 +96,52 @@ export class CharactersService {
     };
   }
 
+  async deploy(
+    userId: number,
+    userCharacterId: number,
+    territoryId: number | null,
+  ) {
+    const userCharacter = await this.userCharactersRepository.findOne({
+      where: { id: userCharacterId, user_id: userId },
+      relations: { character: true },
+    });
+
+    if (!userCharacter) {
+      throw new NotFoundException('보유 캐릭터를 찾을 수 없습니다.');
+    }
+
+    if (
+      ![CharacterType.DEFENSE, CharacterType.BUFF].includes(
+        userCharacter.character.type,
+      )
+    ) {
+      throw new BadRequestException(
+        '수비형 또는 버프형 캐릭터만 영토에 배치할 수 있습니다.',
+      );
+    }
+
+    if (territoryId !== null) {
+      const territory = await this.territoriesRepository.findOne({
+        where: { id: territoryId, user_id: userId },
+      });
+
+      if (!territory) {
+        throw new NotFoundException('배치할 영토를 찾을 수 없습니다.');
+      }
+    }
+
+    userCharacter.deployed_territory_id = territoryId;
+    await this.userCharactersRepository.save(userCharacter);
+
+    return this.toUserCharacterResponse(userCharacter);
+  }
+
   private calculateUpgradeCost(currentLevel: number) {
     return Math.floor(UPGRADE_BASE_COST * 1.5 ** currentLevel);
   }
 
   private toUserCharacterResponse(userCharacter: UserCharacter) {
-    const deployment = userCharacter as UserCharacter & DeploymentFields;
-    const deployedTerritoryId = deployment.deployed_territory_id ?? null;
+    const deployedTerritoryId = userCharacter.deployed_territory_id ?? null;
 
     return {
       id: userCharacter.id,
@@ -116,7 +153,7 @@ export class CharactersService {
       defenseLv: userCharacter.defense_lv,
       speedLv: userCharacter.speed_lv,
       pointLv: userCharacter.point_lv,
-      isDeployed: deployedTerritoryId !== null || Boolean(deployment.is_deployed),
+      isDeployed: deployedTerritoryId !== null,
       deployedTerritoryId,
     };
   }

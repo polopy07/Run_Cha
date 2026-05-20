@@ -6,7 +6,7 @@ export class CreateCharactersTable1746921600002 implements MigrationInterface {
       CREATE TABLE characters (
         id               INT         NOT NULL AUTO_INCREMENT,
         name             VARCHAR(50) NOT NULL,
-        type             ENUM('attack','defense','territory','buff') NOT NULL,
+        type             ENUM('attack','defense','buff') NOT NULL,
         grade            ENUM('common','rare','epic','legendary')    NOT NULL,
         base_attack      FLOAT       NOT NULL DEFAULT 10,
         base_defense     FLOAT       NOT NULL DEFAULT 10,

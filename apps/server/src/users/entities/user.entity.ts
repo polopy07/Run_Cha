@@ -6,6 +6,7 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Territory } from '../../territories/entities/territory.entity';
+import { UserCharacter } from '../../characters/entities/user-character.entity';
 
 @Entity('users')
 export class User {
@@ -35,4 +36,7 @@ export class User {
 
   @OneToMany(() => Territory, (territory) => territory.user)
   territories: Territory[];
+
+  @OneToMany(() => UserCharacter, (userCharacter) => userCharacter.user)
+  user_characters: UserCharacter[];
 }

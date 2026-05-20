@@ -4,7 +4,7 @@ export class AddIndexes1746921700000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       ALTER TABLE user_characters
-        ADD INDEX IDX_user_characters_user_deployed (user_id, is_deployed);
+        ADD INDEX IDX_user_characters_deployed_territory (deployed_territory_id);
     `);
 
     await queryRunner.query(`
@@ -20,7 +20,7 @@ export class AddIndexes1746921700000 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
-      `ALTER TABLE user_characters DROP INDEX IDX_user_characters_user_deployed`,
+      `ALTER TABLE user_characters DROP INDEX IDX_user_characters_deployed_territory`,
     );
     await queryRunner.query(
       `ALTER TABLE running_log DROP INDEX IDX_running_log_user_time`,

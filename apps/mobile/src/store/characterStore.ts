@@ -6,7 +6,7 @@ export type Character = {
   characterId: number;
   name: string;
   grade: 'common' | 'rare' | 'epic' | 'legendary';
-  type: 'attack' | 'defense' | 'territory' | 'buff';
+  type: 'attack' | 'defense' | 'buff';
   attackLv: number;
   defenseLv: number;
   speedLv: number;

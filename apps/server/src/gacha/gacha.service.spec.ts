@@ -26,25 +26,25 @@ describe('GachaService', () => {
       id: 1,
       name: '방랑자',
       grade: CharacterGrade.COMMON,
-      type: CharacterType.TERRITORY,
+      type: CharacterType.ATTACK,
     },
     {
       id: 2,
       name: '탐험가',
       grade: CharacterGrade.RARE,
-      type: CharacterType.TERRITORY,
+      type: CharacterType.DEFENSE,
     },
     {
       id: 3,
       name: '정복자',
       grade: CharacterGrade.EPIC,
-      type: CharacterType.TERRITORY,
+      type: CharacterType.BUFF,
     },
     {
       id: 4,
       name: '군주',
       grade: CharacterGrade.LEGENDARY,
-      type: CharacterType.TERRITORY,
+      type: CharacterType.ATTACK,
     },
   ] as Character[];
 
@@ -81,7 +81,7 @@ describe('GachaService', () => {
           characterId: 1,
           name: '방랑자',
           grade: CharacterGrade.COMMON,
-          type: CharacterType.TERRITORY,
+          type: CharacterType.ATTACK,
           isNew: true,
           isGuaranteed: false,
         },
