@@ -323,7 +323,6 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | characterId | number | 캐릭터 원본 ID |
 | name | string | 캐릭터 이름 |
 | grade | string | 캐릭터 등급 |
-| type | string | 캐릭터 종류. `attack`, `defense`, `territory`, `buff` |
 | attackLv | number | 공격 레벨 |
 | defenseLv | number | 방어 레벨 |
 | speedLv | number | 속도 레벨 |
@@ -349,13 +348,6 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | upgradedStat | string | 강화된 스탯 |
 | newLevel | number | 강화 후 레벨 |
 | remainingPoints | number | 강화 후 남은 포인트 |
-
-### 현재 구현 기준
-
-- 캐릭터 기본 이름은 `SeedCharacters` 마이그레이션에서 등급과 타입별로 16종을 등록한다.
-- 응답 필드명과 enum 값은 앱 연동 안정성을 위해 영문을 유지한다. 화면 표시 문구는 앱에서 `attack` → `공격`, `common` → `일반`처럼 한글 라벨로 변환한다.
-- 같은 원본 캐릭터가 중복으로 뽑혀도 `user_characters`에 별도 보유 캐릭터로 추가한다. 이때 `isNew`는 이미 보유한 원본 캐릭터인지 여부만 나타낸다.
-- 현재 구현 범위는 보유 캐릭터 조회, 가챠 1회/10회, 천장 기록, 스탯 강화까지다. 대표 캐릭터 경험치, 캐릭터 배치, 배치 효과는 별도 스펙 확정 후 구현한다.
 
 ### PATCH `/characters/:id/deploy`
 
