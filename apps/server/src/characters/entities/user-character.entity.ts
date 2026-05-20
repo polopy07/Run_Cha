@@ -34,12 +34,10 @@ export class UserCharacter {
   @Column({ default: 1 })
   point_lv: number;
 
-  @Column({ type: 'int', nullable: true })
+  @Column({ type: 'int', nullable: true, default: null })
   deployed_territory_id: number | null;
 
-  @ManyToOne(() => User, (user) => user.user_characters, {
-    onDelete: 'CASCADE',
-  })
+  @ManyToOne(() => User, (user) => user.user_characters, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: User;
 
@@ -47,7 +45,7 @@ export class UserCharacter {
   @JoinColumn({ name: 'character_id' })
   character: Character;
 
-  @ManyToOne(() => Territory, { onDelete: 'SET NULL', nullable: true })
+  @ManyToOne(() => Territory, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'deployed_territory_id' })
   deployed_territory: Territory | null;
 }
