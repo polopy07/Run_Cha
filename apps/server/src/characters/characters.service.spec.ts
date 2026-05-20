@@ -81,6 +81,24 @@ describe('CharactersService', () => {
     });
   });
 
+  it('배치 영토 ID가 있으면 배치 상태와 영토 ID를 함께 반환한다', async () => {
+    userCharactersRepository.find.mockResolvedValue([
+      {
+        ...userCharacter,
+        is_deployed: undefined,
+        deployed_territory_id: 7,
+      },
+    ]);
+
+    await expect(service.findMine(1)).resolves.toEqual([
+      expect.objectContaining({
+        id: 10,
+        isDeployed: true,
+        deployedTerritoryId: 7,
+      }),
+    ]);
+  });
+
   it('포인트를 차감하고 지정한 스탯을 강화한다', async () => {
     const user = { id: 1, points: 200 } as User;
     userCharactersRepository.findOne.mockResolvedValue({ ...userCharacter });

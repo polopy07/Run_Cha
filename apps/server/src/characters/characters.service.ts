@@ -28,6 +28,11 @@ const STAT_LEVEL_COLUMN: Record<UpgradeStat, StatLevelColumn> = {
   point: 'point_lv',
 };
 
+type DeploymentFields = {
+  is_deployed?: boolean;
+  deployed_territory_id?: number | null;
+};
+
 @Injectable()
 export class CharactersService {
   constructor(
@@ -98,6 +103,9 @@ export class CharactersService {
   }
 
   private toUserCharacterResponse(userCharacter: UserCharacter) {
+    const deployment = userCharacter as UserCharacter & DeploymentFields;
+    const deployedTerritoryId = deployment.deployed_territory_id ?? null;
+
     return {
       id: userCharacter.id,
       characterId: userCharacter.character_id,
@@ -108,8 +116,8 @@ export class CharactersService {
       defenseLv: userCharacter.defense_lv,
       speedLv: userCharacter.speed_lv,
       pointLv: userCharacter.point_lv,
-      isDeployed: userCharacter.is_deployed,
-      deployedTerritoryId: null,
+      isDeployed: deployedTerritoryId !== null || Boolean(deployment.is_deployed),
+      deployedTerritoryId,
     };
   }
 }
