@@ -1,10 +1,10 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import * as turf from '@turf/turf';
 import { RunningLog } from './entities/running-log.entity';
 import { User } from '../users/entities/user.entity';
-import { TerritoriesService } from '../territories/territories.service';
+import { Territory } from '../territories/entities/territory.entity';
 import { FinishRunningDto } from './dto/finish-running.dto';
 
 const PACE_MULTIPLIER: Record<string, number> = {
@@ -13,6 +13,11 @@ const PACE_MULTIPLIER: Record<string, number> = {
   run: 1.0,
   fast_run: 1.2,
 };
+
+const DISTANCE_POINT_RATE = 100;
+const NON_CLOSED_BONUS_MULTIPLIER = 1.3;
+const DISTANCE_BONUS_BASE = 1.1;
+const DISTANCE_BONUS_CAP = 3.0;
 
 const MIN_VALID_SPEED_KMH = 4;
 const MAX_VALID_SPEED_KMH = 20;
@@ -24,13 +29,21 @@ export class RunningService {
     private readonly runningLogRepo: Repository<RunningLog>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
-    private readonly territoriesService: TerritoriesService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async finish(userId: number, dto: FinishRunningDto) {
     const { path } = dto;
     const endedAt = new Date();
     const startedAt = new Date(dto.started_at);
+
+    if (startedAt > endedAt) {
+      throw new BadRequestException('유효하지 않은 시작 시간입니다.');
+    }
+    if (endedAt.getTime() - startedAt.getTime() > 24 * 60 * 60 * 1000) {
+      throw new BadRequestException('유효하지 않은 시작 시간입니다.');
+    }
+
     const durationHours =
       (endedAt.getTime() - startedAt.getTime()) / (1000 * 60 * 60);
 
@@ -48,35 +61,51 @@ export class RunningService {
     const speedValid = this.isValidSpeed(avgSpeedKmh);
     const paceMultiplier = speedValid ? this.getPaceMultiplier(avgPace) : 0;
     const area_sqm = closed ? this.calculateArea(path) : 0;
+    const distanceMultiplier = Math.min(
+      Math.pow(DISTANCE_BONUS_BASE, distanceKm),
+      DISTANCE_BONUS_CAP,
+    );
+    const basePoints = Math.floor(
+      distanceKm * DISTANCE_POINT_RATE * paceMultiplier * distanceMultiplier,
+    );
     const earned_points = closed
-      ? Math.floor((area_sqm / 100) * paceMultiplier)
-      : 0;
+      ? basePoints
+      : Math.floor(basePoints * NON_CLOSED_BONUS_MULTIPLIER);
 
-    const log = this.runningLogRepo.create({
-      user_id: userId,
-      path,
-      distance_km: distanceKm,
-      earned_points,
-      area_sqm,
-      avg_pace: avgPace,
-      started_at: startedAt,
-      ended_at: endedAt,
-    });
-    const savedLog = await this.runningLogRepo.save(log);
+    const { savedLog, territory } = await this.dataSource.transaction(
+      async (manager) => {
+        const log = manager.create(RunningLog, {
+          user_id: userId,
+          path,
+          distance_km: distanceKm,
+          earned_points,
+          area_sqm,
+          avg_pace: avgPace,
+          started_at: startedAt,
+          ended_at: endedAt,
+        });
+        const savedLog = await manager.save(log);
 
-    await this.userRepo.increment({ id: userId }, 'total_distance', distanceKm);
-    if (earned_points > 0) {
-      await this.userRepo.increment({ id: userId }, 'points', earned_points);
-    }
+        await manager.increment(User, { id: userId }, 'total_distance', distanceKm);
+        if (earned_points > 0) {
+          await manager.increment(User, { id: userId }, 'points', earned_points);
+        }
 
-    const territory =
-      area_sqm > 0
-        ? await this.territoriesService.registerTerritory(
-            userId,
-            path,
-            area_sqm,
-          )
-        : null;
+        const territory =
+          area_sqm > 0
+            ? await manager.save(
+                manager.create(Territory, {
+                  user_id: userId,
+                  coordinates: path,
+                  area_sqm: area_sqm,
+                  occupation_rate: 100,
+                }),
+              )
+            : null;
+
+        return { savedLog, territory };
+      },
+    );
 
     return {
       log: savedLog,
@@ -99,7 +128,10 @@ export class RunningService {
     if (path.length < 3) return 0;
 
     const coords = path.map((p) => [p.lng, p.lat] as [number, number]);
-    if (coords[0][0] !== coords[coords.length - 1][0]) {
+    if (
+      coords[0][0] !== coords[coords.length - 1][0] ||
+      coords[0][1] !== coords[coords.length - 1][1]
+    ) {
       coords.push(coords[0]);
     }
 
