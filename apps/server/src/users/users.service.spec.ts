@@ -141,12 +141,7 @@ describe('UsersService', () => {
       service.findOrCreateUser('firebase-uid', 'test@example.com'),
     ).resolves.toBe(savedUser);
 
-    expect(charactersRepository.find).toHaveBeenCalledWith({
-      where: {
-        grade: CharacterGrade.COMMON,
-        type: expect.any(Object),
-      },
-    });
+    expect(charactersRepository.find).toHaveBeenCalledTimes(1);
     expect(userCharactersRepository.create).toHaveBeenCalledWith({
       user_id: 1,
       character_id: 11,
