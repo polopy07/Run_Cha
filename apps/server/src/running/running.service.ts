@@ -36,12 +36,11 @@ export class RunningService {
     const { path } = dto;
     const endedAt = new Date();
     const startedAt = new Date(dto.started_at);
-    const now = new Date();
 
-    if (startedAt > now) {
+    if (startedAt > endedAt) {
       throw new BadRequestException('유효하지 않은 시작 시간입니다.');
     }
-    if (now.getTime() - startedAt.getTime() > 24 * 60 * 60 * 1000) {
+    if (endedAt.getTime() - startedAt.getTime() > 24 * 60 * 60 * 1000) {
       throw new BadRequestException('유효하지 않은 시작 시간입니다.');
     }
 

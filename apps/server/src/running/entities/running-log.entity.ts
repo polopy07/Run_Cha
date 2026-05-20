@@ -1,6 +1,5 @@
 import {
   Column,
-  CreateDateColumn,
   Entity,
   JoinColumn,
   ManyToOne,
@@ -31,7 +30,7 @@ export class RunningLog {
   @Column({ type: 'float' })
   avg_pace: number;
 
-  @CreateDateColumn()
+  @Column({ type: 'datetime' })
   started_at: Date;
 
   @Column({ type: 'datetime', nullable: true })
