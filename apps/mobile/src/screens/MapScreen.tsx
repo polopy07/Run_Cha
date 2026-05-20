@@ -127,7 +127,9 @@ export function MapScreen() {
         initialRegion={INITIAL_REGION}
         onRegionChangeComplete={r => { regionRef.current = r; }}
         onUserLocationChange={e => {
-          const { latitude, longitude } = e.nativeEvent.coordinate;
+          const coordinate = e.nativeEvent.coordinate;
+          if (!coordinate) return;
+          const { latitude, longitude } = coordinate;
           userLocationRef.current = { latitude, longitude };
         }}
         showsUserLocation

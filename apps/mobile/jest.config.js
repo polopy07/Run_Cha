@@ -3,7 +3,7 @@ module.exports = {
   setupFiles: ['./node_modules/react-native-gesture-handler/jestSetup.js'],
   moduleNameMapper: {
     'react-native-maps': '<rootDir>/__mocks__/react-native-maps.js',
-'@react-native-async-storage/async-storage':
+    '@react-native-async-storage/async-storage':
       '<rootDir>/__mocks__/@react-native-async-storage/async-storage.js',
     'firebase/auth': '<rootDir>/__mocks__/firebase/auth.js',
     'firebase/app': '<rootDir>/__mocks__/firebase/app.js',
