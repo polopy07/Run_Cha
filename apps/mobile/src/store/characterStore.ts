@@ -12,6 +12,7 @@ export type Character = {
   speedLv: number;
   pointLv: number;
   isDeployed: boolean;
+  deployedTerritoryId: number | null;
 };
 
 type CharacterState = {
