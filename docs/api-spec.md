@@ -364,6 +364,8 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 
 #### Response
 
+`GET /characters/me`의 개별 보유 캐릭터 객체와 동일한 형식으로 응답한다.
+
 | 필드 | 타입 | 설명 |
 |---|---|---|
 | id | number | 유저 캐릭터 ID |
@@ -371,6 +373,10 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | name | string | 캐릭터 이름 |
 | grade | string | 캐릭터 등급 |
 | type | string | 캐릭터 타입 |
+| attackLv | number | 공격 레벨 |
+| defenseLv | number | 방어 레벨 |
+| speedLv | number | 속도 레벨 |
+| pointLv | number | 포인트 배율 레벨 |
 | isDeployed | boolean | 배치 여부 |
 | deployedTerritoryId | number \| null | 배치된 영토 ID |
 
@@ -380,6 +386,14 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 - 보유하지 않은 캐릭터 배치 요청 시 404
 - 사용자가 소유하지 않은 영토 배치 요청 시 404
 - 수비형/버프형 캐릭터 효과가 침략/자연 감소 계산에 적용되는 방식은 후속 구현에서 확정한다.
+
+#### 현재 구현 기준
+
+- 가챠 비용: 1회 100 포인트, 10회 900 포인트
+- 가챠 확률: common 60%, rare 30%, epic 9%, legendary 1%
+- 천장: 100회차 legendary 보장
+- 강화 비용: `Math.min(Math.floor(100 * 1.5 ** currentLevel), 5000)`
+- 위 수치는 현재 구현 기준이며, 밸런스 검토 후 조정될 수 있다.
 
 ---
 

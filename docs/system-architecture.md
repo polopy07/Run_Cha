@@ -203,14 +203,19 @@ Firebase ID Token은 로그인 검증 단계에서만 사용하고, 이후 보�
 ### 3.3 포인트 계산 흐름
 
 ```text
-path + started_at -> serverAvgSpeed/serverAvgPace -> paceMultiplier -> areaSqm -> earnedPoints
+path + started_at -> distanceKm/serverAvgSpeed/serverAvgPace -> paceMultiplier/distanceMultiplier -> earnedPoints
 ```
 
 공식:
 
 ```ts
-Math.floor(areaSqm / 100 * paceMultiplier)
+const basePoints = Math.floor(distanceKm * 100 * paceMultiplier * distanceMultiplier);
+const earnedPoints = isClosedLoop ? basePoints : Math.floor(basePoints * 1.3);
 ```
+
+- `distanceKm`는 서버가 `path` 좌표로 계산한다.
+- `distanceMultiplier`는 장거리 러닝 보정값이며 현재 구현 기준 `Math.min(1.1 ** distanceKm, 3.0)`을 사용한다.
+- 폐곡선이 아닌 러닝은 영토를 생성하지 않고 즉시 보상에 1.3배를 적용한다.
 
 ### 3.4 가챠 흐름
 
@@ -222,6 +227,13 @@ Math.floor(areaSqm / 100 * paceMultiplier)
 5. 서버가 user_characters 및 gacha_log 저장
 6. 서버가 results와 remainingPoints 응답
 ```
+
+현재 구현 기준:
+
+- 가챠 비용은 1회 100 포인트, 10회 900 포인트다.
+- 가챠 확률은 common 60%, rare 30%, epic 9%, legendary 1%다.
+- 천장은 100회차 legendary 보장으로 처리한다.
+- 캐릭터 강화 비용은 `Math.min(Math.floor(100 * 1.5 ** currentLevel), 5000)`을 사용한다.
 
 ### 3.5 캐릭터 배치 흐름
 
