@@ -1,10 +1,11 @@
 import {
   BadRequestException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import {
   Character,
   CharacterGrade,
@@ -32,96 +33,107 @@ type GachaResult = {
 
 @Injectable()
 export class GachaService {
+  private characterCache: Character[] | null = null;
+
   constructor(
     @InjectRepository(Character)
     private readonly charactersRepository: Repository<Character>,
-    @InjectRepository(UserCharacter)
-    private readonly userCharactersRepository: Repository<UserCharacter>,
-    @InjectRepository(GachaLog)
-    private readonly gachaLogsRepository: Repository<GachaLog>,
-    @InjectRepository(User)
-    private readonly usersRepository: Repository<User>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async draw(userId: number, count: 1 | 10) {
     const cost = DRAW_COST[count];
-
-    if (!cost) {
-      throw new BadRequestException('뽑기 횟수는 1 또는 10만 가능합니다.');
-    }
-
-    const user = await this.usersRepository.findOne({ where: { id: userId } });
-
-    if (!user) {
-      throw new NotFoundException('사용자를 찾을 수 없습니다.');
-    }
-
-    if (user.points < cost) {
-      throw new BadRequestException('포인트가 부족합니다.');
-    }
-
-    const characters = await this.charactersRepository.find();
+    const characters = await this.getCharacters();
 
     if (characters.length === 0) {
-      throw new NotFoundException('뽑기 가능한 캐릭터가 없습니다.');
+      throw new InternalServerErrorException('뽑기 가능한 캐릭터가 없습니다.');
     }
 
-    const ownedCharacterIds = new Set(
-      (
-        await this.userCharactersRepository.find({
-          where: { user_id: userId },
-          select: { character_id: true },
-        })
-      ).map((userCharacter) => userCharacter.character_id),
-    );
+    return this.dataSource.transaction(async (manager) => {
+      const usersRepository = manager.getRepository(User);
+      const userCharactersRepository = manager.getRepository(UserCharacter);
+      const gachaLogsRepository = manager.getRepository(GachaLog);
 
-    user.points -= cost;
-
-    const results: GachaResult[] = [];
-    let pityCount = user.pity_count;
-
-    for (let i = 0; i < count; i += 1) {
-      const isGuaranteed = pityCount >= LEGENDARY_PITY_THRESHOLD;
-      const grade = isGuaranteed ? CharacterGrade.LEGENDARY : this.pickGrade();
-      const character = this.pickCharacterByGrade(characters, grade);
-      const isNew = !ownedCharacterIds.has(character.id);
-
-      const userCharacter = this.userCharactersRepository.create({
-        user_id: userId,
-        character_id: character.id,
+      const user = await usersRepository.findOne({
+        where: { id: userId },
+        lock: { mode: 'pessimistic_write' },
       });
-      await this.userCharactersRepository.save(userCharacter);
 
-      pityCount =
-        character.grade === CharacterGrade.LEGENDARY ? 0 : pityCount + 1;
+      if (!user) {
+        throw new NotFoundException('사용자를 찾을 수 없습니다.');
+      }
 
-      const gachaLog = this.gachaLogsRepository.create({
-        user_id: userId,
-        result_character_id: character.id,
-        is_guaranteed: isGuaranteed,
-        pity_count: pityCount,
-      });
-      await this.gachaLogsRepository.save(gachaLog);
+      if (user.points < cost) {
+        throw new BadRequestException('포인트가 부족합니다.');
+      }
 
-      ownedCharacterIds.add(character.id);
+      const ownedCharacterIds = new Set(
+        (
+          await userCharactersRepository.find({
+            where: { user_id: userId },
+            select: { character_id: true },
+          })
+        ).map((userCharacter) => userCharacter.character_id),
+      );
 
-      results.push({
-        characterId: character.id,
-        name: character.name,
-        grade: character.grade,
-        type: character.type,
-        isNew,
-        isGuaranteed,
-      });
+      const results: GachaResult[] = [];
+      const userCharacters: Partial<UserCharacter>[] = [];
+      const gachaLogs: Partial<GachaLog>[] = [];
+      let pityCount = user.pity_count;
+
+      for (let i = 0; i < count; i += 1) {
+        const isGuaranteed = pityCount >= LEGENDARY_PITY_THRESHOLD;
+        const grade = isGuaranteed
+          ? CharacterGrade.LEGENDARY
+          : this.pickGrade();
+        const character = this.pickCharacterByGrade(characters, grade);
+        const isNew = !ownedCharacterIds.has(character.id);
+
+        pityCount =
+          character.grade === CharacterGrade.LEGENDARY ? 0 : pityCount + 1;
+
+        userCharacters.push({
+          user_id: userId,
+          character_id: character.id,
+        });
+        gachaLogs.push({
+          user_id: userId,
+          result_character_id: character.id,
+          is_guaranteed: isGuaranteed,
+          pity_count: pityCount,
+        });
+        ownedCharacterIds.add(character.id);
+
+        results.push({
+          characterId: character.id,
+          name: character.name,
+          grade: character.grade,
+          type: character.type,
+          isNew,
+          isGuaranteed,
+        });
+      }
+
+      await userCharactersRepository.insert(userCharacters);
+      await gachaLogsRepository.insert(gachaLogs);
+
+      user.points -= cost;
+      user.pity_count = pityCount;
+      await usersRepository.save(user);
+
+      return {
+        results,
+        remainingPoints: user.points,
+      };
+    });
+  }
+
+  private async getCharacters() {
+    if (!this.characterCache) {
+      this.characterCache = await this.charactersRepository.find();
     }
 
-    user.pity_count = pityCount;
-    await this.usersRepository.save(user);
-
-    return {
-      results,
-      remainingPoints: user.points,
-    };
+    return this.characterCache;
   }
 
   private pickGrade() {
@@ -139,7 +151,9 @@ export class GachaService {
     );
 
     if (candidates.length === 0) {
-      throw new NotFoundException(`${grade} 등급 캐릭터가 없습니다.`);
+      throw new InternalServerErrorException(
+        `${grade} 등급 캐릭터가 없습니다.`,
+      );
     }
 
     const index = Math.floor(Math.random() * candidates.length);

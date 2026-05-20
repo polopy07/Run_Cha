@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import {
   Character,
   CharacterGrade,
@@ -24,10 +24,7 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
-    @InjectRepository(Character)
-    private readonly charactersRepository: Repository<Character>,
-    @InjectRepository(UserCharacter)
-    private readonly userCharactersRepository: Repository<UserCharacter>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async findOrCreateUser(
@@ -35,28 +32,35 @@ export class UsersService {
     email: string,
     displayName?: string,
   ) {
-    let user = await this.usersRepository.findOne({
+    const existingUser = await this.usersRepository.findOne({
       where: { firebase_uid: firebaseUid },
     });
 
-    if (user) {
-      return user;
+    if (existingUser) {
+      return existingUser;
     }
 
-    user = this.usersRepository.create({
-      firebase_uid: firebaseUid,
-      email,
-      nickname: displayName || email.split('@')[0],
+    return this.dataSource.transaction(async (manager) => {
+      const usersRepository = manager.getRepository(User);
+
+      const user = usersRepository.create({
+        firebase_uid: firebaseUid,
+        email,
+        nickname: displayName || email.split('@')[0],
+      });
+
+      const savedUser = await usersRepository.save(user);
+      await this.grantStarterCharacter(savedUser.id, manager);
+
+      return savedUser;
     });
-
-    const savedUser = await this.usersRepository.save(user);
-    await this.grantStarterCharacter(savedUser.id);
-
-    return savedUser;
   }
 
-  private async grantStarterCharacter(userId: number) {
-    const starterCharacters = await this.charactersRepository.find({
+  private async grantStarterCharacter(userId: number, manager: EntityManager) {
+    const charactersRepository = manager.getRepository(Character);
+    const userCharactersRepository = manager.getRepository(UserCharacter);
+
+    const starterCharacters = await charactersRepository.find({
       where: {
         grade: CharacterGrade.COMMON,
         type: In(STARTER_CHARACTER_TYPES),
@@ -70,12 +74,12 @@ export class UsersService {
     const selectedCharacter =
       starterCharacters[Math.floor(Math.random() * starterCharacters.length)];
 
-    const userCharacter = this.userCharactersRepository.create({
+    const userCharacter = userCharactersRepository.create({
       user_id: userId,
       character_id: selectedCharacter.id,
     });
 
-    await this.userCharactersRepository.save(userCharacter);
+    await userCharactersRepository.save(userCharacter);
   }
 
   async findById(id: number) {

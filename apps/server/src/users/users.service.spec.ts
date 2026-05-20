@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import {
   Character,
   CharacterGrade,
@@ -24,6 +25,21 @@ describe('UsersService', () => {
     create: jest.fn(),
     save: jest.fn(),
   };
+  type MockManager = {
+    getRepository: jest.Mock;
+  };
+  const manager: MockManager = {
+    getRepository: jest.fn((entity: unknown) => {
+      if (entity === User) return usersRepository;
+      if (entity === Character) return charactersRepository;
+      return userCharactersRepository;
+    }),
+  };
+  const dataSource = {
+    transaction: jest.fn((callback: (manager: MockManager) => unknown) =>
+      callback(manager),
+    ),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -42,6 +58,7 @@ describe('UsersService', () => {
           provide: getRepositoryToken(UserCharacter),
           useValue: userCharactersRepository,
         },
+        { provide: DataSource, useValue: dataSource },
       ],
     }).compile();
 
@@ -61,8 +78,7 @@ describe('UsersService', () => {
     ).resolves.toBe(user);
     expect(usersRepository.create).not.toHaveBeenCalled();
     expect(usersRepository.save).not.toHaveBeenCalled();
-    expect(charactersRepository.find).not.toHaveBeenCalled();
-    expect(userCharactersRepository.save).not.toHaveBeenCalled();
+    expect(dataSource.transaction).not.toHaveBeenCalled();
   });
 
   it('기존 사용자가 없으면 이메일 앞부분을 기본 닉네임으로 생성한다', async () => {
@@ -80,6 +96,7 @@ describe('UsersService', () => {
     await expect(
       service.findOrCreateUser('firebase-uid', 'test@example.com'),
     ).resolves.toBe(savedUser);
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
     expect(usersRepository.create).toHaveBeenCalledWith(createdUser);
     expect(usersRepository.save).toHaveBeenCalledWith(createdUser);
   });
@@ -92,7 +109,7 @@ describe('UsersService', () => {
     };
     usersRepository.findOne.mockResolvedValue(null);
     usersRepository.create.mockReturnValue(createdUser);
-    usersRepository.save.mockResolvedValue(createdUser);
+    usersRepository.save.mockResolvedValue({ id: 1, ...createdUser });
     charactersRepository.find.mockResolvedValue([]);
 
     await service.findOrCreateUser(
@@ -104,7 +121,7 @@ describe('UsersService', () => {
     expect(usersRepository.create).toHaveBeenCalledWith(createdUser);
   });
 
-  it('신규 사용자 생성 시 common 공격/수비/버프 캐릭터 중 하나를 지급한다', async () => {
+  it('신규 사용자 생성과 기본 캐릭터 지급을 하나의 트랜잭션으로 처리한다', async () => {
     jest.spyOn(Math, 'random').mockReturnValue(0);
     const createdUser = {
       firebase_uid: 'firebase-uid',
@@ -141,6 +158,7 @@ describe('UsersService', () => {
       service.findOrCreateUser('firebase-uid', 'test@example.com'),
     ).resolves.toBe(savedUser);
 
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
     expect(charactersRepository.find).toHaveBeenCalledTimes(1);
     expect(userCharactersRepository.create).toHaveBeenCalledWith({
       user_id: 1,

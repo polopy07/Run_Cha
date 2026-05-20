@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Territory } from '../territories/entities/territory.entity';
 import { User } from '../users/entities/user.entity';
 import { CharacterGrade, CharacterType } from './entities/character.entity';
@@ -19,6 +19,7 @@ const MAX_LEVEL_BY_GRADE: Record<CharacterGrade, number> = {
 };
 
 const UPGRADE_BASE_COST = 100;
+const UPGRADE_MAX_COST = 5000;
 
 type StatLevelColumn = 'attack_lv' | 'defense_lv' | 'speed_lv' | 'point_lv';
 
@@ -34,10 +35,9 @@ export class CharactersService {
   constructor(
     @InjectRepository(UserCharacter)
     private readonly userCharactersRepository: Repository<UserCharacter>,
-    @InjectRepository(User)
-    private readonly usersRepository: Repository<User>,
     @InjectRepository(Territory)
     private readonly territoriesRepository: Repository<Territory>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async findMine(userId: number) {
@@ -53,47 +53,56 @@ export class CharactersService {
   }
 
   async upgrade(userId: number, userCharacterId: number, stat: UpgradeStat) {
-    const userCharacter = await this.userCharactersRepository.findOne({
-      where: { id: userCharacterId, user_id: userId },
-      relations: { character: true },
+    return this.dataSource.transaction(async (manager) => {
+      const userCharactersRepository = manager.getRepository(UserCharacter);
+      const usersRepository = manager.getRepository(User);
+
+      const userCharacter = await userCharactersRepository.findOne({
+        where: { id: userCharacterId, user_id: userId },
+        relations: { character: true },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!userCharacter) {
+        throw new NotFoundException('보유 캐릭터를 찾을 수 없습니다.');
+      }
+
+      const levelColumn: StatLevelColumn = STAT_LEVEL_COLUMN[stat];
+      const currentLevel = userCharacter[levelColumn];
+      const maxLevel = MAX_LEVEL_BY_GRADE[userCharacter.character.grade];
+
+      if (currentLevel >= maxLevel) {
+        throw new BadRequestException('이미 최대 레벨입니다.');
+      }
+
+      const user = await usersRepository.findOne({
+        where: { id: userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!user) {
+        throw new NotFoundException('사용자를 찾을 수 없습니다.');
+      }
+
+      const cost = this.calculateUpgradeCost(currentLevel);
+
+      if (user.points < cost) {
+        throw new BadRequestException('포인트가 부족합니다.');
+      }
+
+      user.points -= cost;
+      userCharacter[levelColumn] = currentLevel + 1;
+
+      await usersRepository.save(user);
+      await userCharactersRepository.save(userCharacter);
+
+      return {
+        id: userCharacter.id,
+        upgradedStat: stat,
+        newLevel: currentLevel + 1,
+        remainingPoints: user.points,
+      };
     });
-
-    if (!userCharacter) {
-      throw new NotFoundException('보유 캐릭터를 찾을 수 없습니다.');
-    }
-
-    const levelColumn: StatLevelColumn = STAT_LEVEL_COLUMN[stat];
-    const currentLevel = userCharacter[levelColumn];
-    const maxLevel = MAX_LEVEL_BY_GRADE[userCharacter.character.grade];
-
-    if (currentLevel >= maxLevel) {
-      throw new BadRequestException('이미 최대 레벨입니다.');
-    }
-
-    const user = await this.usersRepository.findOne({ where: { id: userId } });
-
-    if (!user) {
-      throw new NotFoundException('사용자를 찾을 수 없습니다.');
-    }
-
-    const cost = this.calculateUpgradeCost(currentLevel);
-
-    if (user.points < cost) {
-      throw new BadRequestException('포인트가 부족합니다.');
-    }
-
-    user.points -= cost;
-    userCharacter[levelColumn] = currentLevel + 1;
-
-    await this.usersRepository.save(user);
-    await this.userCharactersRepository.save(userCharacter);
-
-    return {
-      id: userCharacter.id,
-      upgradedStat: stat,
-      newLevel: currentLevel + 1,
-      remainingPoints: user.points,
-    };
   }
 
   async deploy(
@@ -128,6 +137,14 @@ export class CharactersService {
       if (!territory) {
         throw new NotFoundException('배치할 영토를 찾을 수 없습니다.');
       }
+
+      const existing = await this.userCharactersRepository.findOne({
+        where: { user_id: userId, deployed_territory_id: territoryId },
+      });
+
+      if (existing && existing.id !== userCharacter.id) {
+        throw new BadRequestException('이미 캐릭터가 배치된 영토입니다.');
+      }
     }
 
     userCharacter.deployed_territory_id = territoryId;
@@ -137,7 +154,9 @@ export class CharactersService {
   }
 
   private calculateUpgradeCost(currentLevel: number) {
-    return Math.floor(UPGRADE_BASE_COST * 1.5 ** currentLevel);
+    const cost = Math.floor(UPGRADE_BASE_COST * 1.5 ** currentLevel);
+
+    return Math.min(cost, UPGRADE_MAX_COST);
   }
 
   private toUserCharacterResponse(userCharacter: UserCharacter) {
