@@ -21,6 +21,7 @@ const DRAW_COST: Record<1 | 10, number> = {
 };
 
 const LEGENDARY_PITY_THRESHOLD = 99;
+const CHARACTER_CACHE_TTL_MS = 5 * 60 * 1000;
 
 type GachaResult = {
   characterId: number;
@@ -34,6 +35,7 @@ type GachaResult = {
 @Injectable()
 export class GachaService {
   private characterCache: Character[] | null = null;
+  private characterCacheExpiresAt = 0;
 
   constructor(
     @InjectRepository(Character)
@@ -83,6 +85,7 @@ export class GachaService {
 
       for (let i = 0; i < count; i += 1) {
         const isGuaranteed = pityCount >= LEGENDARY_PITY_THRESHOLD;
+        const pityCountBeforeDraw = pityCount;
         const grade = isGuaranteed
           ? CharacterGrade.LEGENDARY
           : this.pickGrade();
@@ -100,7 +103,7 @@ export class GachaService {
           user_id: userId,
           result_character_id: character.id,
           is_guaranteed: isGuaranteed,
-          pity_count: pityCount,
+          pity_count: pityCountBeforeDraw,
         });
         ownedCharacterIds.add(character.id);
 
@@ -129,8 +132,11 @@ export class GachaService {
   }
 
   private async getCharacters() {
-    if (!this.characterCache) {
+    const now = Date.now();
+
+    if (!this.characterCache || now >= this.characterCacheExpiresAt) {
       this.characterCache = await this.charactersRepository.find();
+      this.characterCacheExpiresAt = now + CHARACTER_CACHE_TTL_MS;
     }
 
     return this.characterCache;

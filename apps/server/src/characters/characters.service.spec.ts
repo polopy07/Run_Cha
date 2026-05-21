@@ -51,6 +51,7 @@ describe('CharactersService', () => {
     const manager: MockManager = {
       getRepository: jest.fn((entity: unknown) => {
         if (entity === User) return usersRepository;
+        if (entity === Territory) return territoriesRepository;
         return userCharactersRepository;
       }),
     };
@@ -184,10 +185,13 @@ describe('CharactersService', () => {
     );
     expect(territoriesRepository.findOne).toHaveBeenCalledWith({
       where: { id: 7, user_id: 1 },
+      lock: { mode: 'pessimistic_write' },
     });
     expect(userCharactersRepository.findOne).toHaveBeenLastCalledWith({
       where: { user_id: 1, deployed_territory_id: 7 },
+      lock: { mode: 'pessimistic_write' },
     });
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
   });
 
   it('rejects duplicate deployment to the same territory', async () => {

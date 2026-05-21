@@ -122,7 +122,7 @@ describe('GachaService', () => {
         user_id: 1,
         result_character_id: 1,
         is_guaranteed: false,
-        pity_count: 1,
+        pity_count: 0,
       }),
     ]);
     expect(usersRepository.save).toHaveBeenCalledWith(
@@ -142,6 +142,12 @@ describe('GachaService', () => {
     expect(gachaLogsRepository.insert).toHaveBeenCalledTimes(1);
     expect(userCharactersRepository.insert.mock.calls[0][0]).toHaveLength(10);
     expect(gachaLogsRepository.insert.mock.calls[0][0]).toHaveLength(10);
+    expect(gachaLogsRepository.insert.mock.calls[0][0]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ pity_count: 0 }),
+        expect.objectContaining({ pity_count: 9 }),
+      ]),
+    );
   });
 
   it('천장 조건이면 전설 캐릭터를 확정 지급하고 pityCount를 초기화한다', async () => {

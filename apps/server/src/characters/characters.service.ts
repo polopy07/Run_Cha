@@ -20,6 +20,9 @@ const MAX_LEVEL_BY_GRADE: Record<CharacterGrade, number> = {
 
 const UPGRADE_BASE_COST = 100;
 const UPGRADE_MAX_COST = 5000;
+const UPGRADE_MAX_COST_START_LEVEL = Math.ceil(
+  Math.log(UPGRADE_MAX_COST / UPGRADE_BASE_COST) / Math.log(1.5),
+);
 
 type StatLevelColumn = 'attack_lv' | 'defense_lv' | 'speed_lv' | 'point_lv';
 
@@ -35,8 +38,6 @@ export class CharactersService {
   constructor(
     @InjectRepository(UserCharacter)
     private readonly userCharactersRepository: Repository<UserCharacter>,
-    @InjectRepository(Territory)
-    private readonly territoriesRepository: Repository<Territory>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -110,50 +111,62 @@ export class CharactersService {
     userCharacterId: number,
     territoryId: number | null,
   ) {
-    const userCharacter = await this.userCharactersRepository.findOne({
-      where: { id: userCharacterId, user_id: userId },
-      relations: { character: true },
+    return this.dataSource.transaction(async (manager) => {
+      const userCharactersRepository = manager.getRepository(UserCharacter);
+      const territoriesRepository = manager.getRepository(Territory);
+
+      const userCharacter = await userCharactersRepository.findOne({
+        where: { id: userCharacterId, user_id: userId },
+        relations: { character: true },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!userCharacter) {
+        throw new NotFoundException('보유 캐릭터를 찾을 수 없습니다.');
+      }
+
+      if (
+        ![CharacterType.DEFENSE, CharacterType.BUFF].includes(
+          userCharacter.character.type,
+        )
+      ) {
+        throw new BadRequestException(
+          '수비형 또는 버프형 캐릭터만 영토에 배치할 수 있습니다.',
+        );
+      }
+
+      if (territoryId !== null) {
+        const territory = await territoriesRepository.findOne({
+          where: { id: territoryId, user_id: userId },
+          lock: { mode: 'pessimistic_write' },
+        });
+
+        if (!territory) {
+          throw new NotFoundException('배치할 영토를 찾을 수 없습니다.');
+        }
+
+        const existing = await userCharactersRepository.findOne({
+          where: { user_id: userId, deployed_territory_id: territoryId },
+          lock: { mode: 'pessimistic_write' },
+        });
+
+        if (existing && existing.id !== userCharacter.id) {
+          throw new BadRequestException('이미 캐릭터가 배치된 영토입니다.');
+        }
+      }
+
+      userCharacter.deployed_territory_id = territoryId;
+      await userCharactersRepository.save(userCharacter);
+
+      return this.toUserCharacterResponse(userCharacter);
     });
-
-    if (!userCharacter) {
-      throw new NotFoundException('보유 캐릭터를 찾을 수 없습니다.');
-    }
-
-    if (
-      ![CharacterType.DEFENSE, CharacterType.BUFF].includes(
-        userCharacter.character.type,
-      )
-    ) {
-      throw new BadRequestException(
-        '수비형 또는 버프형 캐릭터만 영토에 배치할 수 있습니다.',
-      );
-    }
-
-    if (territoryId !== null) {
-      const territory = await this.territoriesRepository.findOne({
-        where: { id: territoryId, user_id: userId },
-      });
-
-      if (!territory) {
-        throw new NotFoundException('배치할 영토를 찾을 수 없습니다.');
-      }
-
-      const existing = await this.userCharactersRepository.findOne({
-        where: { user_id: userId, deployed_territory_id: territoryId },
-      });
-
-      if (existing && existing.id !== userCharacter.id) {
-        throw new BadRequestException('이미 캐릭터가 배치된 영토입니다.');
-      }
-    }
-
-    userCharacter.deployed_territory_id = territoryId;
-    await this.userCharactersRepository.save(userCharacter);
-
-    return this.toUserCharacterResponse(userCharacter);
   }
 
   private calculateUpgradeCost(currentLevel: number) {
+    if (currentLevel >= UPGRADE_MAX_COST_START_LEVEL) {
+      return UPGRADE_MAX_COST;
+    }
+
     const cost = Math.floor(UPGRADE_BASE_COST * 1.5 ** currentLevel);
 
     return Math.min(cost, UPGRADE_MAX_COST);

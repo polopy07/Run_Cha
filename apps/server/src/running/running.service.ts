@@ -1,10 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource } from 'typeorm';
 import * as turf from '@turf/turf';
 import { RunningLog } from './entities/running-log.entity';
 import { User } from '../users/entities/user.entity';
-import { TerritoriesService } from '../territories/territories.service';
+import { Territory } from '../territories/entities/territory.entity';
 import { FinishRunningDto } from './dto/finish-running.dto';
 
 const PACE_MULTIPLIER: Record<string, number> = {
@@ -19,13 +18,7 @@ const MAX_VALID_SPEED_KMH = 20;
 
 @Injectable()
 export class RunningService {
-  constructor(
-    @InjectRepository(RunningLog)
-    private readonly runningLogRepo: Repository<RunningLog>,
-    @InjectRepository(User)
-    private readonly userRepo: Repository<User>,
-    private readonly territoriesService: TerritoriesService,
-  ) {}
+  constructor(private readonly dataSource: DataSource) {}
 
   async finish(userId: number, dto: FinishRunningDto) {
     const { path } = dto;
@@ -52,31 +45,50 @@ export class RunningService {
       ? Math.floor((area_sqm / 100) * paceMultiplier)
       : 0;
 
-    const log = this.runningLogRepo.create({
-      user_id: userId,
-      path,
-      distance_km: distanceKm,
-      earned_points,
-      area_sqm,
-      avg_pace: avgPace,
-      started_at: startedAt,
-      ended_at: endedAt,
-    });
-    const savedLog = await this.runningLogRepo.save(log);
+    const { savedLog, territory } = await this.dataSource.transaction(
+      async (manager) => {
+        const log = manager.create(RunningLog, {
+          user_id: userId,
+          path,
+          distance_km: distanceKm,
+          earned_points,
+          area_sqm,
+          avg_pace: avgPace,
+          started_at: startedAt,
+          ended_at: endedAt,
+        });
+        const savedLog = await manager.save(log);
 
-    await this.userRepo.increment({ id: userId }, 'total_distance', distanceKm);
-    if (earned_points > 0) {
-      await this.userRepo.increment({ id: userId }, 'points', earned_points);
-    }
+        await manager.increment(
+          User,
+          { id: userId },
+          'total_distance',
+          distanceKm,
+        );
+        if (earned_points > 0) {
+          await manager.increment(
+            User,
+            { id: userId },
+            'points',
+            earned_points,
+          );
+        }
 
-    const territory =
-      area_sqm > 0
-        ? await this.territoriesService.registerTerritory(
-            userId,
-            path,
-            area_sqm,
-          )
-        : null;
+        const territory =
+          area_sqm > 0
+            ? await manager.save(
+                manager.create(Territory, {
+                  user_id: userId,
+                  coordinates: path,
+                  area_sqm,
+                  occupation_rate: 100,
+                }),
+              )
+            : null;
+
+        return { savedLog, territory };
+      },
+    );
 
     return {
       log: savedLog,
