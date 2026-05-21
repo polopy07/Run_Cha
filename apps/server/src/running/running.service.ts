@@ -13,6 +13,11 @@ const PACE_MULTIPLIER: Record<string, number> = {
   fast_run: 1.2,
 };
 
+const DISTANCE_POINT_RATE = 100;
+const NON_CLOSED_BONUS_MULTIPLIER = 1.3;
+const DISTANCE_BONUS_BASE = 1.1;
+const DISTANCE_BONUS_CAP = 3.0;
+
 const MIN_VALID_SPEED_KMH = 4;
 const MAX_VALID_SPEED_KMH = 20;
 
@@ -24,6 +29,14 @@ export class RunningService {
     const { path } = dto;
     const endedAt = new Date();
     const startedAt = new Date(dto.started_at);
+
+    if (startedAt > endedAt) {
+      throw new BadRequestException('유효하지 않은 시작 시간입니다.');
+    }
+    if (endedAt.getTime() - startedAt.getTime() > 24 * 60 * 60 * 1000) {
+      throw new BadRequestException('유효하지 않은 시작 시간입니다.');
+    }
+
     const durationHours =
       (endedAt.getTime() - startedAt.getTime()) / (1000 * 60 * 60);
 
@@ -41,9 +54,16 @@ export class RunningService {
     const speedValid = this.isValidSpeed(avgSpeedKmh);
     const paceMultiplier = speedValid ? this.getPaceMultiplier(avgPace) : 0;
     const area_sqm = closed ? this.calculateArea(path) : 0;
+    const distanceMultiplier = Math.min(
+      Math.pow(DISTANCE_BONUS_BASE, distanceKm),
+      DISTANCE_BONUS_CAP,
+    );
+    const basePoints = Math.floor(
+      distanceKm * DISTANCE_POINT_RATE * paceMultiplier * distanceMultiplier,
+    );
     const earned_points = closed
-      ? Math.floor((area_sqm / 100) * paceMultiplier)
-      : 0;
+      ? basePoints
+      : Math.floor(basePoints * NON_CLOSED_BONUS_MULTIPLIER);
 
     const { savedLog, territory } = await this.dataSource.transaction(
       async (manager) => {
@@ -111,7 +131,10 @@ export class RunningService {
     if (path.length < 3) return 0;
 
     const coords = path.map((p) => [p.lng, p.lat] as [number, number]);
-    if (coords[0][0] !== coords[coords.length - 1][0]) {
+    if (
+      coords[0][0] !== coords[coords.length - 1][0] ||
+      coords[0][1] !== coords[coords.length - 1][1]
+    ) {
       coords.push(coords[0]);
     }
 

@@ -137,7 +137,11 @@ describe('RunningService', () => {
             createFinishDto(CLOSED_LOOP, pace),
           );
 
-          const expected = Math.floor((result.area_sqm / 100) * multiplier);
+          const distKm = calculateDistanceKm(CLOSED_LOOP);
+          const distMultiplier = Math.min(Math.pow(1.1, distKm), 3.0);
+          const expected = Math.floor(
+            distKm * 100 * multiplier * distMultiplier,
+          );
           expect(result.earned_points).toBe(expected);
         },
       );
