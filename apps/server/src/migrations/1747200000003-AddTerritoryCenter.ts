@@ -9,9 +9,15 @@ export class AddTerritoryCenter1747200000003 implements MigrationInterface {
     `);
 
     await queryRunner.query(`
-      UPDATE territories
-        SET center_lat = JSON_UNQUOTE(JSON_EXTRACT(coordinates, '$[0].lat')),
-            center_lng = JSON_UNQUOTE(JSON_EXTRACT(coordinates, '$[0].lng'));
+      UPDATE territories t
+        SET center_lat = (
+              SELECT AVG(j.lat)
+              FROM JSON_TABLE(t.coordinates, '$[*]' COLUMNS(lat DOUBLE PATH '$.lat')) AS j
+            ),
+            center_lng = (
+              SELECT AVG(j.lng)
+              FROM JSON_TABLE(t.coordinates, '$[*]' COLUMNS(lng DOUBLE PATH '$.lng')) AS j
+            );
     `);
 
     await queryRunner.query(`
