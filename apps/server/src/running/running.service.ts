@@ -91,6 +91,7 @@ export class RunningService {
           await manager.increment(User, { id: userId }, 'points', earned_points);
         }
 
+        const center = this.calcCenter(path);
         const territory =
           area_sqm > 0
             ? await manager.save(
@@ -99,6 +100,8 @@ export class RunningService {
                   coordinates: path,
                   area_sqm: area_sqm,
                   occupation_rate: 100,
+                  center_lat: center.lat,
+                  center_lng: center.lng,
                 }),
               )
             : null;
@@ -147,6 +150,12 @@ export class RunningService {
       path[path.length - 1].lat,
     ]);
     return turf.distance(start, end, { units: 'meters' }) <= 50;
+  }
+
+  private calcCenter(path: { lat: number; lng: number }[]): { lat: number; lng: number } {
+    const lat = path.reduce((sum, p) => sum + p.lat, 0) / path.length;
+    const lng = path.reduce((sum, p) => sum + p.lng, 0) / path.length;
+    return { lat, lng };
   }
 
   private isValidSpeed(speedKmh: number): boolean {

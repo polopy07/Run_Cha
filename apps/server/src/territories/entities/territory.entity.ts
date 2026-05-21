@@ -25,6 +25,12 @@ export class Territory {
   @Column({ default: 100 })
   occupation_rate: number;
 
+  @Column({ type: 'double' })
+  center_lat: number;
+
+  @Column({ type: 'double' })
+  center_lng: number;
+
   @UpdateDateColumn()
   last_active_at: Date;
 
