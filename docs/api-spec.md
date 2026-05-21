@@ -410,6 +410,13 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
+| rankings | AreaRankEntry[] | 전체 면적 랭킹 목록 |
+| myRank | AreaRankEntry \| null | 내 면적 순위. 비로그인 또는 기록이 없으면 `null` |
+
+#### AreaRankEntry
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
 | rank | number | 순위 |
 | userId | number | 사용자 ID |
 | nickname | string | 사용자 닉네임 |
@@ -418,6 +425,13 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 ### GET `/ranking/distance`
 
 #### Response
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| rankings | DistanceRankEntry[] | 전체 거리 랭킹 목록 |
+| myRank | DistanceRankEntry \| null | 내 거리 순위. 비로그인 또는 기록이 없으면 `null` |
+
+#### DistanceRankEntry
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
