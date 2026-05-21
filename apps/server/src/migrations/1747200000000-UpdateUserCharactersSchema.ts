@@ -15,6 +15,7 @@ export class UpdateUserCharactersSchema1747200000000
     await queryRunner.query(`
       ALTER TABLE user_characters
         ADD COLUMN deployed_territory_id INT NULL,
+        ADD INDEX IDX_user_characters_deployed_territory (deployed_territory_id),
         ADD CONSTRAINT FK_user_characters_territory
           FOREIGN KEY (deployed_territory_id) REFERENCES territories (id)
           ON DELETE SET NULL
@@ -24,6 +25,10 @@ export class UpdateUserCharactersSchema1747200000000
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
       `ALTER TABLE user_characters DROP FOREIGN KEY FK_user_characters_territory`,
+    );
+
+    await queryRunner.query(
+      `ALTER TABLE user_characters DROP INDEX IDX_user_characters_deployed_territory`,
     );
 
     await queryRunner.query(

@@ -1,6 +1,7 @@
 import {
   Column,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -9,6 +10,7 @@ import { User } from '../../users/entities/user.entity';
 import { Character } from './character.entity';
 import { Territory } from '../../territories/entities/territory.entity';
 
+@Index('IDX_user_characters_deployed_territory', ['deployed_territory_id'])
 @Entity('user_characters')
 export class UserCharacter {
   @PrimaryGeneratedColumn()
