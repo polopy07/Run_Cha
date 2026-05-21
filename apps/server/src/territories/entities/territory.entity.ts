@@ -1,6 +1,7 @@
 import {
   Column,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -8,6 +9,7 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 
+@Index('IDX_territories_center', ['center_lat', 'center_lng'])
 @Entity('territories')
 export class Territory {
   @PrimaryGeneratedColumn()
@@ -22,6 +24,7 @@ export class Territory {
   @Column({ type: 'float' })
   area_sqm: number;
 
+  @Index('IDX_territories_occupation_rate')
   @Column({ default: 100 })
   occupation_rate: number;
 
@@ -31,6 +34,7 @@ export class Territory {
   @Column({ type: 'double' })
   center_lng: number;
 
+  @Index('IDX_territories_last_active_at')
   @UpdateDateColumn()
   last_active_at: Date;
 
