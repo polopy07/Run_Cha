@@ -10,14 +10,23 @@ export class AddTerritoryCenter1747200000003 implements MigrationInterface {
 
     await queryRunner.query(`
       UPDATE territories t
-        SET center_lat = (
-              SELECT AVG(j.lat)
-              FROM JSON_TABLE(t.coordinates, '$[*]' COLUMNS(lat DOUBLE PATH '$.lat')) AS j
-            ),
-            center_lng = (
-              SELECT AVG(j.lng)
-              FROM JSON_TABLE(t.coordinates, '$[*]' COLUMNS(lng DOUBLE PATH '$.lng')) AS j
-            );
+      INNER JOIN (
+        SELECT
+          t2.id,
+          AVG(jt.lat) AS avg_lat,
+          AVG(jt.lng) AS avg_lng
+        FROM territories t2
+        CROSS JOIN JSON_TABLE(
+          t2.coordinates,
+          '$[*]' COLUMNS (
+            lat DOUBLE PATH '$.lat',
+            lng DOUBLE PATH '$.lng'
+          )
+        ) AS jt
+        GROUP BY t2.id
+      ) AS calc ON t.id = calc.id
+      SET t.center_lat = calc.avg_lat,
+          t.center_lng = calc.avg_lng;
     `);
 
     await queryRunner.query(`
