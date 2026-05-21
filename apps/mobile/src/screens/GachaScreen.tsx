@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { drawGacha } from '../api/gacha';
 import useCharacterStore from '../store/characterStore';
+import useAuthStore from '../store/authStore';
 
 type GachaResult = {
   characterId: number;
@@ -47,9 +48,16 @@ export function GachaScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { fetchCharacters } = useCharacterStore();
+  const user = useAuthStore(s => s.user);
   const [isDrawing, setIsDrawing] = useState(false);
   const [results, setResults] = useState<GachaResult[] | null>(null);
   const [remainingPoints, setRemainingPoints] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (user?.points != null) {
+      setRemainingPoints(user.points);
+    }
+  }, [user?.points]);
 
   const handleDraw = async (count: 1 | 10) => {
     setIsDrawing(true);
@@ -61,8 +69,9 @@ export function GachaScreen() {
         setRemainingPoints(data.remainingPoints);
       }
       await fetchCharacters();
-    } catch {
-      Alert.alert('뽑기 실패', '포인트가 부족하거나 서버 오류가 발생했습니다.');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : '서버 오류가 발생했습니다.';
+      Alert.alert('뽑기 실패', msg);
     } finally {
       setIsDrawing(false);
     }
@@ -94,7 +103,7 @@ export function GachaScreen() {
         ) : results ? (
           <ScrollView contentContainerStyle={styles.resultGrid}>
             {results.map((r, i) => (
-              <View key={i} style={[styles.resultCard, { borderColor: GRADE_COLOR[r.grade] }]}>
+              <View key={`${r.characterId}-${i}`} style={[styles.resultCard, { borderColor: GRADE_COLOR[r.grade] }]}>
                 {r.isNew && <Text style={styles.newBadge}>NEW</Text>}
                 {r.isGuaranteed && <Text style={styles.guaranteeBadge}>천장</Text>}
                 <Text style={styles.resultIcon}>{TYPE_ICON[r.type] || '👤'}</Text>
