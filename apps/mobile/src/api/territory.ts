@@ -7,6 +7,15 @@ export interface TerritoryBounds {
   maxLng: number;
 }
 
+export type Territory = {
+  id: number;
+  userId: number;
+  coordinates: { lat: number; lng: number }[];
+  areaSqm: number;
+  occupationRate: number;
+  lastActiveAt?: string;
+};
+
 export async function getTerritories(bounds: TerritoryBounds) {
   const params = new URLSearchParams({
     minLat: String(bounds.minLat),
@@ -15,4 +24,8 @@ export async function getTerritories(bounds: TerritoryBounds) {
     maxLng: String(bounds.maxLng),
   });
   return apiFetch(`/territories?${params}`);
+}
+
+export async function getMyTerritories() {
+  return apiFetch<Territory[]>('/territories/me');
 }

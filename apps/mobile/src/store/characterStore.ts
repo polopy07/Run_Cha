@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { apiFetch } from '../api/client';
+import { getCharacters } from '../api/character';
 
 export type Character = {
   id: number;
@@ -30,7 +30,7 @@ const useCharacterStore = create<CharacterState>((set, get) => ({
   fetchCharacters: async () => {
     set({ isLoading: true });
     try {
-      const data = await apiFetch<Character[]>('/characters/me');
+      const data = await getCharacters();
       set({ characters: data });
     } finally {
       set({ isLoading: false });

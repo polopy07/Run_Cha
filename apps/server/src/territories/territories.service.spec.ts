@@ -46,6 +46,44 @@ describe('TerritoriesService', () => {
     service = module.get<TerritoriesService>(TerritoriesService);
   });
 
+  describe('findMine', () => {
+    it('returns territories owned by the current user', async () => {
+      const territory = makeTerritory(37.5, 127.0);
+      mockRepo.find.mockResolvedValue([territory]);
+
+      const result = await service.findMine(1);
+
+      expect(mockRepo.find).toHaveBeenCalledWith({
+        where: { user_id: 1 },
+        order: { id: 'ASC' },
+        select: {
+          id: true,
+          user_id: true,
+          coordinates: true,
+          area_sqm: true,
+          occupation_rate: true,
+          last_active_at: true,
+        },
+      });
+      expect(result).toEqual([
+        {
+          id: territory.id,
+          userId: territory.user_id,
+          coordinates: territory.coordinates,
+          areaSqm: territory.area_sqm,
+          occupationRate: territory.occupation_rate,
+          lastActiveAt: territory.last_active_at,
+        },
+      ]);
+    });
+
+    it('returns an empty array when the user has no territories', async () => {
+      mockRepo.find.mockResolvedValue([]);
+
+      await expect(service.findMine(1)).resolves.toEqual([]);
+    });
+  });
+
   describe('findInBounds', () => {
     it('바운딩 박스 안의 영토를 반환한다', async () => {
       mockRepo.find.mockResolvedValue([
