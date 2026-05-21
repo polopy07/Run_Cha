@@ -96,7 +96,7 @@ apps/server/src/common
 - 캐릭터 데이터 저장
 - 사용자 보유 캐릭터 저장
 - 가챠 로그 저장
-- 캐릭터 배치 정보 저장
+- 사용자 보유 캐릭터의 영토별 배치 정보 저장
 - 침략 기록 및 쿨타임 정보 저장. 확정 후 테이블 설계 필요
 
 주요 테이블:
@@ -109,8 +109,9 @@ apps/server/src/common
 | user_characters | 사용자 보유 캐릭터 |
 | running_log | 러닝 기록 |
 | gacha_log | 가챠 기록 |
-| character_deployments | 캐릭터 배치 정보. 테이블 필요 여부 확정 필요 |
 | territory_attacks | 영토 침략 기록/쿨타임. 테이블 필요 여부 확정 필요 |
+
+캐릭터 배치는 별도 테이블을 만들지 않고 `user_characters.deployed_territory_id`로 저장한다. `deployed_territory_id`가 `NULL`이면 미배치, 값이 있으면 해당 영토에 배치된 상태로 판단한다.
 
 ### 2.4 Firebase Auth
 
@@ -176,7 +177,8 @@ Firebase ID Token은 로그인 검증 단계에서만 사용하고, 이후 보�
 5. 서버가 Firebase Admin SDK로 토큰 검증
 6. 서버가 users 테이블에서 사용자 조회
 7. 없으면 사용자 생성
-8. 서버가 accessToken과 사용자 정보를 응답
+8. 신규 사용자라면 common 등급 공격형/수비형/버프형 캐릭터 중 1개를 랜덤 지급
+9. 서버가 accessToken과 사용자 정보를 응답
 ```
 
 ### 3.2 러닝 종료 흐름
@@ -201,14 +203,19 @@ Firebase ID Token은 로그인 검증 단계에서만 사용하고, 이후 보�
 ### 3.3 포인트 계산 흐름
 
 ```text
-path + started_at -> serverAvgSpeed/serverAvgPace -> paceMultiplier -> areaSqm -> earnedPoints
+path + started_at -> distanceKm/serverAvgSpeed/serverAvgPace -> paceMultiplier/distanceMultiplier -> earnedPoints
 ```
 
 공식:
 
 ```ts
-Math.floor(areaSqm / 100 * paceMultiplier)
+const basePoints = Math.floor(distanceKm * 100 * paceMultiplier * distanceMultiplier);
+const earnedPoints = isClosedLoop ? basePoints : Math.floor(basePoints * 1.3);
 ```
+
+- `distanceKm`는 서버가 `path` 좌표로 계산한다.
+- `distanceMultiplier`는 장거리 러닝 보정값이며 현재 구현 기준 `Math.min(1.1 ** distanceKm, 3.0)`을 사용한다.
+- 폐곡선이 아닌 러닝은 영토를 생성하지 않고 즉시 보상에 1.3배를 적용한다.
 
 ### 3.4 가챠 흐름
 
@@ -221,6 +228,13 @@ Math.floor(areaSqm / 100 * paceMultiplier)
 6. 서버가 results와 remainingPoints 응답
 ```
 
+현재 구현 기준:
+
+- 가챠 비용은 1회 100 포인트, 10회 900 포인트다.
+- 가챠 확률은 common 60%, rare 30%, epic 9%, legendary 1%다.
+- 천장은 100회차 legendary 보장으로 처리한다.
+- 캐릭터 강화 비용은 `Math.min(Math.floor(100 * 1.5 ** currentLevel), 5000)`을 사용한다.
+
 ### 3.5 캐릭터 배치 흐름
 
 ```text
@@ -229,14 +243,17 @@ Math.floor(areaSqm / 100 * paceMultiplier)
 3. 앱이 배치할 사용자 영토를 선택
 4. 앱이 PATCH /characters/:id/deploy 호출
 5. 서버가 캐릭터 소유자와 영토 소유자가 같은지 검증
-6. 서버가 배치 상태와 territory_id를 저장
+6. 서버가 `user_characters.deployed_territory_id`를 저장
 7. 이후 침략 방어 또는 자연 감소 스케줄러에서 배치 효과를 참조
 ```
 
-배치 스펙 결정 필요:
+배치 기준:
 
-- 단순 `is_deployed` 토글만 사용할지, `territory_id`로 특정 영토를 지정할지 확정해야 한다.
-- 버프형 캐릭터가 자연 감소 스케줄러에 영향을 주는지 확정해야 한다.
+- 배치 요청 본문은 `{ territory_id: number | null }`을 사용한다.
+- `territory_id`가 `null`이면 배치 해제다.
+- 배치 가능 캐릭터 타입은 수비형/버프형이다.
+- 배치 여부는 `deployed_territory_id IS NOT NULL`로 파생한다.
+- 버프형/수비형 캐릭터가 침략 계산과 자연 감소 스케줄러에 주는 영향 공식은 후속 구현에서 확정한다.
 
 ### 3.6 영토 침략 흐름
 
@@ -254,7 +271,7 @@ Math.floor(areaSqm / 100 * paceMultiplier)
 11. 서버가 침략 결과, 다음 가능 시각, 남은 횟수를 응답
 ```
 
-공격/방어 계산 공식, 쿨타임 저장 방식, 하루 5회 제한 저장 방식은 구현 전 확정이 필요하다.
+공격/방어 계산 공식, 쿨타임 저장 방식, 하루 5회 제한 저장 방식, 새 영토의 약 5분 침략 보호 시간 저장 방식은 구현 전 확정이 필요하다.
 
 ---
 
@@ -265,5 +282,7 @@ Math.floor(areaSqm / 100 * paceMultiplier)
 - 영토 폐곡선 기준은 시작점-종료점 50m 이내로 통일한다.
 - 침략 가능 기준은 대상 영토 면적의 30% 이상을 직접 러닝으로 겹쳐야 한다.
 - 캐릭터 배치가 스케줄러에 영향을 주는 경우 배치 데이터와 자연 감소 로직을 함께 갱신한다.
+- 영토 점령률은 시간이 지나면 반드시 감소하며, 사용자가 요구량만큼 직접 러닝한 경우 일정 기간 동안 감소량을 줄이는 구조를 전제로 한다.
+- 장시간 연속 러닝은 보상 보정이 증가할 수 있으며, 짧게 끊어 달리는 보상 악용을 줄이는 방향으로 공식 확정이 필요하다.
 - `.env`, Firebase Admin 서비스 키, API Key는 저장소에 포함하지 않는다.
 - Firebase ID Token은 `/auth/login`에서만 사용하고, 이후 보호 API는 서버 JWT를 사용한다.
