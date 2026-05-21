@@ -7,8 +7,8 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
-import { Character } from './character.entity';
 import { Territory } from '../../territories/entities/territory.entity';
+import { Character } from './character.entity';
 
 @Index('IDX_user_characters_deployed_territory', ['deployed_territory_id'])
 @Entity('user_characters')

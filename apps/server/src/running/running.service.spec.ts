@@ -1,6 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import * as turf from '@turf/turf';
 import { RunningService } from './running.service';
@@ -47,36 +46,37 @@ function createFinishDto(
 
 describe('RunningService', () => {
   let service: RunningService;
-
-  const mockEntityManager = {
-    create: jest.fn((_entity: unknown, data: Record<string, unknown>) => data),
-    save: jest.fn((data: Record<string, unknown>) =>
-      Promise.resolve({ id: 1, ...data }),
-    ),
-    increment: jest.fn().mockResolvedValue(undefined),
-  };
-
-  const mockRunningLogRepo = {};
-  const mockUserRepo = {};
-
-  const mockDataSource = {
-    transaction: jest.fn(
-      async (cb: (em: typeof mockEntityManager) => Promise<unknown>) =>
-        cb(mockEntityManager),
-    ),
+  let dataSource: { transaction: jest.Mock };
+  let manager: {
+    create: jest.Mock;
+    save: jest.Mock;
+    increment: jest.Mock;
   };
 
   beforeEach(async () => {
     jest.clearAllMocks();
+
+    manager = {
+      create: jest.fn((entity: unknown, data: Record<string, unknown>) => ({
+        entity,
+        ...data,
+      })),
+      save: jest.fn((value: Record<string, unknown>) =>
+        Promise.resolve({ id: 1, ...value }),
+      ),
+      increment: jest.fn().mockResolvedValue(undefined),
+    };
+    dataSource = {
+      transaction: jest.fn(
+        (callback: (managerArg: typeof manager) => unknown) =>
+          callback(manager),
+      ),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RunningService,
-        {
-          provide: getRepositoryToken(RunningLog),
-          useValue: mockRunningLogRepo,
-        },
-        { provide: getRepositoryToken(User), useValue: mockUserRepo },
-        { provide: DataSource, useValue: mockDataSource },
+        { provide: DataSource, useValue: dataSource },
       ],
     }).compile();
     service = module.get<RunningService>(RunningService);
@@ -88,9 +88,14 @@ describe('RunningService', () => {
         const result = await service.finish(1, createFinishDto(CLOSED_LOOP));
 
         expect(result.territory).not.toBeNull();
-        expect(mockEntityManager.create).toHaveBeenCalledWith(
+        expect(manager.create).toHaveBeenCalledWith(
           Territory,
-          expect.objectContaining({ user_id: 1, occupation_rate: 100 }),
+          expect.objectContaining({
+            user_id: 1,
+            coordinates: CLOSED_LOOP,
+            area_sqm: expect.any(Number) as unknown,
+            occupation_rate: 100,
+          }),
         );
       });
 
@@ -98,9 +103,9 @@ describe('RunningService', () => {
         const result = await service.finish(1, createFinishDto(OPEN_PATH));
 
         expect(result.territory).toBeNull();
-        expect(mockEntityManager.create).not.toHaveBeenCalledWith(
+        expect(manager.create).not.toHaveBeenCalledWith(
           Territory,
-          expect.anything(),
+          expect.any(Object),
         );
       });
 
@@ -134,7 +139,9 @@ describe('RunningService', () => {
 
           const distKm = calculateDistanceKm(CLOSED_LOOP);
           const distMultiplier = Math.min(Math.pow(1.1, distKm), 3.0);
-          const expected = Math.floor(distKm * 100 * multiplier * distMultiplier);
+          const expected = Math.floor(
+            distKm * 100 * multiplier * distMultiplier,
+          );
           expect(result.earned_points).toBe(expected);
         },
       );
@@ -159,7 +166,7 @@ describe('RunningService', () => {
 
         await service.finish(1, dto);
 
-        expect(mockEntityManager.create).toHaveBeenCalledWith(
+        expect(manager.create).toHaveBeenCalledWith(
           RunningLog,
           expect.objectContaining({
             user_id: 1,
@@ -175,7 +182,28 @@ describe('RunningService', () => {
       it('생성 후 save를 호출한다', async () => {
         await service.finish(1, createFinishDto(OPEN_PATH));
 
-        expect(mockEntityManager.save).toHaveBeenCalled();
+        expect(manager.save).toHaveBeenCalledTimes(1);
+        expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+      });
+
+      it('포인트 증가와 영토 생성을 같은 트랜잭션에서 처리한다', async () => {
+        await service.finish(1, createFinishDto(CLOSED_LOOP));
+
+        expect(manager.increment).toHaveBeenCalledWith(
+          User,
+          { id: 1 },
+          'total_distance',
+          expect.any(Number),
+        );
+        expect(manager.increment).toHaveBeenCalledWith(
+          User,
+          { id: 1 },
+          'points',
+          expect.any(Number),
+        );
+        expect(manager.save).toHaveBeenCalledWith(
+          expect.objectContaining({ entity: Territory }),
+        );
       });
 
       it('시작 시간이 종료 시간 이후면 예외를 던진다', async () => {

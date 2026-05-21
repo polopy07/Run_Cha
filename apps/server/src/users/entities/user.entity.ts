@@ -37,6 +37,6 @@ export class User {
   @OneToMany(() => Territory, (territory) => territory.user)
   territories: Territory[];
 
-  @OneToMany(() => UserCharacter, (uc) => uc.user)
+  @OneToMany(() => UserCharacter, (userCharacter) => userCharacter.user)
   user_characters: UserCharacter[];
 }

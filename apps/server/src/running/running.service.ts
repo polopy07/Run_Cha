@@ -1,6 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource } from 'typeorm';
 import * as turf from '@turf/turf';
 import { RunningLog } from './entities/running-log.entity';
 import { User } from '../users/entities/user.entity';
@@ -24,13 +23,7 @@ const MAX_VALID_SPEED_KMH = 20;
 
 @Injectable()
 export class RunningService {
-  constructor(
-    @InjectRepository(RunningLog)
-    private readonly runningLogRepo: Repository<RunningLog>,
-    @InjectRepository(User)
-    private readonly userRepo: Repository<User>,
-    private readonly dataSource: DataSource,
-  ) {}
+  constructor(private readonly dataSource: DataSource) {}
 
   async finish(userId: number, dto: FinishRunningDto) {
     const { path } = dto;
@@ -86,9 +79,19 @@ export class RunningService {
         });
         const savedLog = await manager.save(log);
 
-        await manager.increment(User, { id: userId }, 'total_distance', distanceKm);
+        await manager.increment(
+          User,
+          { id: userId },
+          'total_distance',
+          distanceKm,
+        );
         if (earned_points > 0) {
-          await manager.increment(User, { id: userId }, 'points', earned_points);
+          await manager.increment(
+            User,
+            { id: userId },
+            'points',
+            earned_points,
+          );
         }
 
         const territory =
@@ -97,7 +100,7 @@ export class RunningService {
                 manager.create(Territory, {
                   user_id: userId,
                   coordinates: path,
-                  area_sqm: area_sqm,
+                  area_sqm,
                   occupation_rate: 100,
                 }),
               )

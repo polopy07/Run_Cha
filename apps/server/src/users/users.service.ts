@@ -4,14 +4,27 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
+import {
+  Character,
+  CharacterGrade,
+  CharacterType,
+} from '../characters/entities/character.entity';
+import { UserCharacter } from '../characters/entities/user-character.entity';
 import { User } from './entities/user.entity';
+
+const STARTER_CHARACTER_TYPES = [
+  CharacterType.ATTACK,
+  CharacterType.DEFENSE,
+  CharacterType.BUFF,
+];
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async findOrCreateUser(
@@ -19,21 +32,54 @@ export class UsersService {
     email: string,
     displayName?: string,
   ) {
-    let user = await this.usersRepository.findOne({
+    const existingUser = await this.usersRepository.findOne({
       where: { firebase_uid: firebaseUid },
     });
 
-    if (user) {
-      return user;
+    if (existingUser) {
+      return existingUser;
     }
 
-    user = this.usersRepository.create({
-      firebase_uid: firebaseUid,
-      email,
-      nickname: displayName || email.split('@')[0],
+    return this.dataSource.transaction(async (manager) => {
+      const usersRepository = manager.getRepository(User);
+
+      const user = usersRepository.create({
+        firebase_uid: firebaseUid,
+        email,
+        nickname: displayName || email.split('@')[0],
+      });
+
+      const savedUser = await usersRepository.save(user);
+      await this.grantStarterCharacter(savedUser.id, manager);
+
+      return savedUser;
+    });
+  }
+
+  private async grantStarterCharacter(userId: number, manager: EntityManager) {
+    const charactersRepository = manager.getRepository(Character);
+    const userCharactersRepository = manager.getRepository(UserCharacter);
+
+    const starterCharacters = await charactersRepository.find({
+      where: {
+        grade: CharacterGrade.COMMON,
+        type: In(STARTER_CHARACTER_TYPES),
+      },
     });
 
-    return this.usersRepository.save(user);
+    if (starterCharacters.length === 0) {
+      return;
+    }
+
+    const selectedCharacter =
+      starterCharacters[Math.floor(Math.random() * starterCharacters.length)];
+
+    const userCharacter = userCharactersRepository.create({
+      user_id: userId,
+      character_id: selectedCharacter.id,
+    });
+
+    await userCharactersRepository.save(userCharacter);
   }
 
   async findById(id: number) {
