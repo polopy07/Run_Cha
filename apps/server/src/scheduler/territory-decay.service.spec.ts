@@ -35,7 +35,7 @@ describe('TerritoryDecayService', () => {
       qb['execute'].mockResolvedValue({ affected: affected[i] });
     });
     mockRepo.createQueryBuilder
-      .mockReturnValueOnce(qbs[0]) // delete  (21일 초과)
+      .mockReturnValueOnce(qbs[0]) // delete  (22일 초과)
       .mockReturnValueOnce(qbs[1]) // update 25%
       .mockReturnValueOnce(qbs[2]) // update 50%
       .mockReturnValueOnce(qbs[3]); // update 75%
@@ -87,6 +87,73 @@ describe('TerritoryDecayService', () => {
         expect.stringContaining('occupation_rate > 75'),
         expect.any(Object),
       );
+    });
+  });
+
+  describe('경계값 조건', () => {
+    it('DELETE는 22일 기준(cutoff22)으로 삭제한다', async () => {
+      const [deleteQb] = setupQbs();
+      await service.handleDecay();
+      expect(deleteQb.where).toHaveBeenCalledWith(
+        expect.stringContaining('last_active_at <= :cutoff22'),
+        expect.objectContaining({ cutoff22: expect.any(Date) as unknown }),
+      );
+    });
+
+    it('25% 구간은 15일(cutoff15) 이하 ~ 22일(cutoff22) 초과 사이다', async () => {
+      const [, qb25] = setupQbs();
+      await service.handleDecay();
+      expect(qb25.where).toHaveBeenCalledWith(
+        expect.stringMatching(/last_active_at <= :cutoff15.*last_active_at > :cutoff22/),
+        expect.objectContaining({
+          cutoff15: expect.any(Date) as unknown,
+          cutoff22: expect.any(Date) as unknown,
+        }),
+      );
+    });
+
+    it('50% 구간은 8일(cutoff8) 이하 ~ 15일(cutoff15) 초과 사이다', async () => {
+      const [, , qb50] = setupQbs();
+      await service.handleDecay();
+      expect(qb50.where).toHaveBeenCalledWith(
+        expect.stringMatching(/last_active_at <= :cutoff8.*last_active_at > :cutoff15/),
+        expect.objectContaining({
+          cutoff8: expect.any(Date) as unknown,
+          cutoff15: expect.any(Date) as unknown,
+        }),
+      );
+    });
+
+    it('75% 구간은 4일(cutoff4) 이하 ~ 8일(cutoff8) 초과 사이다', async () => {
+      const [, , , qb75] = setupQbs();
+      await service.handleDecay();
+      expect(qb75.where).toHaveBeenCalledWith(
+        expect.stringMatching(/last_active_at <= :cutoff4.*last_active_at > :cutoff8/),
+        expect.objectContaining({
+          cutoff4: expect.any(Date) as unknown,
+          cutoff8: expect.any(Date) as unknown,
+        }),
+      );
+    });
+
+    it('각 cutoff는 스펙 기준 일수(4/8/15/22일)로 계산된다', async () => {
+      const [deleteQb, qb25, qb50, qb75] = setupQbs();
+      const before = Date.now();
+      await service.handleDecay();
+      const after = Date.now();
+      const tolerance = 1000;
+
+      const { cutoff22 } = deleteQb.where.mock.calls[0][1] as { cutoff22: Date };
+      const { cutoff15 } = qb25.where.mock.calls[0][1] as { cutoff15: Date };
+      const { cutoff8 } = qb50.where.mock.calls[0][1] as { cutoff8: Date };
+      const { cutoff4 } = qb75.where.mock.calls[0][1] as { cutoff4: Date };
+
+      expect(Math.abs(cutoff22.getTime() - (before - 22 * 86_400_000))).toBeLessThan(tolerance);
+      expect(Math.abs(cutoff15.getTime() - (before - 15 * 86_400_000))).toBeLessThan(tolerance);
+      expect(Math.abs(cutoff8.getTime()  - (before -  8 * 86_400_000))).toBeLessThan(tolerance);
+      expect(Math.abs(cutoff4.getTime()  - (before -  4 * 86_400_000))).toBeLessThan(tolerance);
+      // after 기준으로도 범위 이내
+      expect(cutoff22.getTime()).toBeGreaterThanOrEqual(after - 22 * 86_400_000 - tolerance);
     });
   });
 

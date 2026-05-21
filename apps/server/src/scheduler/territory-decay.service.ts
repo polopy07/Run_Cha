@@ -17,17 +17,17 @@ export class TerritoryDecayService {
   async handleDecay() {
     this.logger.log('땅 자연 감소 배치 시작');
     const now = new Date();
-    const cutoff3  = new Date(now.getTime() -  3 * 86_400_000);
-    const cutoff7  = new Date(now.getTime() -  7 * 86_400_000);
-    const cutoff14 = new Date(now.getTime() - 14 * 86_400_000);
-    const cutoff21 = new Date(now.getTime() - 21 * 86_400_000);
+    const cutoff4  = new Date(now.getTime() -  4 * 86_400_000);
+    const cutoff8  = new Date(now.getTime() -  8 * 86_400_000);
+    const cutoff15 = new Date(now.getTime() - 15 * 86_400_000);
+    const cutoff22 = new Date(now.getTime() - 22 * 86_400_000);
 
     // last_active_at 구간별 배치 쿼리로 N+1 제거
     const [deleteResult, r25, r50, r75] = await Promise.all([
       this.territoryRepo
         .createQueryBuilder()
         .delete()
-        .where('last_active_at <= :cutoff21', { cutoff21 })
+        .where('last_active_at <= :cutoff22', { cutoff22 })
         .execute(),
       this.territoryRepo
         .createQueryBuilder()
@@ -35,8 +35,8 @@ export class TerritoryDecayService {
         // last_active_at을 명시적으로 유지해야 ON UPDATE CURRENT_TIMESTAMP 자동 갱신 방지
         .set({ occupation_rate: 25, last_active_at: () => 'last_active_at' })
         .where(
-          'last_active_at > :cutoff21 AND last_active_at <= :cutoff14 AND occupation_rate > 25',
-          { cutoff21, cutoff14 },
+          'last_active_at <= :cutoff15 AND last_active_at > :cutoff22 AND occupation_rate > 25',
+          { cutoff15, cutoff22 },
         )
         .execute(),
       this.territoryRepo
@@ -44,8 +44,8 @@ export class TerritoryDecayService {
         .update()
         .set({ occupation_rate: 50, last_active_at: () => 'last_active_at' })
         .where(
-          'last_active_at > :cutoff14 AND last_active_at <= :cutoff7 AND occupation_rate > 50',
-          { cutoff14, cutoff7 },
+          'last_active_at <= :cutoff8 AND last_active_at > :cutoff15 AND occupation_rate > 50',
+          { cutoff8, cutoff15 },
         )
         .execute(),
       this.territoryRepo
@@ -53,8 +53,8 @@ export class TerritoryDecayService {
         .update()
         .set({ occupation_rate: 75, last_active_at: () => 'last_active_at' })
         .where(
-          'last_active_at > :cutoff7 AND last_active_at <= :cutoff3 AND occupation_rate > 75',
-          { cutoff7, cutoff3 },
+          'last_active_at <= :cutoff4 AND last_active_at > :cutoff8 AND occupation_rate > 75',
+          { cutoff4, cutoff8 },
         )
         .execute(),
     ]);
