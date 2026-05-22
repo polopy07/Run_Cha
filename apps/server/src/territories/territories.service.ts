@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Territory } from './entities/territory.entity';
 import { GetTerritoriesDto } from './dto/get-territories.dto';
+import { calcCenter } from '../common/utils/geo';
 
 @Injectable()
 export class TerritoriesService {
@@ -14,34 +15,20 @@ export class TerritoriesService {
   async findInBounds(dto: GetTerritoriesDto) {
     const { minLat, maxLat, minLng, maxLng } = dto;
 
-    // coordinates는 JSON 배열이므로 MySQL에서 bounding box 필터링 불가
-    // 전체를 가져온 뒤 첫 번째 좌표 기준으로 필터링
-    const territories = await this.territoryRepo.find({
-      relations: ['user'],
-      select: {
-        id: true,
-        user_id: true,
-        coordinates: true,
-        area_sqm: true,
-        occupation_rate: true,
-        last_active_at: true,
-        user: { id: true, nickname: true },
-      },
-    });
+    const territories = await this.territoryRepo
+      .createQueryBuilder('t')
+      .innerJoinAndSelect('t.user', 'u')
+      .where('t.center_lat BETWEEN :minLat AND :maxLat', { minLat, maxLat })
+      .andWhere('t.center_lng BETWEEN :minLng AND :maxLng', { minLng, maxLng })
+      .getMany();
 
-    return territories
-      .filter((t) => {
-        if (!t.coordinates?.length) return false;
-        const { lat, lng } = t.coordinates[0];
-        return lat >= minLat && lat <= maxLat && lng >= minLng && lng <= maxLng;
-      })
-      .map((t) => ({
-        id: t.id,
-        userId: t.user_id,
-        coordinates: t.coordinates,
-        areaSqm: t.area_sqm,
-        occupationRate: t.occupation_rate,
-      }));
+    return territories.map((t) => ({
+      id: t.id,
+      userId: t.user_id,
+      coordinates: t.coordinates,
+      areaSqm: t.area_sqm,
+      occupationRate: t.occupation_rate,
+    }));
   }
 
   async registerTerritory(
@@ -49,11 +36,14 @@ export class TerritoriesService {
     coordinates: { lat: number; lng: number }[],
     areaSqm: number,
   ): Promise<Territory> {
+    const center = calcCenter(coordinates);
     const territory = this.territoryRepo.create({
       user_id: userId,
       coordinates,
       area_sqm: areaSqm,
       occupation_rate: 100,
+      center_lat: center.lat,
+      center_lng: center.lng,
     });
     return this.territoryRepo.save(territory);
   }
