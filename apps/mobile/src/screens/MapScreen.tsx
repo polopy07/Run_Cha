@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import {
+  getMyTerritories,
   getTerritories,
   getTerritoryDetail,
   Territory,
@@ -71,6 +72,18 @@ function toMapCoordinates(territory: Territory) {
   }));
 }
 
+function mergeTerritories(...groups: Territory[][]) {
+  const byId = new Map<number, Territory>();
+  groups.flat().forEach((territory) => {
+    byId.set(territory.id, territory);
+  });
+  return Array.from(byId.values());
+}
+
+function collectMapCoordinates(data: Territory[]) {
+  return data.flatMap((territory) => toMapCoordinates(territory));
+}
+
 function centroid(coords: { latitude: number; longitude: number }[]) {
   return {
     latitude: coords.reduce((sum, coord) => sum + coord.latitude, 0) / coords.length,
@@ -124,22 +137,52 @@ export function MapScreen() {
   const mapRef = useRef<MapView>(null);
   const regionRef = useRef<Region>(INITIAL_REGION);
   const userLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const hasFocusedTerritoriesRef = useRef(false);
+  const lastLoadSeqRef = useRef(0);
 
   const [territories, setTerritories] = useState<Territory[]>([]);
   const [selectedTerritory, setSelectedTerritory] = useState<TerritoryDetail | null>(null);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
 
-  const loadTerritories = useCallback(async (region: Region) => {
+  const fitTerritories = useCallback((data: Territory[]) => {
+    const coordinates = collectMapCoordinates(data);
+    if (coordinates.length === 0) return;
+
+    mapRef.current?.fitToCoordinates(coordinates, {
+      edgePadding: { top: 120, right: 80, bottom: 220, left: 80 },
+      animated: true,
+    });
+  }, []);
+
+  const loadTerritories = useCallback(async (region: Region, shouldFocus = false) => {
+    const loadSeq = lastLoadSeqRef.current + 1;
+    lastLoadSeqRef.current = loadSeq;
+
     try {
-      const data = await getTerritories(toBounds(region));
+      const [boundsResult, mineResult] = await Promise.allSettled([
+        getTerritories(toBounds(region)),
+        getMyTerritories(),
+      ]);
+
+      if (loadSeq !== lastLoadSeqRef.current) return;
+
+      const boundsTerritories = boundsResult.status === 'fulfilled' ? boundsResult.value : [];
+      const myTerritories = mineResult.status === 'fulfilled' ? mineResult.value : [];
+      const data = mergeTerritories(boundsTerritories, myTerritories);
+
       setTerritories(data);
+
+      if ((shouldFocus || !hasFocusedTerritoriesRef.current) && data.length > 0) {
+        hasFocusedTerritoriesRef.current = true;
+        setTimeout(() => fitTerritories(data), 100);
+      }
     } catch {
       setTerritories([]);
     }
-  }, []);
+  }, [fitTerritories]);
 
   useEffect(() => {
-    loadTerritories(INITIAL_REGION);
+    loadTerritories(INITIAL_REGION, true);
   }, [loadTerritories]);
 
   const openTerritoryDetail = async (territoryId: number) => {
@@ -279,6 +322,12 @@ export function MapScreen() {
         </TouchableOpacity>
         <TouchableOpacity style={[styles.mapBtn, styles.locationBtn]} onPress={goToMyLocation}>
           <Text style={styles.mapBtnText}>◎</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.mapBtn, styles.territoryFocusBtn]}
+          onPress={() => loadTerritories(regionRef.current, true)}
+        >
+          <Text style={styles.mapBtnSmallText}>Land</Text>
         </TouchableOpacity>
       </View>
 
@@ -466,7 +515,9 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
   },
   locationBtn: { marginTop: 8 },
+  territoryFocusBtn: { marginTop: 8 },
   mapBtnText: { fontSize: 20, color: '#333', lineHeight: 24 },
+  mapBtnSmallText: { fontSize: 11, fontWeight: 'bold', color: '#333' },
   miniRanking: {
     position: 'absolute',
     left: 12,
