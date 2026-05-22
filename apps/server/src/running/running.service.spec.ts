@@ -4,7 +4,6 @@ import { DataSource } from 'typeorm';
 import * as turf from '@turf/turf';
 import { RunningService } from './running.service';
 import { RunningLog } from './entities/running-log.entity';
-import { User } from '../users/entities/user.entity';
 import { Territory } from '../territories/entities/territory.entity';
 
 const CLOSED_LOOP = [
