@@ -29,6 +29,12 @@ export class AddTerritoryCenter1747200000003 implements MigrationInterface {
           t.center_lng = calc.avg_lng;
     `);
 
+    // coordinates가 빈 배열인 row는 INNER JOIN 미매칭 → center_lat NULL 유지
+    // NOT NULL 변환 전 해당 row 제거
+    await queryRunner.query(`
+      DELETE FROM territories WHERE center_lat IS NULL;
+    `);
+
     await queryRunner.query(`
       ALTER TABLE territories
         MODIFY COLUMN center_lat DOUBLE NOT NULL,
