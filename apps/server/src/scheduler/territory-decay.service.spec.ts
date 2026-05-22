@@ -60,13 +60,22 @@ describe('TerritoryDecayService', () => {
       await service.handleDecay();
 
       expect(qb25.set).toHaveBeenCalledWith(
-        expect.objectContaining({ occupation_rate: 25, last_active_at: expect.any(Function) as unknown }),
+        expect.objectContaining({
+          occupation_rate: 25,
+          last_active_at: expect.any(Function) as unknown,
+        }),
       );
       expect(qb50.set).toHaveBeenCalledWith(
-        expect.objectContaining({ occupation_rate: 50, last_active_at: expect.any(Function) as unknown }),
+        expect.objectContaining({
+          occupation_rate: 50,
+          last_active_at: expect.any(Function) as unknown,
+        }),
       );
       expect(qb75.set).toHaveBeenCalledWith(
-        expect.objectContaining({ occupation_rate: 75, last_active_at: expect.any(Function) as unknown }),
+        expect.objectContaining({
+          occupation_rate: 75,
+          last_active_at: expect.any(Function) as unknown,
+        }),
       );
     });
 
@@ -104,7 +113,9 @@ describe('TerritoryDecayService', () => {
       const [, qb25] = setupQbs();
       await service.handleDecay();
       expect(qb25.where).toHaveBeenCalledWith(
-        expect.stringMatching(/last_active_at <= :cutoff15.*last_active_at > :cutoff22/),
+        expect.stringMatching(
+          /last_active_at <= :cutoff15.*last_active_at > :cutoff22/,
+        ),
         expect.objectContaining({
           cutoff15: expect.any(Date) as unknown,
           cutoff22: expect.any(Date) as unknown,
@@ -116,7 +127,9 @@ describe('TerritoryDecayService', () => {
       const [, , qb50] = setupQbs();
       await service.handleDecay();
       expect(qb50.where).toHaveBeenCalledWith(
-        expect.stringMatching(/last_active_at <= :cutoff8.*last_active_at > :cutoff15/),
+        expect.stringMatching(
+          /last_active_at <= :cutoff8.*last_active_at > :cutoff15/,
+        ),
         expect.objectContaining({
           cutoff8: expect.any(Date) as unknown,
           cutoff15: expect.any(Date) as unknown,
@@ -128,7 +141,9 @@ describe('TerritoryDecayService', () => {
       const [, , , qb75] = setupQbs();
       await service.handleDecay();
       expect(qb75.where).toHaveBeenCalledWith(
-        expect.stringMatching(/last_active_at <= :cutoff4.*last_active_at > :cutoff8/),
+        expect.stringMatching(
+          /last_active_at <= :cutoff4.*last_active_at > :cutoff8/,
+        ),
         expect.objectContaining({
           cutoff4: expect.any(Date) as unknown,
           cutoff8: expect.any(Date) as unknown,
@@ -143,17 +158,39 @@ describe('TerritoryDecayService', () => {
       const after = Date.now();
       const tolerance = 1000;
 
-      const { cutoff22 } = deleteQb.where.mock.calls[0][1] as { cutoff22: Date };
-      const { cutoff15 } = qb25.where.mock.calls[0][1] as { cutoff15: Date };
-      const { cutoff8 } = qb50.where.mock.calls[0][1] as { cutoff8: Date };
-      const { cutoff4 } = qb75.where.mock.calls[0][1] as { cutoff4: Date };
+      const [, { cutoff22 }] = deleteQb.where.mock.calls[0] as [
+        string,
+        { cutoff22: Date },
+      ];
+      const [, { cutoff15 }] = qb25.where.mock.calls[0] as [
+        string,
+        { cutoff15: Date },
+      ];
+      const [, { cutoff8 }] = qb50.where.mock.calls[0] as [
+        string,
+        { cutoff8: Date },
+      ];
+      const [, { cutoff4 }] = qb75.where.mock.calls[0] as [
+        string,
+        { cutoff4: Date },
+      ];
 
-      expect(Math.abs(cutoff22.getTime() - (before - 22 * 86_400_000))).toBeLessThan(tolerance);
-      expect(Math.abs(cutoff15.getTime() - (before - 15 * 86_400_000))).toBeLessThan(tolerance);
-      expect(Math.abs(cutoff8.getTime()  - (before -  8 * 86_400_000))).toBeLessThan(tolerance);
-      expect(Math.abs(cutoff4.getTime()  - (before -  4 * 86_400_000))).toBeLessThan(tolerance);
+      expect(
+        Math.abs(cutoff22.getTime() - (before - 22 * 86_400_000)),
+      ).toBeLessThan(tolerance);
+      expect(
+        Math.abs(cutoff15.getTime() - (before - 15 * 86_400_000)),
+      ).toBeLessThan(tolerance);
+      expect(
+        Math.abs(cutoff8.getTime() - (before - 8 * 86_400_000)),
+      ).toBeLessThan(tolerance);
+      expect(
+        Math.abs(cutoff4.getTime() - (before - 4 * 86_400_000)),
+      ).toBeLessThan(tolerance);
       // after 기준으로도 범위 이내
-      expect(cutoff22.getTime()).toBeGreaterThanOrEqual(after - 22 * 86_400_000 - tolerance);
+      expect(cutoff22.getTime()).toBeGreaterThanOrEqual(
+        after - 22 * 86_400_000 - tolerance,
+      );
     });
   });
 
