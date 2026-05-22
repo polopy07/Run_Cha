@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Territory } from './entities/territory.entity';
 import { GetTerritoriesDto } from './dto/get-territories.dto';
+import { calcCenter } from '../common/utils/geo';
 
 @Injectable()
 export class TerritoriesService {
@@ -35,7 +36,7 @@ export class TerritoriesService {
     coordinates: { lat: number; lng: number }[],
     areaSqm: number,
   ): Promise<Territory> {
-    const center = this.calcCenter(coordinates);
+    const center = calcCenter(coordinates);
     const territory = this.territoryRepo.create({
       user_id: userId,
       coordinates,
@@ -45,13 +46,5 @@ export class TerritoriesService {
       center_lng: center.lng,
     });
     return this.territoryRepo.save(territory);
-  }
-
-  private calcCenter(
-    coordinates: { lat: number; lng: number }[],
-  ): { lat: number; lng: number } {
-    const lat = coordinates.reduce((sum, p) => sum + p.lat, 0) / coordinates.length;
-    const lng = coordinates.reduce((sum, p) => sum + p.lng, 0) / coordinates.length;
-    return { lat, lng };
   }
 }

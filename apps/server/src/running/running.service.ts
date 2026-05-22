@@ -6,6 +6,7 @@ import { RunningLog } from './entities/running-log.entity';
 import { User } from '../users/entities/user.entity';
 import { Territory } from '../territories/entities/territory.entity';
 import { FinishRunningDto } from './dto/finish-running.dto';
+import { calcCenter } from '../common/utils/geo';
 
 const PACE_MULTIPLIER: Record<string, number> = {
   fast_walk: 0.6,
@@ -86,12 +87,22 @@ export class RunningService {
         });
         const savedLog = await manager.save(log);
 
-        await manager.increment(User, { id: userId }, 'total_distance', distanceKm);
+        await manager.increment(
+          User,
+          { id: userId },
+          'total_distance',
+          distanceKm,
+        );
         if (earned_points > 0) {
-          await manager.increment(User, { id: userId }, 'points', earned_points);
+          await manager.increment(
+            User,
+            { id: userId },
+            'points',
+            earned_points,
+          );
         }
 
-        const center = this.calcCenter(path);
+        const center = calcCenter(path);
         const territory =
           area_sqm > 0
             ? await manager.save(
@@ -150,12 +161,6 @@ export class RunningService {
       path[path.length - 1].lat,
     ]);
     return turf.distance(start, end, { units: 'meters' }) <= 50;
-  }
-
-  private calcCenter(path: { lat: number; lng: number }[]): { lat: number; lng: number } {
-    const lat = path.reduce((sum, p) => sum + p.lat, 0) / path.length;
-    const lng = path.reduce((sum, p) => sum + p.lng, 0) / path.length;
-    return { lat, lng };
   }
 
   private isValidSpeed(speedKmh: number): boolean {
