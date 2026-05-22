@@ -13,6 +13,10 @@ export type Territory = {
   coordinates: { lat: number; lng: number }[];
   areaSqm: number;
   occupationRate: number;
+  centerLat?: number;
+  centerLng?: number;
+  center_lat?: number;
+  center_lng?: number;
   lastActiveAt?: string;
 };
 

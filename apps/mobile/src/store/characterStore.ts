@@ -21,6 +21,7 @@ type CharacterState = {
 
   fetchCharacters: () => Promise<void>;
   addCharacter: (character: Character) => void;
+  updateCharacter: (character: Character) => void;
 };
 
 const useCharacterStore = create<CharacterState>((set, get) => ({
@@ -39,6 +40,14 @@ const useCharacterStore = create<CharacterState>((set, get) => ({
 
   addCharacter: (character) => {
     set({ characters: [...get().characters, character] });
+  },
+
+  updateCharacter: (character) => {
+    set({
+      characters: get().characters.map((current) =>
+        current.id === character.id ? character : current,
+      ),
+    });
   },
 }));
 

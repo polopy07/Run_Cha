@@ -59,7 +59,8 @@ function getErrorMessage(error: unknown, fallback: string) {
 export function StorageScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
-  const { characters, isLoading, fetchCharacters } = useCharacterStore();
+  const { characters, isLoading, fetchCharacters, updateCharacter } =
+    useCharacterStore();
   const [territories, setTerritories] = useState<Territory[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
@@ -121,8 +122,11 @@ export function StorageScreen() {
 
     setIsDeploying(true);
     try {
-      await deployCharacter(selectedCharacter.id, territoryId);
-      await load();
+      const updatedCharacter = await deployCharacter(
+        selectedCharacter.id,
+        territoryId,
+      );
+      updateCharacter(updatedCharacter);
       setSelectedCharacter(null);
     } catch (error: unknown) {
       Alert.alert(
@@ -227,7 +231,10 @@ export function StorageScreen() {
           style={styles.modalBackdrop}
           onPress={() => setSelectedCharacter(null)}
         >
-          <Pressable style={styles.modalCard}>
+          <Pressable
+            style={styles.modalCard}
+            onPress={(event) => event.stopPropagation()}
+          >
             <Text style={styles.modalTitle}>{selectedCharacter?.name}</Text>
             <Text style={styles.modalSub}>배치할 내 영토를 선택하세요</Text>
 
