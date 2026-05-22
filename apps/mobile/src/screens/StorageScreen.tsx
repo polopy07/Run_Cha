@@ -22,24 +22,18 @@ import useCharacterStore, { type Character } from '../store/characterStore';
 
 type Nav = StackNavigationProp<CharacterStackParamList, 'Storage'>;
 
+const GRADE_COLOR: Record<Character['grade'], string> = {
+  common: '#95A5A6',
+  rare: '#3498DB',
+  epic: '#9B59B6',
+  legendary: '#F39C12',
+};
+
 const GRADE_LABEL: Record<Character['grade'], string> = {
   common: '일반',
   rare: '희귀',
   epic: '영웅',
   legendary: '전설',
-};
-
-const GRADE_COLOR: Record<Character['grade'], string> = {
-  common: '#95A5A6',
-  rare: '#3498DB',
-  epic: '#9B59B6',
-  legendary: '#F1C40F',
-};
-
-const TYPE_LABEL: Record<Character['type'], string> = {
-  attack: '공격형',
-  defense: '수비형',
-  buff: '버프형',
 };
 
 const TYPE_ICON: Record<Character['type'], string> = {
@@ -48,8 +42,18 @@ const TYPE_ICON: Record<Character['type'], string> = {
   buff: '✨',
 };
 
+const TYPE_LABEL: Record<Character['type'], string> = {
+  attack: '공격형',
+  defense: '수비형',
+  buff: '버프형',
+};
+
 function formatArea(areaSqm: number) {
   return `${Math.round(areaSqm).toLocaleString()}㎡`;
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
 }
 
 export function StorageScreen() {
@@ -82,9 +86,10 @@ export function StorageScreen() {
 
   useEffect(() => {
     load().catch((error: unknown) => {
-      const message =
-        error instanceof Error ? error.message : '정보를 불러오지 못했습니다.';
-      Alert.alert('조회 실패', message);
+      Alert.alert(
+        '조회 실패',
+        getErrorMessage(error, '정보를 불러오지 못했습니다.'),
+      );
     });
   }, [load]);
 
@@ -93,9 +98,10 @@ export function StorageScreen() {
     try {
       await load();
     } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : '정보를 불러오지 못했습니다.';
-      Alert.alert('조회 실패', message);
+      Alert.alert(
+        '조회 실패',
+        getErrorMessage(error, '정보를 불러오지 못했습니다.'),
+      );
     } finally {
       setIsRefreshing(false);
     }
@@ -106,6 +112,7 @@ export function StorageScreen() {
       Alert.alert('배치 불가', '수비형과 버프형 캐릭터만 영토에 배치할 수 있습니다.');
       return;
     }
+
     setSelectedCharacter(character);
   };
 
@@ -118,15 +125,16 @@ export function StorageScreen() {
       await load();
       setSelectedCharacter(null);
     } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : '배치 요청에 실패했습니다.';
-      Alert.alert('배치 실패', message);
+      Alert.alert(
+        '배치 실패',
+        getErrorMessage(error, '배치 요청에 실패했습니다.'),
+      );
     } finally {
       setIsDeploying(false);
     }
   };
 
-  const renderCharacter = ({ item }: { item: Character }) => {
+  const renderItem = ({ item }: { item: Character }) => {
     const gradeColor = GRADE_COLOR[item.grade];
     const isDeployable = item.type !== 'attack';
 
@@ -149,8 +157,8 @@ export function StorageScreen() {
           </Text>
         </View>
 
-        <Text style={styles.characterIcon}>{TYPE_ICON[item.type]}</Text>
-        <Text style={styles.characterName} numberOfLines={1}>
+        <Text style={styles.cardIcon}>{TYPE_ICON[item.type]}</Text>
+        <Text style={styles.cardName} numberOfLines={1}>
           {item.name}
         </Text>
         <Text style={styles.characterType}>{TYPE_LABEL[item.type]}</Text>
@@ -168,38 +176,43 @@ export function StorageScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>캐릭터 보관함</Text>
-          <Text style={styles.subtitle}>{characters.length}마리 보유</Text>
+        <Text style={styles.title}>캐릭터 보관함</Text>
+        <View style={styles.headerRight}>
+          <Text style={styles.count}>{characters.length}마리</Text>
+          <TouchableOpacity
+            style={styles.gachaBtn}
+            onPress={() => navigation.navigate('Gacha')}
+          >
+            <Text style={styles.gachaBtnIcon}>🎰</Text>
+            <Text style={styles.gachaBtnText}>뽑기</Text>
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={styles.gachaBtn}
-          onPress={() => navigation.navigate('Gacha')}
-        >
-          <Text style={styles.gachaBtnText}>뽑기</Text>
-        </TouchableOpacity>
       </View>
 
       {isLoading && characters.length === 0 ? (
         <View style={styles.center}>
-          <ActivityIndicator color="#2ECC71" />
+          <ActivityIndicator size="large" color="#2ECC71" />
+        </View>
+      ) : characters.length === 0 ? (
+        <View style={styles.center}>
+          <Text style={styles.emptyIcon}>📦</Text>
+          <Text style={styles.emptyText}>보유 캐릭터가 없습니다</Text>
+          <Text style={styles.emptySub}>뽑기로 캐릭터를 획득해보세요</Text>
         </View>
       ) : (
         <FlatList
           data={characters}
-          keyExtractor={(item) => String(item.id)}
+          keyExtractor={(item) => `${item.id}`}
+          renderItem={renderItem}
           numColumns={2}
-          columnWrapperStyle={styles.cardRow}
-          renderItem={renderCharacter}
+          columnWrapperStyle={styles.row}
+          contentContainerStyle={styles.list}
           refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-          }
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={styles.emptyIcon}>📦</Text>
-              <Text style={styles.emptyText}>보유 캐릭터가 없습니다</Text>
-              <Text style={styles.emptySub}>뽑기로 캐릭터를 획득해보세요</Text>
-            </View>
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor="#2ECC71"
+            />
           }
         />
       )}
@@ -275,71 +288,82 @@ export function StorageScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 16 },
+  container: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 12 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
+    paddingHorizontal: 4,
   },
-  title: { fontSize: 22, fontWeight: 'bold', color: '#1a1a1a' },
-  subtitle: { marginTop: 4, fontSize: 13, color: '#888' },
+  title: { fontSize: 18, fontWeight: 'bold', color: '#1a1a1a' },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  count: { fontSize: 13, color: '#888' },
   gachaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: '#2ECC71',
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 20,
   },
-  gachaBtnText: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  cardRow: { gap: 10 },
+  gachaBtnIcon: { fontSize: 16 },
+  gachaBtnText: { color: '#fff', fontSize: 13, fontWeight: 'bold' },
+
+  list: { paddingBottom: 20 },
+  row: { justifyContent: 'space-between', marginBottom: 12 },
   card: {
-    flex: 1,
-    minHeight: 188,
-    borderWidth: 2,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 10,
+    width: '48%',
     backgroundColor: '#FAFAFA',
+    borderRadius: 12,
+    borderWidth: 2,
+    padding: 12,
+    alignItems: 'center',
   },
   cardHeader: {
+    width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    minHeight: 24,
+    marginBottom: 8,
   },
-  gradeBadge: { borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3 },
-  gradeText: { color: '#fff', fontSize: 11, fontWeight: 'bold' },
-  deployText: { fontSize: 11, color: '#666' },
-  characterIcon: { marginTop: 16, fontSize: 32, textAlign: 'center' },
-  characterName: {
-    marginTop: 8,
-    fontSize: 16,
+  gradeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  gradeText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
+  deployText: { fontSize: 10, color: '#666' },
+  cardIcon: { fontSize: 32, marginBottom: 6 },
+  cardName: {
+    fontSize: 14,
     fontWeight: 'bold',
-    textAlign: 'center',
     color: '#1a1a1a',
+    marginBottom: 4,
   },
-  characterType: { marginTop: 4, fontSize: 12, textAlign: 'center', color: '#777' },
+  characterType: { fontSize: 12, color: '#777', marginBottom: 8 },
   statsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
     gap: 6,
-    marginTop: 12,
   },
   stat: {
-    minWidth: 42,
+    minWidth: 36,
     textAlign: 'center',
     fontSize: 11,
-    color: '#333',
+    color: '#666',
     backgroundColor: '#ECECEC',
     borderRadius: 6,
-    paddingVertical: 4,
+    paddingVertical: 3,
   },
-  empty: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 160 },
+
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyIcon: { fontSize: 40, marginBottom: 12 },
-  emptyText: { fontSize: 16, color: '#888', marginBottom: 6 },
-  emptySub: { fontSize: 13, color: '#aaa' },
+  emptyText: { fontSize: 14, color: '#888', marginBottom: 4 },
+  emptySub: { fontSize: 12, color: '#aaa' },
+
   modalBackdrop: {
     flex: 1,
     justifyContent: 'flex-end',

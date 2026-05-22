@@ -9,6 +9,17 @@ import {
 import MapView, { Polygon, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+
+type BottomTabParamList = {
+  '홈': undefined;
+  '캐릭터': undefined;
+  '러닝': undefined;
+  '랭킹': undefined;
+  '메뉴': undefined;
+};
+
+type MapNav = BottomTabNavigationProp<BottomTabParamList, '홈'>;
 
 const INITIAL_REGION = {
   latitude: 37.5665,
@@ -85,7 +96,7 @@ function centroid(coords: { latitude: number; longitude: number }[]) {
 
 export function MapScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
+  const navigation = useNavigation<MapNav>();
   const mapRef = useRef<MapView>(null);
   const regionRef = useRef(INITIAL_REGION);
   const userLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
@@ -206,7 +217,7 @@ export function MapScreen() {
       <View style={[styles.actionButtons, { paddingBottom: insets.bottom + 8 }]}>
         <TouchableOpacity
           style={[styles.actionBtn, styles.startBtn]}
-          onPress={() => navigation.navigate('러닝' as never)}
+          onPress={() => navigation.navigate('러닝')}
         >
           <Text style={styles.actionBtnIcon}>🏃</Text>
           <View>
