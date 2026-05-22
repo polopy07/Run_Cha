@@ -4,6 +4,12 @@ import { TerritoriesService } from './territories.service';
 import { Territory } from './entities/territory.entity';
 import { GetTerritoriesDto } from './dto/get-territories.dto';
 import { User } from '../users/entities/user.entity';
+import { UserCharacter } from '../characters/entities/user-character.entity';
+import {
+  Character,
+  CharacterGrade,
+  CharacterType,
+} from '../characters/entities/character.entity';
 
 const BOUNDS: GetTerritoriesDto = {
   minLat: 37.0,
@@ -29,10 +35,14 @@ describe('TerritoriesService', () => {
 
   const mockRepo = {
     find: jest.fn(),
+    findOne: jest.fn(),
     create: jest.fn((data: Record<string, unknown>) => data),
     save: jest.fn((data: Record<string, unknown>) =>
       Promise.resolve({ id: 1, ...data }),
     ),
+  };
+  const mockUserCharactersRepo = {
+    find: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -41,6 +51,10 @@ describe('TerritoriesService', () => {
       providers: [
         TerritoriesService,
         { provide: getRepositoryToken(Territory), useValue: mockRepo },
+        {
+          provide: getRepositoryToken(UserCharacter),
+          useValue: mockUserCharactersRepo,
+        },
       ],
     }).compile();
     service = module.get<TerritoriesService>(TerritoriesService);
@@ -150,6 +164,92 @@ describe('TerritoriesService', () => {
           }) as unknown,
         }),
       );
+    });
+  });
+
+  describe('findOne', () => {
+    it('returns territory detail with owner, mine flag, and deployed characters', async () => {
+      const territory = makeTerritory(37.5, 127.0);
+      const character = {
+        id: 3,
+        name: '수비형1',
+        grade: CharacterGrade.COMMON,
+        type: CharacterType.DEFENSE,
+      } as Character;
+      const userCharacter = {
+        id: 10,
+        character_id: 3,
+        character,
+        attack_lv: 1,
+        defense_lv: 2,
+        speed_lv: 1,
+        point_lv: 1,
+      } as UserCharacter;
+      mockRepo.findOne.mockResolvedValue(territory);
+      mockUserCharactersRepo.find.mockResolvedValue([userCharacter]);
+
+      const result = await service.findOne(1, 1);
+
+      expect(mockRepo.findOne).toHaveBeenCalledWith({
+        where: { id: 1 },
+        relations: ['user'],
+        select: {
+          id: true,
+          user_id: true,
+          coordinates: true,
+          area_sqm: true,
+          occupation_rate: true,
+          last_active_at: true,
+          user: { id: true, nickname: true },
+        },
+      });
+      expect(mockUserCharactersRepo.find).toHaveBeenCalledWith({
+        where: { deployed_territory_id: 1 },
+        relations: { character: true },
+        order: { id: 'ASC' },
+      });
+      expect(result).toEqual({
+        id: territory.id,
+        userId: territory.user_id,
+        coordinates: territory.coordinates,
+        areaSqm: territory.area_sqm,
+        occupationRate: territory.occupation_rate,
+        lastActiveAt: territory.last_active_at,
+        owner: { id: 1, nickname: 'tester' },
+        isMine: true,
+        deployedCharacters: [
+          {
+            id: 10,
+            characterId: 3,
+            name: '수비형1',
+            grade: CharacterGrade.COMMON,
+            type: CharacterType.DEFENSE,
+            attackLv: 1,
+            defenseLv: 2,
+            speedLv: 1,
+            pointLv: 1,
+          },
+        ],
+      });
+    });
+
+    it('returns isMine false when the current user is not the owner', async () => {
+      mockRepo.findOne.mockResolvedValue(makeTerritory(37.5, 127.0));
+      mockUserCharactersRepo.find.mockResolvedValue([]);
+
+      const result = await service.findOne(1, 2);
+
+      expect(result.isMine).toBe(false);
+      expect(result.deployedCharacters).toEqual([]);
+    });
+
+    it('throws NotFoundException when the territory does not exist', async () => {
+      mockRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.findOne(999, 1)).rejects.toThrow(
+        '영토를 찾을 수 없습니다.',
+      );
+      expect(mockUserCharactersRepo.find).not.toHaveBeenCalled();
     });
   });
 

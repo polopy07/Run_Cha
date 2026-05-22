@@ -11,6 +11,7 @@ describe('TerritoriesController', () => {
   const mockService = {
     findMine: jest.fn(),
     findInBounds: jest.fn(),
+    findOne: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -61,6 +62,19 @@ describe('TerritoriesController', () => {
       const result = await controller.getInBounds({} as GetTerritoriesDto);
 
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('findOne', () => {
+    it('calls findOne with the territory id and current user id', async () => {
+      const user = { id: 1 } as User;
+      const expected = { id: 7, isMine: true };
+      mockService.findOne.mockResolvedValue(expected);
+
+      const result = await controller.findOne(user, 7);
+
+      expect(mockService.findOne).toHaveBeenCalledWith(7, 1);
+      expect(result).toEqual(expected);
     });
   });
 });

@@ -1,14 +1,17 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Territory } from './entities/territory.entity';
 import { GetTerritoriesDto } from './dto/get-territories.dto';
+import { UserCharacter } from '../characters/entities/user-character.entity';
 
 @Injectable()
 export class TerritoriesService {
   constructor(
     @InjectRepository(Territory)
     private readonly territoryRepo: Repository<Territory>,
+    @InjectRepository(UserCharacter)
+    private readonly userCharactersRepo: Repository<UserCharacter>,
   ) {}
 
   async findMine(userId: number) {
@@ -55,6 +58,52 @@ export class TerritoriesService {
       .map((t) => ({
         ...this.toTerritoryResponse(t),
       }));
+  }
+
+  async findOne(id: number, currentUserId: number) {
+    const territory = await this.territoryRepo.findOne({
+      where: { id },
+      relations: ['user'],
+      select: {
+        id: true,
+        user_id: true,
+        coordinates: true,
+        area_sqm: true,
+        occupation_rate: true,
+        last_active_at: true,
+        user: { id: true, nickname: true },
+      },
+    });
+
+    if (!territory) {
+      throw new NotFoundException('영토를 찾을 수 없습니다.');
+    }
+
+    const deployedCharacters = await this.userCharactersRepo.find({
+      where: { deployed_territory_id: id },
+      relations: { character: true },
+      order: { id: 'ASC' },
+    });
+
+    return {
+      ...this.toTerritoryResponse(territory),
+      owner: {
+        id: territory.user.id,
+        nickname: territory.user.nickname,
+      },
+      isMine: territory.user_id === currentUserId,
+      deployedCharacters: deployedCharacters.map((userCharacter) => ({
+        id: userCharacter.id,
+        characterId: userCharacter.character_id,
+        name: userCharacter.character.name,
+        grade: userCharacter.character.grade,
+        type: userCharacter.character.type,
+        attackLv: userCharacter.attack_lv,
+        defenseLv: userCharacter.defense_lv,
+        speedLv: userCharacter.speed_lv,
+        pointLv: userCharacter.point_lv,
+      })),
+    };
   }
 
   async registerTerritory(
