@@ -48,7 +48,7 @@ export async function getTerritories(bounds: TerritoryBounds) {
     minLng: String(bounds.minLng),
     maxLng: String(bounds.maxLng),
   });
-  return apiFetch(`/territories?${params}`);
+  return apiFetch<Territory[]>(`/territories?${params}`);
 }
 
 export async function getMyTerritories() {
