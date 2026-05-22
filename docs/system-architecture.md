@@ -240,11 +240,13 @@ const earnedPoints = isClosedLoop ? basePoints : Math.floor(basePoints * 1.3);
 ```text
 1. 앱이 GET /characters/me로 보유 캐릭터 목록 조회
 2. 사용자가 수비형 또는 버프형 캐릭터를 선택
-3. 앱이 배치할 사용자 영토를 선택
-4. 앱이 PATCH /characters/:id/deploy 호출
-5. 서버가 캐릭터 소유자와 영토 소유자가 같은지 검증
-6. 서버가 `user_characters.deployed_territory_id`를 저장
-7. 이후 침략 방어 또는 자연 감소 스케줄러에서 배치 효과를 참조
+3. 앱이 GET /territories/me로 사용자 보유 영토 목록 조회
+4. 앱이 배치할 사용자 영토를 선택
+5. 앱이 PATCH /characters/:id/deploy 호출
+6. 서버가 캐릭터 소유자와 영토 소유자가 같은지 검증
+7. 서버가 해당 영토에 이미 배치된 캐릭터가 없는지 검증
+8. 서버가 `user_characters.deployed_territory_id`를 저장
+9. 이후 침략 방어 또는 자연 감소 스케줄러에서 배치 효과를 참조
 ```
 
 배치 기준:
@@ -252,6 +254,7 @@ const earnedPoints = isClosedLoop ? basePoints : Math.floor(basePoints * 1.3);
 - 배치 요청 본문은 `{ territory_id: number | null }`을 사용한다.
 - `territory_id`가 `null`이면 배치 해제다.
 - 배치 가능 캐릭터 타입은 수비형/버프형이다.
+- 하나의 영토에는 하나의 수비형/버프형 캐릭터만 배치할 수 있다.
 - 배치 여부는 `deployed_territory_id IS NOT NULL`로 파생한다.
 - 버프형/수비형 캐릭터가 침략 계산과 자연 감소 스케줄러에 주는 영향 공식은 후속 구현에서 확정한다.
 
