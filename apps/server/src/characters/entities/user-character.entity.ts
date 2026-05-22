@@ -11,6 +11,7 @@ import { Territory } from '../../territories/entities/territory.entity';
 import { Character } from './character.entity';
 
 @Index('IDX_user_characters_deployed_territory', ['deployed_territory_id'])
+@Index('IDX_user_characters_user', ['user_id'])
 @Entity('user_characters')
 export class UserCharacter {
   @PrimaryGeneratedColumn()

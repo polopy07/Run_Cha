@@ -4,6 +4,17 @@ export class UpdateUserCharactersSchema1747200000000
   implements MigrationInterface
 {
   public async up(queryRunner: QueryRunner): Promise<void> {
+    const userCharactersTable = await queryRunner.getTable('user_characters');
+    const hasUserIndex = userCharactersTable?.indices.some(
+      (index) => index.name === 'IDX_user_characters_user',
+    );
+
+    if (!hasUserIndex) {
+      await queryRunner.query(
+        `ALTER TABLE user_characters ADD INDEX IDX_user_characters_user (user_id)`,
+      );
+    }
+
     await queryRunner.query(
       `ALTER TABLE user_characters DROP INDEX IDX_user_characters_user_deployed`,
     );
