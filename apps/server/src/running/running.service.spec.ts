@@ -1,11 +1,11 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import * as turf from '@turf/turf';
 import { RunningService } from './running.service';
 import { RunningLog } from './entities/running-log.entity';
 import { User } from '../users/entities/user.entity';
-import { TerritoriesService } from '../territories/territories.service';
+import { Territory } from '../territories/entities/territory.entity';
 
 const CLOSED_LOOP = [
   { lat: 37.5, lng: 127.0 },
@@ -46,31 +46,37 @@ function createFinishDto(
 
 describe('RunningService', () => {
   let service: RunningService;
-
-  const mockRunningLogRepo = {
-    create: jest.fn((data: Record<string, unknown>) => data),
-    save: jest.fn((data: Record<string, unknown>) =>
-      Promise.resolve({ id: 1, ...data }),
-    ),
-  };
-  const mockUserRepo = {
-    increment: jest.fn().mockResolvedValue(undefined),
-  };
-  const mockTerritoriesService = {
-    registerTerritory: jest.fn().mockResolvedValue({ id: 1, user_id: 1 }),
+  let dataSource: { transaction: jest.Mock };
+  let manager: {
+    create: jest.Mock;
+    save: jest.Mock;
+    increment: jest.Mock;
   };
 
   beforeEach(async () => {
     jest.clearAllMocks();
+
+    manager = {
+      create: jest.fn((entity: unknown, data: Record<string, unknown>) => ({
+        entity,
+        ...data,
+      })),
+      save: jest.fn((value: Record<string, unknown>) =>
+        Promise.resolve({ id: 1, ...value }),
+      ),
+      increment: jest.fn().mockResolvedValue(undefined),
+    };
+    dataSource = {
+      transaction: jest.fn(
+        (callback: (managerArg: typeof manager) => unknown) =>
+          callback(manager),
+      ),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RunningService,
-        {
-          provide: getRepositoryToken(RunningLog),
-          useValue: mockRunningLogRepo,
-        },
-        { provide: getRepositoryToken(User), useValue: mockUserRepo },
-        { provide: TerritoriesService, useValue: mockTerritoriesService },
+        { provide: DataSource, useValue: dataSource },
       ],
     }).compile();
     service = module.get<RunningService>(RunningService);
@@ -82,10 +88,14 @@ describe('RunningService', () => {
         const result = await service.finish(1, createFinishDto(CLOSED_LOOP));
 
         expect(result.territory).not.toBeNull();
-        expect(mockTerritoriesService.registerTerritory).toHaveBeenCalledWith(
-          1,
-          CLOSED_LOOP,
-          expect.any(Number),
+        expect(manager.create).toHaveBeenCalledWith(
+          Territory,
+          expect.objectContaining({
+            user_id: 1,
+            coordinates: CLOSED_LOOP,
+            area_sqm: expect.any(Number) as unknown,
+            occupation_rate: 100,
+          }),
         );
       });
 
@@ -93,7 +103,10 @@ describe('RunningService', () => {
         const result = await service.finish(1, createFinishDto(OPEN_PATH));
 
         expect(result.territory).toBeNull();
-        expect(mockTerritoriesService.registerTerritory).not.toHaveBeenCalled();
+        expect(manager.create).not.toHaveBeenCalledWith(
+          Territory,
+          expect.any(Object),
+        );
       });
 
       it('좌표가 2개 이하면 영토가 없고 area_sqm은 0이다', async () => {
@@ -124,7 +137,11 @@ describe('RunningService', () => {
             createFinishDto(CLOSED_LOOP, pace),
           );
 
-          const expected = Math.floor((result.area_sqm / 100) * multiplier);
+          const distKm = calculateDistanceKm(CLOSED_LOOP);
+          const distMultiplier = Math.min(Math.pow(1.1, distKm), 3.0);
+          const expected = Math.floor(
+            distKm * 100 * multiplier * distMultiplier,
+          );
           expect(result.earned_points).toBe(expected);
         },
       );
@@ -149,7 +166,8 @@ describe('RunningService', () => {
 
         await service.finish(1, dto);
 
-        expect(mockRunningLogRepo.create).toHaveBeenCalledWith(
+        expect(manager.create).toHaveBeenCalledWith(
+          RunningLog,
           expect.objectContaining({
             user_id: 1,
             path: OPEN_PATH,
@@ -164,7 +182,28 @@ describe('RunningService', () => {
       it('생성 후 save를 호출한다', async () => {
         await service.finish(1, createFinishDto(OPEN_PATH));
 
-        expect(mockRunningLogRepo.save).toHaveBeenCalledTimes(1);
+        expect(manager.save).toHaveBeenCalledTimes(1);
+        expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+      });
+
+      it('포인트 증가와 영토 생성을 같은 트랜잭션에서 처리한다', async () => {
+        await service.finish(1, createFinishDto(CLOSED_LOOP));
+
+        expect(manager.increment).toHaveBeenCalledWith(
+          User,
+          { id: 1 },
+          'total_distance',
+          expect.any(Number),
+        );
+        expect(manager.increment).toHaveBeenCalledWith(
+          User,
+          { id: 1 },
+          'points',
+          expect.any(Number),
+        );
+        expect(manager.save).toHaveBeenCalledWith(
+          expect.objectContaining({ entity: Territory }),
+        );
       });
 
       it('시작 시간이 종료 시간 이후면 예외를 던진다', async () => {

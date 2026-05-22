@@ -4,7 +4,6 @@ import { UserCharacter } from './user-character.entity';
 export enum CharacterType {
   ATTACK = 'attack',
   DEFENSE = 'defense',
-  TERRITORY = 'territory',
   BUFF = 'buff',
 }
 

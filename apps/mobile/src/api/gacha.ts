@@ -5,7 +5,7 @@ type DrawGachaResponse = {
     characterId: number;
     name: string;
     grade: 'common' | 'rare' | 'epic' | 'legendary';
-    type: 'attack' | 'defense' | 'territory' | 'buff';
+    type: 'attack' | 'defense' | 'buff';
     isNew: boolean;
     isGuaranteed: boolean;
   }[];
