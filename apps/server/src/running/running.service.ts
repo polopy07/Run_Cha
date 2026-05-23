@@ -5,6 +5,7 @@ import { RunningLog } from './entities/running-log.entity';
 import { User } from '../users/entities/user.entity';
 import { Territory } from '../territories/entities/territory.entity';
 import { FinishRunningDto } from './dto/finish-running.dto';
+import { calcCenter } from '../common/utils/geo';
 
 const PACE_MULTIPLIER: Record<string, number> = {
   fast_walk: 0.6,
@@ -94,6 +95,7 @@ export class RunningService {
           );
         }
 
+        const center = calcCenter(path);
         const territory =
           area_sqm > 0
             ? await manager.save(
@@ -102,6 +104,8 @@ export class RunningService {
                   coordinates: path,
                   area_sqm,
                   occupation_rate: 100,
+                  center_lat: center.lat,
+                  center_lng: center.lng,
                 }),
               )
             : null;

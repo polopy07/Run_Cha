@@ -25,6 +25,8 @@ function makeTerritory(lat: number, lng: number): Territory {
     coordinates: [{ lat, lng }],
     area_sqm: 1000,
     occupation_rate: 100,
+    center_lat: lat,
+    center_lng: lng,
     last_active_at: new Date(),
     user: { id: 1, nickname: 'tester' } as unknown as User,
   };
@@ -33,20 +35,34 @@ function makeTerritory(lat: number, lng: number): Territory {
 describe('TerritoriesService', () => {
   let service: TerritoriesService;
 
+  const mockQb = {
+    innerJoinAndSelect: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    getMany: jest.fn().mockResolvedValue([]),
+  };
+
   const mockRepo = {
     find: jest.fn(),
     findOne: jest.fn(),
+    createQueryBuilder: jest.fn(() => mockQb),
     create: jest.fn((data: Record<string, unknown>) => data),
     save: jest.fn((data: Record<string, unknown>) =>
       Promise.resolve({ id: 1, ...data }),
     ),
   };
+
   const mockUserCharactersRepo = {
     find: jest.fn(),
   };
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockRepo.find.mockResolvedValue([]);
+    mockRepo.findOne.mockResolvedValue(null);
+    mockQb.getMany.mockResolvedValue([]);
+    mockUserCharactersRepo.find.mockResolvedValue([]);
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TerritoriesService,
@@ -57,6 +73,7 @@ describe('TerritoriesService', () => {
         },
       ],
     }).compile();
+
     service = module.get<TerritoriesService>(TerritoriesService);
   });
 
@@ -92,78 +109,51 @@ describe('TerritoriesService', () => {
     });
 
     it('returns an empty array when the user has no territories', async () => {
-      mockRepo.find.mockResolvedValue([]);
-
       await expect(service.findMine(1)).resolves.toEqual([]);
     });
   });
 
   describe('findInBounds', () => {
-    it('바운딩 박스 안의 영토를 반환한다', async () => {
-      mockRepo.find.mockResolvedValue([
-        makeTerritory(37.5, 127.0),
-        makeTerritory(36.0, 127.0), // minLat 미만
-        makeTerritory(37.5, 128.5), // maxLng 초과
-      ]);
+    it('filters territories by center_lat in DB', async () => {
+      await service.findInBounds(BOUNDS);
+
+      expect(mockQb.where).toHaveBeenCalledWith(
+        expect.stringContaining('center_lat BETWEEN'),
+        expect.objectContaining({ minLat: 37.0, maxLat: 38.0 }),
+      );
+    });
+
+    it('filters territories by center_lng in DB', async () => {
+      await service.findInBounds(BOUNDS);
+
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        expect.stringContaining('center_lng BETWEEN'),
+        expect.objectContaining({ minLng: 126.0, maxLng: 128.0 }),
+      );
+    });
+
+    it('maps territories to response format', async () => {
+      const territory = makeTerritory(37.5, 127.0);
+      mockQb.getMany.mockResolvedValue([territory]);
 
       const result = await service.findInBounds(BOUNDS);
 
-      expect(result).toHaveLength(1);
-      expect(result[0].coordinates[0]).toEqual({ lat: 37.5, lng: 127.0 });
-    });
-
-    it('경계값(minLat, maxLat, minLng, maxLng)의 영토를 포함한다', async () => {
-      mockRepo.find.mockResolvedValue([
-        makeTerritory(37.0, 126.0), // minLat, minLng 정확히 경계
-        makeTerritory(38.0, 128.0), // maxLat, maxLng 정확히 경계
+      expect(result).toEqual([
+        {
+          id: territory.id,
+          userId: territory.user_id,
+          coordinates: territory.coordinates,
+          areaSqm: territory.area_sqm,
+          occupationRate: territory.occupation_rate,
+          lastActiveAt: territory.last_active_at,
+        },
       ]);
-
-      const result = await service.findInBounds(BOUNDS);
-
-      expect(result).toHaveLength(2);
     });
 
-    it('coordinates가 빈 배열인 영토를 제외한다', async () => {
-      mockRepo.find.mockResolvedValue([
-        { ...makeTerritory(37.5, 127.0), coordinates: [] },
-      ]);
-
-      const result = await service.findInBounds(BOUNDS);
-
-      expect(result).toHaveLength(0);
-    });
-
-    it('coordinates가 null인 영토를 제외한다', async () => {
-      mockRepo.find.mockResolvedValue([
-        { ...makeTerritory(37.5, 127.0), coordinates: null },
-      ]);
-
-      const result = await service.findInBounds(BOUNDS);
-
-      expect(result).toHaveLength(0);
-    });
-
-    it('영토가 없으면 빈 배열을 반환한다', async () => {
-      mockRepo.find.mockResolvedValue([]);
-
+    it('returns an empty array when there are no territories', async () => {
       const result = await service.findInBounds(BOUNDS);
 
       expect(result).toEqual([]);
-    });
-
-    it('user 관계와 필요한 필드만 조회한다', async () => {
-      mockRepo.find.mockResolvedValue([]);
-      await service.findInBounds(BOUNDS);
-
-      expect(mockRepo.find).toHaveBeenCalledWith(
-        expect.objectContaining({
-          relations: ['user'],
-          select: expect.objectContaining({
-            id: true,
-            user_id: true,
-          }) as unknown,
-        }),
-      );
     });
   });
 
@@ -172,7 +162,7 @@ describe('TerritoriesService', () => {
       const territory = makeTerritory(37.5, 127.0);
       const character = {
         id: 3,
-        name: '수비형1',
+        name: 'defender',
         grade: CharacterGrade.COMMON,
         type: CharacterType.DEFENSE,
       } as Character;
@@ -221,7 +211,7 @@ describe('TerritoriesService', () => {
           {
             id: 10,
             characterId: 3,
-            name: '수비형1',
+            name: 'defender',
             grade: CharacterGrade.COMMON,
             type: CharacterType.DEFENSE,
             attackLv: 1,
@@ -235,7 +225,6 @@ describe('TerritoriesService', () => {
 
     it('returns isMine false when the current user is not the owner', async () => {
       mockRepo.findOne.mockResolvedValue(makeTerritory(37.5, 127.0));
-      mockUserCharactersRepo.find.mockResolvedValue([]);
 
       const result = await service.findOne(1, 2);
 
@@ -244,8 +233,6 @@ describe('TerritoriesService', () => {
     });
 
     it('throws NotFoundException when the territory does not exist', async () => {
-      mockRepo.findOne.mockResolvedValue(null);
-
       await expect(service.findOne(999, 1)).rejects.toThrow(
         '영토를 찾을 수 없습니다.',
       );
@@ -254,7 +241,7 @@ describe('TerritoriesService', () => {
   });
 
   describe('registerTerritory', () => {
-    it('올바른 데이터로 영토를 생성하고 저장한다', async () => {
+    it('calculates center_lat and center_lng from coordinates', async () => {
       const coords = [
         { lat: 37.5, lng: 127.0 },
         { lat: 37.501, lng: 127.0 },
@@ -267,11 +254,13 @@ describe('TerritoriesService', () => {
         coordinates: coords,
         area_sqm: 5000,
         occupation_rate: 100,
+        center_lat: 37.5005,
+        center_lng: 127.0,
       });
       expect(mockRepo.save).toHaveBeenCalled();
     });
 
-    it('저장된 영토를 반환한다', async () => {
+    it('returns saved territory', async () => {
       const saved = {
         id: 42,
         user_id: 1,
@@ -280,7 +269,11 @@ describe('TerritoriesService', () => {
       };
       mockRepo.save.mockResolvedValue(saved);
 
-      const result = await service.registerTerritory(1, [], 5000);
+      const result = await service.registerTerritory(
+        1,
+        [{ lat: 37.5, lng: 127.0 }],
+        5000,
+      );
 
       expect(result).toEqual(saved);
     });
