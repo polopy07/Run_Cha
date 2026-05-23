@@ -80,20 +80,17 @@ export class RunningService {
         });
         const savedLog = await manager.save(log);
 
-        await manager.increment(
-          User,
-          { id: userId },
-          'total_distance',
-          distanceKm,
-        );
-        if (earned_points > 0) {
-          await manager.increment(
-            User,
-            { id: userId },
-            'points',
-            earned_points,
-          );
-        }
+        await manager
+          .createQueryBuilder()
+          .update(User)
+          .set({
+            total_distance: () => 'total_distance + :dist',
+            points: () => 'points + :pts',
+          })
+          .where('id = :id', { id: userId })
+          .setParameter('dist', distanceKm)
+          .setParameter('pts', earned_points)
+          .execute();
 
         const center = calcCenter(path);
         const territory =

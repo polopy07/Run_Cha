@@ -4,7 +4,6 @@ import { DataSource } from 'typeorm';
 import * as turf from '@turf/turf';
 import { RunningService } from './running.service';
 import { RunningLog } from './entities/running-log.entity';
-import { User } from '../users/entities/user.entity';
 import { Territory } from '../territories/entities/territory.entity';
 
 const CLOSED_LOOP = [
@@ -46,37 +45,37 @@ function createFinishDto(
 
 describe('RunningService', () => {
   let service: RunningService;
-  let dataSource: { transaction: jest.Mock };
-  let manager: {
-    create: jest.Mock;
-    save: jest.Mock;
-    increment: jest.Mock;
+
+  const mockUserQb = {
+    update: jest.fn().mockReturnThis(),
+    set: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    setParameter: jest.fn().mockReturnThis(),
+    execute: jest.fn().mockResolvedValue({ affected: 1 }),
+  };
+
+  const mockEntityManager = {
+    create: jest.fn((_entity: unknown, data: Record<string, unknown>) => data),
+    save: jest.fn((data: Record<string, unknown>) =>
+      Promise.resolve({ id: 1, ...data }),
+    ),
+    createQueryBuilder: jest.fn(() => mockUserQb),
+  };
+
+  const mockDataSource = {
+    transaction: jest.fn(
+      async (cb: (em: typeof mockEntityManager) => Promise<unknown>) =>
+        cb(mockEntityManager),
+    ),
   };
 
   beforeEach(async () => {
     jest.clearAllMocks();
 
-    manager = {
-      create: jest.fn((entity: unknown, data: Record<string, unknown>) => ({
-        entity,
-        ...data,
-      })),
-      save: jest.fn((value: Record<string, unknown>) =>
-        Promise.resolve({ id: 1, ...value }),
-      ),
-      increment: jest.fn().mockResolvedValue(undefined),
-    };
-    dataSource = {
-      transaction: jest.fn(
-        (callback: (managerArg: typeof manager) => unknown) =>
-          callback(manager),
-      ),
-    };
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RunningService,
-        { provide: DataSource, useValue: dataSource },
+        { provide: DataSource, useValue: mockDataSource },
       ],
     }).compile();
     service = module.get<RunningService>(RunningService);
@@ -88,13 +87,15 @@ describe('RunningService', () => {
         const result = await service.finish(1, createFinishDto(CLOSED_LOOP));
 
         expect(result.territory).not.toBeNull();
-        expect(manager.create).toHaveBeenCalledWith(
+        expect(mockEntityManager.create).toHaveBeenCalledWith(
           Territory,
           expect.objectContaining({
             user_id: 1,
             coordinates: CLOSED_LOOP,
             area_sqm: expect.any(Number) as unknown,
             occupation_rate: 100,
+            center_lat: expect.any(Number) as unknown,
+            center_lng: expect.any(Number) as unknown,
           }),
         );
       });
@@ -103,7 +104,7 @@ describe('RunningService', () => {
         const result = await service.finish(1, createFinishDto(OPEN_PATH));
 
         expect(result.territory).toBeNull();
-        expect(manager.create).not.toHaveBeenCalledWith(
+        expect(mockEntityManager.create).not.toHaveBeenCalledWith(
           Territory,
           expect.any(Object),
         );
@@ -166,7 +167,7 @@ describe('RunningService', () => {
 
         await service.finish(1, dto);
 
-        expect(manager.create).toHaveBeenCalledWith(
+        expect(mockEntityManager.create).toHaveBeenCalledWith(
           RunningLog,
           expect.objectContaining({
             user_id: 1,
@@ -182,27 +183,20 @@ describe('RunningService', () => {
       it('생성 후 save를 호출한다', async () => {
         await service.finish(1, createFinishDto(OPEN_PATH));
 
-        expect(manager.save).toHaveBeenCalledTimes(1);
-        expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+        expect(mockEntityManager.save).toHaveBeenCalledTimes(1);
+        expect(mockDataSource.transaction).toHaveBeenCalledTimes(1);
       });
 
       it('포인트 증가와 영토 생성을 같은 트랜잭션에서 처리한다', async () => {
         await service.finish(1, createFinishDto(CLOSED_LOOP));
 
-        expect(manager.increment).toHaveBeenCalledWith(
-          User,
-          { id: 1 },
-          'total_distance',
-          expect.any(Number),
-        );
-        expect(manager.increment).toHaveBeenCalledWith(
-          User,
-          { id: 1 },
-          'points',
-          expect.any(Number),
-        );
-        expect(manager.save).toHaveBeenCalledWith(
-          expect.objectContaining({ entity: Territory }),
+        expect(mockEntityManager.createQueryBuilder).toHaveBeenCalled();
+        expect(mockUserQb.execute).toHaveBeenCalled();
+        expect(mockEntityManager.save).toHaveBeenCalledWith(
+          expect.objectContaining({
+            user_id: 1,
+            coordinates: CLOSED_LOOP,
+          }),
         );
       });
 
