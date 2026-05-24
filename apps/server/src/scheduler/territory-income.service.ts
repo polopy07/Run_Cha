@@ -1,13 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { DataSource } from 'typeorm';
-import { User } from '../users/entities/user.entity';
 
 const SQM_PER_POINT = 1000;
 
-type TerritoryIncomeRow = {
-  userId: number | string;
-  points: number | string;
+type TerritoryIncomeResult = {
+  affectedRows?: number;
+  changedRows?: number;
 };
 
 @Injectable()
@@ -20,44 +19,34 @@ export class TerritoryIncomeService {
   async handleHourlyIncome() {
     this.logger.log('Territory hourly income started');
 
-    const incomeRows = await this.dataSource.query<TerritoryIncomeRow[]>(
+    const result = await this.dataSource.query<TerritoryIncomeResult>(
       `
-        SELECT
-          user_id AS userId,
-          FLOOR(SUM(area_sqm * occupation_rate / 100) / ?) AS points
-        FROM territories
-        WHERE occupation_rate > 0
-        GROUP BY user_id
-        HAVING points > 0
+        UPDATE users u
+        INNER JOIN (
+          SELECT
+            user_id,
+            FLOOR(SUM(area_sqm * occupation_rate / 100) / ?) AS points
+          FROM territories
+          WHERE occupation_rate > 0
+          GROUP BY user_id
+          HAVING points > 0
+        ) AS income ON u.id = income.user_id
+        SET u.points = u.points + income.points
       `,
       [SQM_PER_POINT],
     );
 
-    if (incomeRows.length === 0) {
+    const affectedRows = Number(result?.affectedRows ?? 0);
+    const changedRows = Number(result?.changedRows ?? affectedRows);
+
+    if (affectedRows === 0) {
       this.logger.log('Territory hourly income skipped: no recipients');
-      return { recipients: 0, totalPoints: 0 };
+    } else {
+      this.logger.log(
+        `Territory hourly income completed: ${affectedRows} recipients updated`,
+      );
     }
 
-    await this.dataSource.transaction(async (manager) => {
-      for (const row of incomeRows) {
-        await manager.increment(
-          User,
-          { id: Number(row.userId) },
-          'points',
-          Number(row.points),
-        );
-      }
-    });
-
-    const totalPoints = incomeRows.reduce(
-      (sum, row) => sum + Number(row.points),
-      0,
-    );
-
-    this.logger.log(
-      `Territory hourly income completed: ${incomeRows.length} recipients, ${totalPoints} points`,
-    );
-
-    return { recipients: incomeRows.length, totalPoints };
+    return { affectedRows, changedRows };
   }
 }

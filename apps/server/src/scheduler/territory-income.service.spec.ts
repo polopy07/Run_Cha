@@ -1,30 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
 import { TerritoryIncomeService } from './territory-income.service';
-import { User } from '../users/entities/user.entity';
 
 describe('TerritoryIncomeService', () => {
   let service: TerritoryIncomeService;
 
-  type MockManager = {
-    increment: jest.Mock;
-  };
-
-  const mockManager = {
-    increment: jest.fn(),
-  } satisfies MockManager;
-
   const mockDataSource = {
     query: jest.fn(),
-    transaction: jest.fn(),
   };
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    mockDataSource.transaction.mockImplementation(
-      async (callback: (manager: MockManager) => Promise<unknown>) =>
-        callback(mockManager),
-    );
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -36,52 +22,36 @@ describe('TerritoryIncomeService', () => {
     service = module.get<TerritoryIncomeService>(TerritoryIncomeService);
   });
 
-  it('queries hourly income from effective occupied area per user', async () => {
-    mockDataSource.query.mockResolvedValue([]);
+  it('updates user points with a single aggregate UPDATE JOIN query', async () => {
+    mockDataSource.query.mockResolvedValue({ affectedRows: 2, changedRows: 2 });
 
-    await service.handleHourlyIncome();
+    const result = await service.handleHourlyIncome();
 
+    expect(mockDataSource.query).toHaveBeenCalledTimes(1);
+    expect(mockDataSource.query).toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE users u'),
+      [1000],
+    );
+    expect(mockDataSource.query).toHaveBeenCalledWith(
+      expect.stringContaining('INNER JOIN'),
+      [1000],
+    );
     expect(mockDataSource.query).toHaveBeenCalledWith(
       expect.stringContaining('SUM(area_sqm * occupation_rate / 100)'),
       [1000],
     );
     expect(mockDataSource.query).toHaveBeenCalledWith(
-      expect.stringContaining('HAVING points > 0'),
+      expect.stringContaining('SET u.points = u.points + income.points'),
       [1000],
     );
+    expect(result).toEqual({ affectedRows: 2, changedRows: 2 });
   });
 
-  it('does not update points when there are no recipients', async () => {
-    mockDataSource.query.mockResolvedValue([]);
+  it('returns zero counts when there are no recipients', async () => {
+    mockDataSource.query.mockResolvedValue({ affectedRows: 0, changedRows: 0 });
 
     const result = await service.handleHourlyIncome();
 
-    expect(mockDataSource.transaction).not.toHaveBeenCalled();
-    expect(mockManager.increment).not.toHaveBeenCalled();
-    expect(result).toEqual({ recipients: 0, totalPoints: 0 });
-  });
-
-  it('increments user points for each income row', async () => {
-    mockDataSource.query.mockResolvedValue([
-      { userId: 1, points: 3 },
-      { userId: '2', points: '5' },
-    ]);
-
-    const result = await service.handleHourlyIncome();
-
-    expect(mockDataSource.transaction).toHaveBeenCalledTimes(1);
-    expect(mockManager.increment).toHaveBeenCalledWith(
-      User,
-      { id: 1 },
-      'points',
-      3,
-    );
-    expect(mockManager.increment).toHaveBeenCalledWith(
-      User,
-      { id: 2 },
-      'points',
-      5,
-    );
-    expect(result).toEqual({ recipients: 2, totalPoints: 8 });
+    expect(result).toEqual({ affectedRows: 0, changedRows: 0 });
   });
 });
