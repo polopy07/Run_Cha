@@ -88,6 +88,10 @@ const earnedPoints = isClosedLoop ? basePoints : Math.floor(basePoints * 1.3);
 - `paceMultiplier`: 서버 계산 평균 페이스 기준 보정값
 - `distanceMultiplier`: 장거리 러닝 보정값. 현재 구현 기준 `Math.min(1.1 ** distanceKm, 3.0)`
 - 폐곡선을 만들지 못한 러닝은 영토를 생성하지 않는 대신 즉시 보상에 1.3배를 적용한다.
+- 폐곡선으로 생성된 영토는 이후 시간당 포인트 수익을 만든다.
+  - 시간당 수익은 사용자별 유효 점령 면적 기준으로 지급한다.
+  - 유효 점령 면적은 `area_sqm * occupation_rate / 100`으로 계산한다.
+  - 현재 구현 기준 `Math.floor(유효 점령 면적 합계 / 1000)` 포인트를 매시간 지급한다.
 
 | 평균 페이스 | 보정값 |
 |---|---:|
