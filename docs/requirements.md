@@ -117,6 +117,7 @@ const earnedPoints = isClosedLoop ? basePoints : Math.floor(basePoints * 1.3);
 - 캐릭터 경험치가 기준치를 넘으면 캐릭터 레벨이 상승하고, 레벨에 따라 캐릭터 능력치가 성장한다.
 - 수비형/버프형 캐릭터는 사용자 영토에 배치될 수 있다.
 - 캐릭터 배치는 `user_characters.deployed_territory_id`로 특정 영토를 지정한다.
+- 하나의 영토에는 하나의 수비형/버프형 캐릭터만 배치할 수 있다.
 - 배치 여부는 `deployed_territory_id IS NOT NULL`로 판단하며 별도 `is_deployed` 컬럼은 사용하지 않는다.
 
 ### 4.5 영토 침략
