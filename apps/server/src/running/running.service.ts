@@ -92,20 +92,20 @@ export class RunningService {
           .setParameter('pts', earned_points)
           .execute();
 
-        const center = calcCenter(path);
-        const territory =
-          area_sqm > 0
-            ? await manager.save(
-                manager.create(Territory, {
-                  user_id: userId,
-                  coordinates: path,
-                  area_sqm,
-                  occupation_rate: 100,
-                  center_lat: center.lat,
-                  center_lng: center.lng,
-                }),
-              )
-            : null;
+        let territory = null;
+        if (area_sqm > 0) {
+          const center = calcCenter(path);
+          territory = await manager.save(
+            manager.create(Territory, {
+              user_id: userId,
+              coordinates: path,
+              area_sqm,
+              occupation_rate: 100,
+              center_lat: center.lat,
+              center_lng: center.lng,
+            }),
+          );
+        }
 
         return { savedLog, territory };
       },
