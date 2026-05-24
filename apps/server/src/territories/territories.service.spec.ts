@@ -124,11 +124,9 @@ describe('TerritoriesService', () => {
       expect(result).toEqual([
         {
           id: 1,
-          userId: 1,
           coordinates: [{ lat: 37.5, lng: 127.0 }],
           areaSqm: 1000,
           occupationRate: 100,
-          lastActiveAt: territory.last_active_at,
         },
       ]);
     });
@@ -161,7 +159,12 @@ describe('TerritoriesService', () => {
     });
 
     it('returns saved territory', async () => {
-      const saved = { id: 42, user_id: 1, area_sqm: 5000, occupation_rate: 100 };
+      const saved = {
+        id: 42,
+        user_id: 1,
+        area_sqm: 5000,
+        occupation_rate: 100,
+      };
       mockRepo.save.mockResolvedValue(saved);
 
       const result = await service.registerTerritory(
