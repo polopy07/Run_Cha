@@ -92,7 +92,7 @@ export class RunningService {
           .setParameter('pts', earned_points)
           .execute();
 
-        let territory = null;
+        let territory: Territory | null = null;
         if (area_sqm > 0) {
           const center = calcCenter(path);
           territory = await manager.save(
