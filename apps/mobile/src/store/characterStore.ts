@@ -33,6 +33,8 @@ const useCharacterStore = create<CharacterState>((set, get) => ({
     try {
       const data = await getCharacters();
       set({ characters: data });
+    } catch (error) {
+      throw error;
     } finally {
       set({ isLoading: false });
     }
