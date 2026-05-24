@@ -122,6 +122,42 @@ describe('RunningService', () => {
         expect(result.territory).toBeNull();
         expect(result.area_sqm).toBe(0);
       });
+
+      it('rejects an empty path before saving log data', async () => {
+        await expect(
+          service.finish(1, {
+            path: [],
+            started_at: new Date(Date.now() - 60_000).toISOString(),
+          }),
+        ).rejects.toBeInstanceOf(BadRequestException);
+
+        expect(mockDataSource.transaction).not.toHaveBeenCalled();
+      });
+
+      it('rejects a path with one point before saving log data', async () => {
+        await expect(
+          service.finish(1, {
+            path: [{ lat: 37.5, lng: 127.0 }],
+            started_at: new Date(Date.now() - 60_000).toISOString(),
+          }),
+        ).rejects.toBeInstanceOf(BadRequestException);
+
+        expect(mockDataSource.transaction).not.toHaveBeenCalled();
+      });
+
+      it('rejects coordinates outside latitude or longitude range', async () => {
+        await expect(
+          service.finish(1, {
+            path: [
+              { lat: 37.5, lng: 127.0 },
+              { lat: 91, lng: 127.0 },
+            ],
+            started_at: new Date(Date.now() - 60_000).toISOString(),
+          }),
+        ).rejects.toBeInstanceOf(BadRequestException);
+
+        expect(mockDataSource.transaction).not.toHaveBeenCalled();
+      });
     });
 
     describe('서버 계산 페이스 배율', () => {
