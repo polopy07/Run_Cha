@@ -6,9 +6,13 @@ import { User } from '../users/entities/user.entity';
 describe('TerritoryIncomeService', () => {
   let service: TerritoryIncomeService;
 
+  type MockManager = {
+    increment: jest.Mock;
+  };
+
   const mockManager = {
     increment: jest.fn(),
-  };
+  } satisfies MockManager;
 
   const mockDataSource = {
     query: jest.fn(),
@@ -17,8 +21,9 @@ describe('TerritoryIncomeService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    mockDataSource.transaction.mockImplementation(async (callback) =>
-      callback(mockManager),
+    mockDataSource.transaction.mockImplementation(
+      async (callback: (manager: MockManager) => Promise<unknown>) =>
+        callback(mockManager),
     );
 
     const module: TestingModule = await Test.createTestingModule({
