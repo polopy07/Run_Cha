@@ -37,7 +37,6 @@ export class TerritoriesService {
 
     const territories = await this.territoryRepo
       .createQueryBuilder('t')
-      .innerJoinAndSelect('t.user', 'u')
       .where('t.center_lat BETWEEN :minLat AND :maxLat', { minLat, maxLat })
       .andWhere('t.center_lng BETWEEN :minLng AND :maxLng', { minLng, maxLng })
       .getMany();
@@ -45,7 +44,7 @@ export class TerritoriesService {
     return territories.map((t) => this.toTerritoryResponse(t));
   }
 
-  async findOne(id: number, currentUserId: number) {
+  async findOne(id: number, currentUserId: number | null) {
     const territory = await this.territoryRepo.findOne({
       where: { id },
       relations: ['user'],
@@ -71,12 +70,16 @@ export class TerritoriesService {
     });
 
     return {
-      ...this.toTerritoryResponse(territory),
+      id: territory.id,
+      coordinates: territory.coordinates,
+      areaSqm: territory.area_sqm,
+      occupationRate: territory.occupation_rate,
+      lastActiveAt: territory.last_active_at,
       owner: {
         id: territory.user.id,
         nickname: territory.user.nickname,
       },
-      isMine: territory.user_id === currentUserId,
+      isMine: currentUserId !== null && territory.user_id === currentUserId,
       deployedCharacters: deployedCharacters.map((userCharacter) => ({
         id: userCharacter.id,
         characterId: userCharacter.character_id,

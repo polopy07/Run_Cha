@@ -4,6 +4,7 @@ import { TerritoriesService } from './territories.service';
 import { GetTerritoriesDto } from './dto/get-territories.dto';
 import { User } from '../users/entities/user.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 
 describe('TerritoriesController', () => {
   let controller: TerritoriesController;
@@ -21,6 +22,8 @@ describe('TerritoriesController', () => {
       providers: [{ provide: TerritoriesService, useValue: mockService }],
     })
       .overrideGuard(JwtAuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(OptionalJwtAuthGuard)
       .useValue({ canActivate: () => true })
       .compile();
     controller = module.get<TerritoriesController>(TerritoriesController);
@@ -74,6 +77,16 @@ describe('TerritoriesController', () => {
       const result = await controller.findOne(user, 7);
 
       expect(mockService.findOne).toHaveBeenCalledWith(7, 1);
+      expect(result).toEqual(expected);
+    });
+
+    it('passes null current user id when unauthenticated', async () => {
+      const expected = { id: 7, isMine: false };
+      mockService.findOne.mockResolvedValue(expected);
+
+      const result = await controller.findOne(undefined, 7);
+
+      expect(mockService.findOne).toHaveBeenCalledWith(7, null);
       expect(result).toEqual(expected);
     });
   });

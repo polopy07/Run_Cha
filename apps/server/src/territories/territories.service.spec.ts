@@ -36,7 +36,6 @@ describe('TerritoriesService', () => {
   let service: TerritoriesService;
 
   const mockQb = {
-    innerJoinAndSelect: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     getMany: jest.fn().mockResolvedValue([]),
@@ -200,7 +199,6 @@ describe('TerritoriesService', () => {
       });
       expect(result).toEqual({
         id: territory.id,
-        userId: territory.user_id,
         coordinates: territory.coordinates,
         areaSqm: territory.area_sqm,
         occupationRate: territory.occupation_rate,
@@ -230,6 +228,14 @@ describe('TerritoriesService', () => {
 
       expect(result.isMine).toBe(false);
       expect(result.deployedCharacters).toEqual([]);
+    });
+
+    it('returns isMine false for unauthenticated users', async () => {
+      mockRepo.findOne.mockResolvedValue(makeTerritory(37.5, 127.0));
+
+      const result = await service.findOne(1, null);
+
+      expect(result.isMine).toBe(false);
     });
 
     it('throws NotFoundException when the territory does not exist', async () => {
