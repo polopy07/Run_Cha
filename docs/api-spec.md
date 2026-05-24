@@ -139,7 +139,7 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 |---|---|---|---|
 | POST | `/running/start` | O | 러닝 시작 기록. 필요 여부 결정 필요 |
 | POST | `/running/finish` | O | 러닝 종료, 경로 저장, 면적/포인트 계산, 영토 생성 처리 |
-| GET | `/territories` | O | 현재 지도 범위 내 영토 목록 조회 |
+| GET | `/territories` | X | 현재 지도 범위 내 영토 목록 조회 |
 | GET | `/territories/me` | O | 현재 로그인 사용자의 보유 영토 목록 조회 |
 | POST | `/territories/:id/attack` | O | 특정 영토 침략 처리 |
 
@@ -222,13 +222,9 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | 필드 | 타입 | 설명 |
 |---|---|---|
 | id | number | 영토 ID |
-| userId | number | 소유 사용자 ID |
 | coordinates | `{ lat: number, lng: number }[]` | 영토 좌표 데이터 |
 | areaSqm | number | 영토 면적 |
 | occupationRate | number | 점령률 |
-| lastActiveAt | string | 마지막 활동 시각 |
-| centerLat | number \| null | 영토 중심 위도. 중심 좌표 마이그레이션 적용 후 사용 |
-| centerLng | number \| null | 영토 중심 경도. 중심 좌표 마이그레이션 적용 후 사용 |
 
 ### GET `/territories/me`
 
@@ -238,18 +234,12 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 
 #### Response
 
-`GET /territories`의 개별 영토 객체와 동일한 형식의 배열로 응답한다.
+`GET /territories`의 개별 영토 객체에 아래 필드를 추가한 배열로 응답한다.
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
-| id | number | 영토 ID |
 | userId | number | 소유 사용자 ID |
-| coordinates | `{ lat: number, lng: number }[]` | 영토 좌표 데이터 |
-| areaSqm | number | 영토 면적 |
-| occupationRate | number | 점령률 |
-| lastActiveAt | string | 마지막 활동 시각 |
-| centerLat | number \| null | 영토 중심 위도. 중심 좌표 마이그레이션 적용 후 사용 |
-| centerLng | number \| null | 영토 중심 경도. 중심 좌표 마이그레이션 적용 후 사용 |
+| lastActiveAt | string (ISO 8601) | 마지막 활동 시각 |
 
 ### POST `/territories/:id/attack`
 
