@@ -12,23 +12,33 @@ export class TerritoriesService {
     private readonly territoryRepo: Repository<Territory>,
   ) {}
 
+  async findMine(userId: number) {
+    const territories = await this.territoryRepo.find({
+      where: { user_id: userId },
+      order: { id: 'ASC' },
+      select: {
+        id: true,
+        user_id: true,
+        coordinates: true,
+        area_sqm: true,
+        occupation_rate: true,
+        last_active_at: true,
+      },
+    });
+
+    return territories.map((t) => this.toOwnedTerritoryResponse(t));
+  }
+
   async findInBounds(dto: GetTerritoriesDto) {
     const { minLat, maxLat, minLng, maxLng } = dto;
 
     const territories = await this.territoryRepo
       .createQueryBuilder('t')
-      .innerJoinAndSelect('t.user', 'u')
       .where('t.center_lat BETWEEN :minLat AND :maxLat', { minLat, maxLat })
       .andWhere('t.center_lng BETWEEN :minLng AND :maxLng', { minLng, maxLng })
       .getMany();
 
-    return territories.map((t) => ({
-      id: t.id,
-      userId: t.user_id,
-      coordinates: t.coordinates,
-      areaSqm: t.area_sqm,
-      occupationRate: t.occupation_rate,
-    }));
+    return territories.map((t) => this.toPublicTerritoryResponse(t));
   }
 
   async registerTerritory(
@@ -46,5 +56,22 @@ export class TerritoriesService {
       center_lng: center.lng,
     });
     return this.territoryRepo.save(territory);
+  }
+
+  private toPublicTerritoryResponse(territory: Territory) {
+    return {
+      id: territory.id,
+      coordinates: territory.coordinates,
+      areaSqm: territory.area_sqm,
+      occupationRate: territory.occupation_rate,
+    };
+  }
+
+  private toOwnedTerritoryResponse(territory: Territory) {
+    return {
+      ...this.toPublicTerritoryResponse(territory),
+      userId: territory.user_id,
+      lastActiveAt: territory.last_active_at,
+    };
   }
 }

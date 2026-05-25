@@ -2,11 +2,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TerritoriesController } from './territories.controller';
 import { TerritoriesService } from './territories.service';
 import { GetTerritoriesDto } from './dto/get-territories.dto';
+import { User } from '../users/entities/user.entity';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 describe('TerritoriesController', () => {
   let controller: TerritoriesController;
 
   const mockService = {
+    findMine: jest.fn(),
     findInBounds: jest.fn(),
   };
 
@@ -15,8 +18,24 @@ describe('TerritoriesController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TerritoriesController],
       providers: [{ provide: TerritoriesService, useValue: mockService }],
-    }).compile();
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
     controller = module.get<TerritoriesController>(TerritoriesController);
+  });
+
+  describe('findMine', () => {
+    it('calls findMine with the current user id', async () => {
+      const user = { id: 1 } as User;
+      const expected = [{ id: 7 }];
+      mockService.findMine.mockResolvedValue(expected);
+
+      const result = await controller.findMine(user);
+
+      expect(mockService.findMine).toHaveBeenCalledWith(1);
+      expect(result).toEqual(expected);
+    });
   });
 
   describe('getInBounds', () => {
