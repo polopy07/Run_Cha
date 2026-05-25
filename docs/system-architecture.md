@@ -264,31 +264,36 @@ const earnedPoints = isClosedLoop ? basePoints : Math.floor(basePoints * 1.3);
 ```text
 1. 사용자가 다른 사용자의 점령 영토 근처 또는 내부를 러닝
 2. 앱이 POST /running/finish로 러닝 로그 저장
-3. 서버가 대상 영토와 러닝 경로의 겹친 면적을 계산
-4. 겹친 면적이 대상 영토의 30% 이상이면 침략 가능 상태가 됨
-5. 앱이 POST /territories/:id/attack 호출
-6. 서버가 runningLogId 소유자, 공격형 사용자 캐릭터, 하루 제한을 검증
-7. 서버가 공격 캐릭터 공격력과 대상 영토 배치 수비형 캐릭터 방어력을 계산
-8. 서버가 `occupation_rate` 기준 보정 방어력을 적용해 최종 피해량을 계산
-9. 서버가 대상 영토의 `occupation_rate`를 감소시키고 침략 결과를 `attack_logs`에 저장
-10. 대상 영토 밖의 새 면적은 일반 러닝 영토 생성 규칙에 따라 처리
-11. 서버가 침략 결과, 다음 가능 시각, 남은 횟수를 응답
+3. 앱이 공격 대상 영토와 사용할 공격형 캐릭터를 선택
+4. 앱이 POST /territories/:id/attack 호출
+5. 서버가 runningLogId 소유자, 공격형 사용자 캐릭터, 하루 제한을 검증
+6. 서버가 대상 영토와 러닝 로그 경로의 겹친 면적을 계산
+7. 겹친 면적이 대상 영토의 30% 이상인지 검증
+8. 서버가 공격 캐릭터 공격력과 대상 영토 배치 수비형 캐릭터 방어력을 계산
+9. 서버가 `occupation_rate` 기준 보정 방어력을 적용해 최종 피해량을 계산
+10. 서버가 대상 영토의 `occupation_rate`를 감소시키고 침략 결과를 `attack_logs`에 저장
+11. 대상 영토 밖의 새 면적은 일반 러닝 영토 생성 규칙에 따라 처리
+12. 서버가 침략 결과, 다음 가능 시각, 남은 횟수를 응답
 ```
 
 침략 계산 기준:
 
 ```ts
-const attackPower = attackerCharacter.baseAttack + (attackerCharacter.attackLv - 1) * 5;
+const attackPower =
+  attackerCharacter.character.base_attack + (attackerCharacter.attack_lv - 1) * 5;
 const defensePower = deployedDefenders.reduce(
-  (sum, defender) => sum + defender.baseDefense + (defender.defenseLv - 1) * 5,
+  (sum, defender) => sum + defender.character.base_defense + (defender.defense_lv - 1) * 5,
   0,
 );
-const defenseWithRate = defensePower * (territory.occupationRate / 100);
+const defenseWithRate = defensePower * (territory.occupation_rate / 100);
 const damage = Math.max(0, attackPower - defenseWithRate);
-const occupationRateAfter = Math.max(0, territory.occupationRate - Math.floor(damage));
+const occupationRateAfter = Math.max(0, territory.occupation_rate - Math.floor(damage));
+const acquiredAreaSqm =
+  territory.area_sqm * (territory.occupation_rate - occupationRateAfter) / 100;
+const success = occupationRateAfter < territory.occupation_rate;
 ```
 
-하루 침략 제한은 5회이며 `attack_logs`의 공격자/날짜 기준 카운트로 계산한다. 침략 쿨타임과 새 영토의 약 5분 침략 보호 시간 저장 방식은 후속 구현에서 확정한다.
+하루 침략 제한은 5회이며 `attack_logs`의 공격자/날짜 기준 카운트로 계산한다. 현재 쿨타임 미구현 상태에서는 `nextAttackAvailableAt`을 항상 `null`로 반환한다. 침략 쿨타임과 새 영토의 약 5분 침략 보호 시간 저장 방식은 후속 구현에서 확정한다.
 
 ---
 

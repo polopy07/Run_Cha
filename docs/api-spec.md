@@ -252,11 +252,11 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 - 대상은 다른 사용자가 점령 중인 영토여야 한다.
 - `runningLogId`는 현재 사용자의 러닝 로그여야 한다.
 - 공격자는 대상 영토 면적의 최소 30% 이상을 직접 러닝으로 지나가야 한다.
-- 서버는 러닝 로그의 GPS 경로와 대상 영토의 겹친 면적을 기준으로 침략 가능 여부를 판단한다.
+- 서버는 `POST /territories/:id/attack` 처리 중 러닝 로그의 GPS 경로와 대상 영토의 겹친 면적을 계산해 침략 가능 여부를 판단한다.
 - 침략에는 현재 사용자가 보유한 공격형 캐릭터만 사용할 수 있다.
 - 하루 침략 가능 횟수는 5회이며, `attack_logs`의 공격자/날짜 기준 카운트로 제한한다.
-- 침략 가능 조건을 만족하면 공격력과 방어력을 계산해 대상 영토의 `occupationRate`를 감소시킨다.
-- `occupationRate`가 감소한 만큼 획득 면적으로 환산한다.
+- 침략 가능 조건을 만족하면 공격력과 방어력을 계산해 대상 영토의 `occupation_rate`를 감소시킨다.
+- `occupation_rate`가 감소한 만큼 `acquiredAreaSqm`으로 환산한다.
 - 대상 영토에 포함되지 않은 새 폐곡선 면적은 일반 러닝 보상/영토 생성 규칙에 따라 처리한다.
 
 #### Request Body
@@ -270,33 +270,38 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
-| success | boolean | 침략 성공 여부 |
+| success | boolean | `occupationRateAfter < occupationRateBefore`로 실제 점령률이 감소했는지 여부 |
 | overlapRate | number | 대상 영토 기준 직접 러닝으로 겹친 비율 |
 | contestedAreaSqm | number | 대상 영토와 직접 러닝 경로가 겹친 면적 |
 | damage | number | 최종 점령률 감소량 |
 | occupationRateBefore | number | 침략 전 대상 영토 점령률 |
 | occupationRateAfter | number | 침략 후 대상 영토 점령률 |
-| acquiredAreaSqm | number | 점령률 감소량 기준 획득 면적 |
+| acquiredAreaSqm | number | 점령률 감소량 기준 획득 면적. `territory.area_sqm * (territory.occupation_rate - occupationRateAfter) / 100` |
 | neutralAreaSqm | number | 기존 점령 영토에 포함되지 않아 일반 규칙으로 처리된 면적 |
-| nextAttackAvailableAt | string \| null | 다음 침략 가능 시각. 쿨타임 미적용 시 `null` |
+| nextAttackAvailableAt | string \| null | 다음 침략 가능 시각. 현재 쿨타임 미구현 상태에서는 항상 `null` |
 | remainingDailyAttacks | number | 당일 남은 침략 횟수 |
 | message | string | 처리 결과 메시지 |
 
 #### 침략 계산 기준
 
 ```ts
-const attackPower = attackerCharacter.baseAttack + (attackerCharacter.attackLv - 1) * 5;
+const attackPower =
+  attackerCharacter.character.base_attack + (attackerCharacter.attack_lv - 1) * 5;
 const defensePower = deployedDefenders.reduce(
-  (sum, defender) => sum + defender.baseDefense + (defender.defenseLv - 1) * 5,
+  (sum, defender) => sum + defender.character.base_defense + (defender.defense_lv - 1) * 5,
   0,
 );
-const defenseWithRate = defensePower * (territory.occupationRate / 100);
+const defenseWithRate = defensePower * (territory.occupation_rate / 100);
 const damage = Math.max(0, attackPower - defenseWithRate);
-const occupationRateAfter = Math.max(0, territory.occupationRate - Math.floor(damage));
+const occupationRateAfter = Math.max(0, territory.occupation_rate - Math.floor(damage));
+const acquiredAreaSqm =
+  territory.area_sqm * (territory.occupation_rate - occupationRateAfter) / 100;
+const success = occupationRateAfter < territory.occupation_rate;
 ```
 
 - 방어 캐릭터는 대상 영토에 배치된 수비형 캐릭터를 사용한다.
 - 배치 기준은 `user_characters.deployed_territory_id = territory.id`다.
+- 공격/방어 기본 스탯은 `UserCharacter`의 `character` relation을 통해 `characters.base_attack`, `characters.base_defense`에서 조회한다.
 - 버프형 캐릭터의 침략 계산 반영 방식은 후속 밸런싱에서 확정한다.
 - 침략 결과는 `attack_logs`에 저장한다.
 

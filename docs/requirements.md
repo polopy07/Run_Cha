@@ -126,20 +126,23 @@ const earnedPoints = isClosedLoop ? basePoints : Math.floor(basePoints * 1.3);
 - 침략 시 사용할 공격형 사용자 캐릭터를 지정해야 한다.
 - 침략 판정에는 현재 사용자의 러닝 로그를 사용해야 한다.
 - 침략자는 대상 점령 영토 면적의 최소 30% 이상을 직접 러닝으로 지나가야 침략 전투를 시도할 수 있다.
-- 서버는 러닝 로그의 GPS 경로와 대상 영토의 겹친 면적을 기준으로 침략 가능 여부를 판단해야 한다.
+- 서버는 `POST /territories/:id/attack` 처리 중 러닝 로그의 GPS 경로와 대상 영토의 겹친 면적을 계산해 침략 가능 여부를 판단해야 한다.
 - 침략 조건을 만족하면 공격 캐릭터와 대상 영토에 배치된 방어 캐릭터를 기준으로 피해량을 계산한다.
 - 피해량은 대상 영토의 점령률 감소량으로 반영한다.
 - 감소한 점령률만큼 획득 면적을 계산한다.
 - 대상 점령 영토에 포함되지 않은 새 면적은 일반 러닝 영토 생성 규칙에 따라 처리한다.
 - 서버는 공격/방어 능력치와 배치 캐릭터 효과를 기준으로 침략 결과를 계산해야 한다.
-- 공격력은 `base_attack + (attack_lv - 1) * 5`로 계산한다.
-- 방어력은 대상 영토에 배치된 수비형 캐릭터들의 `base_defense + (defense_lv - 1) * 5` 합으로 계산한다.
+- 공격력은 `attackerCharacter.character.base_attack + (attackerCharacter.attack_lv - 1) * 5`로 계산한다.
+- 방어력은 대상 영토에 배치된 수비형 캐릭터들의 `defender.character.base_defense + (defender.defense_lv - 1) * 5` 합으로 계산한다.
 - 실제 방어력은 `defensePower * (occupation_rate / 100)`로 보정한다.
 - 최종 피해량은 `Math.max(0, attackPower - defenseWithRate)`로 계산한다.
 - 침략 후 점령률은 `Math.max(0, occupation_rate - Math.floor(damage))`로 계산한다.
+- 침략 성공 여부는 `occupationRateAfter < territory.occupation_rate`로 실제 점령률이 감소했는지로 판단한다.
+- 획득 면적은 `territory.area_sqm * (territory.occupation_rate - occupationRateAfter) / 100`으로 계산한다.
 - 하루 침략 가능 횟수는 5회이며, `attack_logs`의 공격자/날짜 기준 카운트로 계산한다.
 - 새로 생성된 영토는 약 5분 동안 침략 보호 시간을 둘 수 있다.
 - 침략 응답에는 다음 침략 가능 시각과 당일 남은 침략 횟수를 포함한다.
+- 현재 쿨타임 미구현 상태에서는 `nextAttackAvailableAt`을 항상 `null`로 반환한다.
 
 ### 4.6 영토 자연 감소
 
