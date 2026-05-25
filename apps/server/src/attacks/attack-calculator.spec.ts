@@ -2,6 +2,7 @@ import {
   calculateAcquiredAreaSqm,
   calculateAttackOutcome,
   calculateAttackPower,
+  calculateDefenseWithRate,
   calculateDefensePower,
   calculateDamage,
   calculateOccupationRateAfter,
@@ -27,12 +28,26 @@ describe('attack calculator', () => {
     expect(calculateAttackPower(attacker(20, 3))).toBe(30);
   });
 
+  it('handles float base attack stats correctly', () => {
+    expect(calculateAttackPower(attacker(10.5, 2))).toBe(15.5);
+  });
+
   it('calculates defense power from deployed defenders', () => {
     expect(calculateDefensePower([defender(10, 2), defender(8, 4)])).toBe(38);
   });
 
+  it('handles float base defense stats correctly', () => {
+    expect(calculateDefensePower([defender(10.5, 2)])).toBe(15.5);
+  });
+
   it('returns zero defense power when there are no deployed defenders', () => {
     expect(calculateDefensePower([])).toBe(0);
+  });
+
+  it('scales defense power by occupation rate', () => {
+    expect(calculateDefenseWithRate(20, 50)).toBe(10);
+    expect(calculateDefenseWithRate(20, 0)).toBe(0);
+    expect(calculateDefenseWithRate(20, 100)).toBe(20);
   });
 
   it('does not create negative raw damage when defense is higher', () => {
@@ -49,6 +64,10 @@ describe('attack calculator', () => {
 
   it('calculates acquired area from reduced occupation rate', () => {
     expect(calculateAcquiredAreaSqm(2000, 80, 55)).toBe(500);
+  });
+
+  it('keeps decimal acquired area when territory area is a float', () => {
+    expect(calculateAcquiredAreaSqm(1234.56, 80, 63)).toBeCloseTo(209.8752);
   });
 
   it('calculates successful attack outcome without defenders', () => {
