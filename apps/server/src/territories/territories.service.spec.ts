@@ -140,11 +140,9 @@ describe('TerritoriesService', () => {
       expect(result).toEqual([
         {
           id: territory.id,
-          userId: territory.user_id,
           coordinates: territory.coordinates,
           areaSqm: territory.area_sqm,
           occupationRate: territory.occupation_rate,
-          lastActiveAt: territory.last_active_at,
         },
       ]);
     });

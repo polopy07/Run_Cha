@@ -29,7 +29,7 @@ export class TerritoriesService {
       },
     });
 
-    return territories.map((t) => this.toTerritoryResponse(t));
+    return territories.map((t) => this.toOwnedTerritoryResponse(t));
   }
 
   async findInBounds(dto: GetTerritoriesDto) {
@@ -41,7 +41,7 @@ export class TerritoriesService {
       .andWhere('t.center_lng BETWEEN :minLng AND :maxLng', { minLng, maxLng })
       .getMany();
 
-    return territories.map((t) => this.toTerritoryResponse(t));
+    return territories.map((t) => this.toPublicTerritoryResponse(t));
   }
 
   async findOne(id: number, currentUserId: number | null) {
@@ -111,13 +111,19 @@ export class TerritoriesService {
     return this.territoryRepo.save(territory);
   }
 
-  private toTerritoryResponse(territory: Territory) {
+  private toPublicTerritoryResponse(territory: Territory) {
     return {
       id: territory.id,
-      userId: territory.user_id,
       coordinates: territory.coordinates,
       areaSqm: territory.area_sqm,
       occupationRate: territory.occupation_rate,
+    };
+  }
+
+  private toOwnedTerritoryResponse(territory: Territory) {
+    return {
+      ...this.toPublicTerritoryResponse(territory),
+      userId: territory.user_id,
       lastActiveAt: territory.last_active_at,
     };
   }
