@@ -33,8 +33,8 @@ export class AttackLog {
   @Column()
   territory_id: number;
 
-  @Column()
-  attacker_character_id: number;
+  @Column({ type: 'int', nullable: true, default: null })
+  attacker_character_id: number | null;
 
   @Column({ type: 'int', nullable: true, default: null })
   defender_character_id: number | null;
@@ -63,9 +63,9 @@ export class AttackLog {
   @JoinColumn({ name: 'territory_id' })
   territory: Territory;
 
-  @ManyToOne(() => UserCharacter, { onDelete: 'RESTRICT' })
+  @ManyToOne(() => UserCharacter, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'attacker_character_id' })
-  attacker_character: UserCharacter;
+  attacker_character: UserCharacter | null;
 
   @ManyToOne(() => UserCharacter, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'defender_character_id' })
