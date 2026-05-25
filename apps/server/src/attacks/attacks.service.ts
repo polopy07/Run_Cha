@@ -4,10 +4,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Feature, Polygon } from 'geojson';
 import { Between, DataSource, Repository } from 'typeorm';
-import * as turf from '@turf/turf';
 import { calculateAttackOutcome } from './attack-calculator';
+import { calculateAttackOverlap } from './attack-overlap';
 import { AttackTerritoryDto } from './dto/attack-territory.dto';
 import { AttackLog } from './entities/attack-log.entity';
 import { AttackResult } from './enums/attack-result.enum';
@@ -18,8 +17,6 @@ import { Territory } from '../territories/entities/territory.entity';
 
 const MIN_ATTACK_OVERLAP_RATE = 30;
 const DAILY_ATTACK_LIMIT = 5;
-
-type Coordinate = { lat: number; lng: number };
 
 export type AttackTerritoryResponse = {
   success: boolean;
@@ -72,7 +69,7 @@ export class AttacksService {
       );
     }
 
-    const { overlapRate, contestedAreaSqm } = this.calculateOverlap(
+    const { overlapRate, contestedAreaSqm } = calculateAttackOverlap(
       runningLog.path,
       territory.coordinates,
       territory.area_sqm,
@@ -195,38 +192,5 @@ export class AttacksService {
         created_at: Between(start, end),
       },
     });
-  }
-
-  private calculateOverlap(
-    runningPath: Coordinate[],
-    territoryCoordinates: Coordinate[],
-    territoryAreaSqm: number,
-  ) {
-    const runningPolygon = this.toPolygon(runningPath);
-    const territoryPolygon = this.toPolygon(territoryCoordinates);
-    const intersection = turf.intersect(
-      turf.featureCollection([runningPolygon, territoryPolygon]),
-    );
-    const contestedAreaSqm = intersection ? turf.area(intersection) : 0;
-    const overlapRate =
-      territoryAreaSqm > 0 ? (contestedAreaSqm / territoryAreaSqm) * 100 : 0;
-
-    return { overlapRate, contestedAreaSqm };
-  }
-
-  private toPolygon(coordinates: Coordinate[]): Feature<Polygon> {
-    if (coordinates.length < 3) {
-      throw new BadRequestException('폐곡선 좌표가 부족합니다.');
-    }
-
-    const ring = coordinates.map((coord) => [coord.lng, coord.lat]);
-    const first = ring[0];
-    const last = ring[ring.length - 1];
-
-    if (first[0] !== last[0] || first[1] !== last[1]) {
-      ring.push(first);
-    }
-
-    return turf.polygon([ring]);
   }
 }
