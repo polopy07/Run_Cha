@@ -64,6 +64,7 @@ export class AttacksService {
       throw new BadRequestException('자신의 영토는 침략할 수 없습니다.');
     }
 
+    // TODO: 최종 PR 전 트랜잭션 안에서 하루 공격 횟수 재검증을 검토한다.
     if (dailyAttackCount >= DAILY_ATTACK_LIMIT) {
       throw new BadRequestException(
         '오늘의 침략 가능 횟수를 모두 사용했습니다.',
@@ -98,6 +99,7 @@ export class AttacksService {
       const territoryRepo = manager.getRepository(Territory);
       const attackLogRepo = manager.getRepository(AttackLog);
 
+      // TODO: 동시 침략 요청 대비 row lock 또는 조건부 update 적용을 검토한다.
       territory.occupation_rate = outcome.occupationRateAfter;
       await territoryRepo.save(territory);
 

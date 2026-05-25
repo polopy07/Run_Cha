@@ -69,6 +69,17 @@ describe('AttacksService', () => {
     },
   } as UserCharacter;
 
+  const defenderCharacter = {
+    id: 40,
+    user_id: 2,
+    defense_lv: 2,
+    deployed_territory_id: 10,
+    character: {
+      type: CharacterType.DEFENSE,
+      base_defense: 10,
+    },
+  } as UserCharacter;
+
   beforeEach(async () => {
     territoryRepo = makeRepository();
     runningLogRepo = makeRepository();
@@ -144,6 +155,56 @@ describe('AttacksService', () => {
       }),
     );
     expect(transactionAttackLogRepo.save).toHaveBeenCalled();
+  });
+
+  it('saves deployed defender character id when defender is deployed', async () => {
+    userCharacterRepo.find.mockResolvedValue([defenderCharacter]);
+
+    await service.attack(1, 10, {
+      runningLogId: 20,
+      attackerCharacterId: 30,
+    });
+
+    expect(transactionAttackLogRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        defender_character_id: 40,
+        result: AttackResult.ATTACKER_WIN,
+        occupation_rate_before: 100,
+        occupation_rate_after: 90,
+      }),
+    );
+  });
+
+  it('saves defender_win log when defense prevents occupation rate reduction', async () => {
+    userCharacterRepo.find.mockResolvedValue([
+      {
+        ...defenderCharacter,
+        defense_lv: 10,
+        character: {
+          type: CharacterType.DEFENSE,
+          base_defense: 100,
+        },
+      },
+    ]);
+
+    const result = await service.attack(1, 10, {
+      runningLogId: 20,
+      attackerCharacterId: 30,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.damage).toBe(0);
+    expect(result.occupationRateAfter).toBe(100);
+    expect(result.acquiredAreaSqm).toBe(0);
+    expect(result.message).toBe('방어력이 높아 점령률이 감소하지 않았습니다.');
+    expect(transactionAttackLogRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        defender_character_id: 40,
+        result: AttackResult.DEFENDER_WIN,
+        occupation_rate_before: 100,
+        occupation_rate_after: 100,
+      }),
+    );
   });
 
   it('rejects attacking own territory', async () => {
