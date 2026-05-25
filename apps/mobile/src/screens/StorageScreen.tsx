@@ -22,39 +22,41 @@ import useCharacterStore, { type Character } from '../store/characterStore';
 
 type Nav = StackNavigationProp<CharacterStackParamList, 'Storage'>;
 
-const GRADE_COLOR: Record<Character['grade'], string> = {
+const GRADE_COLOR: Record<string, string> = {
   common: '#95A5A6',
   rare: '#3498DB',
   epic: '#9B59B6',
   legendary: '#F39C12',
 };
 
-const GRADE_LABEL: Record<Character['grade'], string> = {
-  common: '일반',
-  rare: '희귀',
-  epic: '영웅',
-  legendary: '전설',
+const GRADE_LABEL: Record<string, string> = {
+  common: 'Common',
+  rare: 'Rare',
+  epic: 'Epic',
+  legendary: 'Legendary',
 };
 
-const TYPE_ICON: Record<Character['type'], string> = {
-  attack: '⚔️',
-  defense: '🛡️',
-  buff: '✨',
+const TYPE_ICON: Record<string, string> = {
+  attack: 'ATK',
+  defense: 'DEF',
+  buff: 'BUF',
 };
 
-const TYPE_LABEL: Record<Character['type'], string> = {
-  attack: '공격형',
-  defense: '수비형',
-  buff: '버프형',
+const TYPE_LABEL: Record<string, string> = {
+  attack: 'Attack',
+  defense: 'Defense',
+  buff: 'Buff',
 };
 
 function formatArea(areaSqm: number) {
-  return `${Math.round(areaSqm).toLocaleString()}㎡`;
+  return `${Math.round(areaSqm).toLocaleString()} sqm`;
 }
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
+
+const noop = () => undefined;
 
 export function StorageScreen() {
   const insets = useSafeAreaInsets();
@@ -79,17 +81,29 @@ export function StorageScreen() {
   );
 
   const load = useCallback(async () => {
-    await Promise.all([
+    const [charactersResult, territoriesResult] = await Promise.allSettled([
       fetchCharacters(),
-      getMyTerritories().then(setTerritories),
+      getMyTerritories(),
     ]);
+
+    if (charactersResult.status === 'rejected') {
+      setTerritories([]);
+      throw charactersResult.reason;
+    }
+
+    if (territoriesResult.status === 'rejected') {
+      setTerritories([]);
+      throw territoriesResult.reason;
+    }
+
+    setTerritories(territoriesResult.value);
   }, [fetchCharacters]);
 
   useEffect(() => {
     load().catch((error: unknown) => {
       Alert.alert(
-        '조회 실패',
-        getErrorMessage(error, '정보를 불러오지 못했습니다.'),
+        'Load failed',
+        getErrorMessage(error, 'Could not load storage data.'),
       );
     });
   }, [load]);
@@ -100,17 +114,26 @@ export function StorageScreen() {
       await load();
     } catch (error: unknown) {
       Alert.alert(
-        '조회 실패',
-        getErrorMessage(error, '정보를 불러오지 못했습니다.'),
+        'Load failed',
+        getErrorMessage(error, 'Could not load storage data.'),
       );
     } finally {
       setIsRefreshing(false);
     }
   }, [load]);
 
+  const closeDeployModal = useCallback(() => {
+    if (!isDeploying) {
+      setSelectedCharacter(null);
+    }
+  }, [isDeploying]);
+
   const openDeployModal = (character: Character) => {
     if (character.type === 'attack') {
-      Alert.alert('배치 불가', '수비형과 버프형 캐릭터만 영토에 배치할 수 있습니다.');
+      Alert.alert(
+        'Cannot deploy',
+        'Only defense and buff characters can be deployed to territories.',
+      );
       return;
     }
 
@@ -130,8 +153,8 @@ export function StorageScreen() {
       setSelectedCharacter(null);
     } catch (error: unknown) {
       Alert.alert(
-        '배치 실패',
-        getErrorMessage(error, '배치 요청에 실패했습니다.'),
+        'Deploy failed',
+        getErrorMessage(error, 'Deploy request failed.'),
       );
     } finally {
       setIsDeploying(false);
@@ -139,7 +162,7 @@ export function StorageScreen() {
   };
 
   const renderItem = ({ item }: { item: Character }) => {
-    const gradeColor = GRADE_COLOR[item.grade];
+    const gradeColor = GRADE_COLOR[item.grade] ?? '#95A5A6';
     const isDeployable = item.type !== 'attack';
 
     return (
@@ -150,28 +173,32 @@ export function StorageScreen() {
       >
         <View style={styles.cardHeader}>
           <View style={[styles.gradeBadge, { backgroundColor: gradeColor }]}>
-            <Text style={styles.gradeText}>{GRADE_LABEL[item.grade]}</Text>
+            <Text style={styles.gradeText}>
+              {GRADE_LABEL[item.grade] ?? item.grade}
+            </Text>
           </View>
           <Text style={styles.deployText}>
             {item.isDeployed
-              ? `배치됨 #${item.deployedTerritoryId}`
+              ? `Deployed #${item.deployedTerritoryId}`
               : isDeployable
-                ? '미배치'
-                : '배치 불가'}
+                ? 'Not deployed'
+                : 'Cannot deploy'}
           </Text>
         </View>
 
-        <Text style={styles.cardIcon}>{TYPE_ICON[item.type]}</Text>
+        <Text style={styles.cardIcon}>{TYPE_ICON[item.type] ?? 'UNK'}</Text>
         <Text style={styles.cardName} numberOfLines={1}>
           {item.name}
         </Text>
-        <Text style={styles.characterType}>{TYPE_LABEL[item.type]}</Text>
+        <Text style={styles.characterType}>
+          {TYPE_LABEL[item.type] ?? item.type}
+        </Text>
 
         <View style={styles.statsRow}>
-          <Text style={styles.stat}>공 {item.attackLv}</Text>
-          <Text style={styles.stat}>방 {item.defenseLv}</Text>
-          <Text style={styles.stat}>속 {item.speedLv}</Text>
-          <Text style={styles.stat}>포 {item.pointLv}</Text>
+          <Text style={styles.stat}>ATK {item.attackLv}</Text>
+          <Text style={styles.stat}>DEF {item.defenseLv}</Text>
+          <Text style={styles.stat}>SPD {item.speedLv}</Text>
+          <Text style={styles.stat}>PT {item.pointLv}</Text>
         </View>
       </TouchableOpacity>
     );
@@ -180,15 +207,15 @@ export function StorageScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>캐릭터 보관함</Text>
+        <Text style={styles.title}>Character Storage</Text>
         <View style={styles.headerRight}>
-          <Text style={styles.count}>{characters.length}마리</Text>
+          <Text style={styles.count}>{characters.length} owned</Text>
           <TouchableOpacity
             style={styles.gachaBtn}
             onPress={() => navigation.navigate('Gacha')}
           >
-            <Text style={styles.gachaBtnIcon}>🎰</Text>
-            <Text style={styles.gachaBtnText}>뽑기</Text>
+            <Text style={styles.gachaBtnIcon}>+</Text>
+            <Text style={styles.gachaBtnText}>Gacha</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -199,9 +226,9 @@ export function StorageScreen() {
         </View>
       ) : characters.length === 0 ? (
         <View style={styles.center}>
-          <Text style={styles.emptyIcon}>📦</Text>
-          <Text style={styles.emptyText}>보유 캐릭터가 없습니다</Text>
-          <Text style={styles.emptySub}>뽑기로 캐릭터를 획득해보세요</Text>
+          <Text style={styles.emptyIcon}>0</Text>
+          <Text style={styles.emptyText}>No characters owned</Text>
+          <Text style={styles.emptySub}>Draw characters from gacha.</Text>
         </View>
       ) : (
         <FlatList
@@ -225,18 +252,12 @@ export function StorageScreen() {
         transparent
         visible={selectedCharacter !== null}
         animationType="fade"
-        onRequestClose={() => setSelectedCharacter(null)}
+        onRequestClose={closeDeployModal}
       >
-        <Pressable
-          style={styles.modalBackdrop}
-          onPress={() => setSelectedCharacter(null)}
-        >
-          <Pressable
-            style={styles.modalCard}
-            onPress={(event) => event.stopPropagation()}
-          >
+        <Pressable style={styles.modalBackdrop} onPress={closeDeployModal}>
+          <Pressable style={styles.modalCard} onPress={noop}>
             <Text style={styles.modalTitle}>{selectedCharacter?.name}</Text>
-            <Text style={styles.modalSub}>배치할 내 영토를 선택하세요</Text>
+            <Text style={styles.modalSub}>Select a territory to deploy.</Text>
 
             {selectedCharacter?.isDeployed && (
               <TouchableOpacity
@@ -244,12 +265,12 @@ export function StorageScreen() {
                 disabled={isDeploying}
                 onPress={() => submitDeploy(null)}
               >
-                <Text style={styles.undeployText}>배치 회수</Text>
+                <Text style={styles.undeployText}>Undeploy</Text>
               </TouchableOpacity>
             )}
 
             {territories.length === 0 ? (
-              <Text style={styles.noTerritoryText}>보유 영토가 없습니다</Text>
+              <Text style={styles.noTerritoryText}>No territories owned</Text>
             ) : (
               <ScrollView
                 style={styles.territoryList}
@@ -272,15 +293,15 @@ export function StorageScreen() {
                     >
                       <View>
                         <Text style={styles.territoryTitle}>
-                          영토 #{territory.id}
+                          Territory #{territory.id}
                         </Text>
                         <Text style={styles.territoryMeta}>
-                          {formatArea(territory.areaSqm)} · 점령률{' '}
+                          {formatArea(territory.areaSqm)} / Occupation{' '}
                           {territory.occupationRate}%
                         </Text>
                       </View>
                       <Text style={styles.territoryStatus}>
-                        {disabled ? '사용 중' : '선택'}
+                        {disabled ? 'In use' : 'Select'}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -315,7 +336,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
   },
-  gachaBtnIcon: { fontSize: 16 },
+  gachaBtnIcon: { fontSize: 16, color: '#fff', fontWeight: 'bold' },
   gachaBtnText: { color: '#fff', fontSize: 13, fontWeight: 'bold' },
 
   list: { paddingBottom: 20 },
@@ -342,7 +363,7 @@ const styles = StyleSheet.create({
   },
   gradeText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
   deployText: { fontSize: 10, color: '#666' },
-  cardIcon: { fontSize: 32, marginBottom: 6 },
+  cardIcon: { fontSize: 18, marginBottom: 6, fontWeight: 'bold' },
   cardName: {
     fontSize: 14,
     fontWeight: 'bold',
@@ -357,7 +378,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   stat: {
-    minWidth: 36,
+    minWidth: 48,
     textAlign: 'center',
     fontSize: 11,
     color: '#666',

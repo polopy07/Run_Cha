@@ -113,7 +113,7 @@ describe('TerritoriesService', () => {
   });
 
   describe('findInBounds', () => {
-    it('filters territories by center_lat in DB', async () => {
+    it('uses center_lat BETWEEN condition for DB filtering', async () => {
       await service.findInBounds(BOUNDS);
 
       expect(mockQb.where).toHaveBeenCalledWith(
@@ -122,7 +122,7 @@ describe('TerritoriesService', () => {
       );
     });
 
-    it('filters territories by center_lng in DB', async () => {
+    it('uses center_lng BETWEEN condition for DB filtering', async () => {
       await service.findInBounds(BOUNDS);
 
       expect(mockQb.andWhere).toHaveBeenCalledWith(
@@ -131,7 +131,7 @@ describe('TerritoriesService', () => {
       );
     });
 
-    it('maps territories to response format', async () => {
+    it('maps found territories to response format', async () => {
       const territory = makeTerritory(37.5, 127.0);
       mockQb.getMany.mockResolvedValue([territory]);
 
@@ -147,7 +147,7 @@ describe('TerritoriesService', () => {
       ]);
     });
 
-    it('returns an empty array when there are no territories', async () => {
+    it('returns an empty array when no territories are found', async () => {
       const result = await service.findInBounds(BOUNDS);
 
       expect(result).toEqual([]);
@@ -245,7 +245,7 @@ describe('TerritoriesService', () => {
   });
 
   describe('registerTerritory', () => {
-    it('calculates center_lat and center_lng from coordinates', async () => {
+    it('calculates and saves center_lat/center_lng from coordinates', async () => {
       const coords = [
         { lat: 37.5, lng: 127.0 },
         { lat: 37.501, lng: 127.0 },
