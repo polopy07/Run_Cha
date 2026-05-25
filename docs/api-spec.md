@@ -245,47 +245,65 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 
 특정 영토에 대한 침략 요청을 처리한다.
 
-> 현재 서버 미구현 API다. 아래 내용은 앱/서버 연동 전 합의용 초안이며 구현 전 최종 확정이 필요하다.
+> 현재 서버 미구현 API다. 아래 내용은 침략 API 구현 기준으로 사용한다.
 
-#### 침략 가능 조건 초안
+#### 침략 가능 조건
 
 - 대상은 다른 사용자가 점령 중인 영토여야 한다.
+- `runningLogId`는 현재 사용자의 러닝 로그여야 한다.
 - 공격자는 대상 영토 면적의 최소 30% 이상을 직접 러닝으로 지나가야 한다.
-- 서버는 러닝 로그의 GPS 경로와 대상 영토의 겹친 면적을 기준으로 침략 가능 여부를 판단한다.
-- 침략 가능 조건을 만족하면 공격 캐릭터와 방어 캐릭터의 전투를 진행한다.
-- 공격 캐릭터가 승리하면 공격자가 직접 뛴 겹친 면적만큼 대상 영토를 점령한다.
-- 공격 캐릭터가 패배하면 대상 점령 영토는 획득하지 못한다.
+- 서버는 `POST /territories/:id/attack` 처리 중 러닝 로그의 GPS 경로와 대상 영토의 겹친 면적을 계산해 침략 가능 여부를 판단한다.
+- 침략에는 현재 사용자가 보유한 공격형 캐릭터만 사용할 수 있다.
+- 하루 침략 가능 횟수는 5회이며, `attack_logs`의 공격자/날짜 기준 카운트로 제한한다.
+- 침략 가능 조건을 만족하면 공격력과 방어력을 계산해 대상 영토의 `occupation_rate`를 감소시킨다.
+- `occupation_rate`가 감소한 만큼 `acquiredAreaSqm`으로 환산한다.
 - 대상 영토에 포함되지 않은 새 폐곡선 면적은 일반 러닝 보상/영토 생성 규칙에 따라 처리한다.
 
-#### Request Body 초안
+#### Request Body
 
 | 필드 | 타입 | 필수 | 설명 |
 |---|---|---|---|
 | runningLogId | number | O | 침략 판정에 사용할 러닝 로그 ID |
-| characterId | number | O | 침략에 사용할 보유 공격 캐릭터 ID |
+| attackerCharacterId | number | O | 침략에 사용할 보유 공격형 사용자 캐릭터 ID |
 
 #### Response
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
-| success | boolean | 침략 성공 여부 |
-| battleResult | string | 전투 결과. `win` 또는 `lose` |
+| success | boolean | `occupationRateAfter < occupationRateBefore`로 실제 점령률이 감소했는지 여부 |
 | overlapRate | number | 대상 영토 기준 직접 러닝으로 겹친 비율 |
 | contestedAreaSqm | number | 대상 영토와 직접 러닝 경로가 겹친 면적 |
-| acquiredAreaSqm | number | 승리 시 획득한 점령 면적. 패배 시 0 |
+| damage | number | 최종 점령률 감소량 |
+| occupationRateBefore | number | 침략 전 대상 영토 점령률 |
+| occupationRateAfter | number | 침략 후 대상 영토 점령률 |
+| acquiredAreaSqm | number | 점령률 감소량 기준 획득 면적. `territory.area_sqm * (territory.occupation_rate - occupationRateAfter) / 100` |
 | neutralAreaSqm | number | 기존 점령 영토에 포함되지 않아 일반 규칙으로 처리된 면적 |
-| nextAttackAvailableAt | string \| null | 다음 침략 가능 시각. 쿨타임 확정 후 사용 |
-| remainingDailyAttacks | number \| null | 당일 남은 침략 횟수. 하루 제한 확정 후 사용 |
+| nextAttackAvailableAt | string \| null | 다음 침략 가능 시각. 현재 쿨타임 미구현 상태에서는 항상 `null` |
+| remainingDailyAttacks | number | 당일 남은 침략 횟수 |
 | message | string | 처리 결과 메시지 |
 
-#### 결정 필요
+#### 침략 계산 기준
 
-- 공격/방어 능력치 계산 공식
-  - 공격 캐릭터 단일 스탯만 사용할지, 배치된 버프형 캐릭터 효과까지 합산할지 확정해야 한다.
-  - 방어 측은 배치된 수비형 캐릭터를 사용할지, 대표 캐릭터를 사용할지 확정해야 한다.
-- 침략 쿨타임과 하루 5회 제한 저장 방식
-  - `users`, `territory_attacks`, 별도 쿨타임 테이블 중 어디에 저장할지 확정 후 마이그레이션이 필요하다.
-- 응답에 `nextAttackAvailableAt`, `remainingDailyAttacks`를 포함할지 확정해야 한다.
+```ts
+const attackPower =
+  attackerCharacter.character.base_attack + (attackerCharacter.attack_lv - 1) * 5;
+const defensePower = deployedDefenders.reduce(
+  (sum, defender) => sum + defender.character.base_defense + (defender.defense_lv - 1) * 5,
+  0,
+);
+const defenseWithRate = defensePower * (territory.occupation_rate / 100);
+const damage = Math.max(0, attackPower - defenseWithRate);
+const occupationRateAfter = Math.max(0, territory.occupation_rate - Math.floor(damage));
+const acquiredAreaSqm =
+  territory.area_sqm * (territory.occupation_rate - occupationRateAfter) / 100;
+const success = occupationRateAfter < territory.occupation_rate;
+```
+
+- 방어 캐릭터는 대상 영토에 배치된 수비형 캐릭터를 사용한다.
+- 배치 기준은 `user_characters.deployed_territory_id = territory.id`다.
+- 공격/방어 기본 스탯은 `UserCharacter`의 `character` relation을 통해 `characters.base_attack`, `characters.base_defense`에서 조회한다.
+- 버프형 캐릭터의 침략 계산 반영 방식은 후속 밸런싱에서 확정한다.
+- 침략 결과는 `attack_logs`에 저장한다.
 
 ---
 
@@ -461,10 +479,8 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 ## 7. 앱 연동 전 결정 필요 항목
 
 1. `/running/start` API 필요 여부
-2. `/territories/:id/attack` 요청 필드 최종 확정
-3. 대상 영토 30% 직접 러닝 판정 방식
-4. 공격/방어 능력치 계산 공식
-5. 침략 쿨타임 및 하루 5회 제한 저장 방식
-6. 침략 응답에 다음 가능 시각과 남은 횟수 포함 여부
-7. 버프형/수비형 캐릭터의 침략/자연 감소 계산 반영 방식
-8. 공통 에러 메시지 세부 코드 정의
+2. 침략 쿨타임 적용 여부와 쿨타임 시간
+3. 새 영토 침략 보호 시간 저장 방식
+4. 버프형 캐릭터의 침략 계산 반영 공식
+5. 수비형/버프형 캐릭터의 자연 감소 계산 반영 방식
+6. 공통 에러 메시지 세부 코드 정의

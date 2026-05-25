@@ -1,7 +1,10 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMinSize,
   IsArray,
   IsDateString,
+  IsLatitude,
+  IsLongitude,
   IsNumber,
   IsOptional,
   IsPositive,
@@ -9,15 +12,16 @@ import {
 } from 'class-validator';
 
 class CoordDto {
-  @IsNumber()
+  @IsLatitude()
   lat: number;
 
-  @IsNumber()
+  @IsLongitude()
   lng: number;
 }
 
 export class FinishRunningDto {
   @IsArray()
+  @ArrayMinSize(2)
   @ValidateNested({ each: true })
   @Type(() => CoordDto)
   path: CoordDto[];

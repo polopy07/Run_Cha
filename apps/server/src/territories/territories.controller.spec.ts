@@ -2,12 +2,17 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TerritoriesController } from './territories.controller';
 import { TerritoriesService } from './territories.service';
 import { GetTerritoriesDto } from './dto/get-territories.dto';
+import { User } from '../users/entities/user.entity';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 
 describe('TerritoriesController', () => {
   let controller: TerritoriesController;
 
   const mockService = {
+    findMine: jest.fn(),
     findInBounds: jest.fn(),
+    findOne: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -15,8 +20,26 @@ describe('TerritoriesController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TerritoriesController],
       providers: [{ provide: TerritoriesService, useValue: mockService }],
-    }).compile();
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(OptionalJwtAuthGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
     controller = module.get<TerritoriesController>(TerritoriesController);
+  });
+
+  describe('findMine', () => {
+    it('calls findMine with the current user id', async () => {
+      const user = { id: 1 } as User;
+      const expected = [{ id: 7 }];
+      mockService.findMine.mockResolvedValue(expected);
+
+      const result = await controller.findMine(user);
+
+      expect(mockService.findMine).toHaveBeenCalledWith(1);
+      expect(result).toEqual(expected);
+    });
   });
 
   describe('getInBounds', () => {
@@ -42,6 +65,29 @@ describe('TerritoriesController', () => {
       const result = await controller.getInBounds({} as GetTerritoriesDto);
 
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('findOne', () => {
+    it('calls findOne with the territory id and current user id', async () => {
+      const user = { id: 1 } as User;
+      const expected = { id: 7, isMine: true };
+      mockService.findOne.mockResolvedValue(expected);
+
+      const result = await controller.findOne(user, 7);
+
+      expect(mockService.findOne).toHaveBeenCalledWith(7, 1);
+      expect(result).toEqual(expected);
+    });
+
+    it('passes null current user id when unauthenticated', async () => {
+      const expected = { id: 7, isMine: false };
+      mockService.findOne.mockResolvedValue(expected);
+
+      const result = await controller.findOne(undefined, 7);
+
+      expect(mockService.findOne).toHaveBeenCalledWith(7, null);
+      expect(result).toEqual(expected);
     });
   });
 });
