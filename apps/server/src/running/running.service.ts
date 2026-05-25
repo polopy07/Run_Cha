@@ -31,6 +31,8 @@ export class RunningService {
     const endedAt = new Date();
     const startedAt = new Date(dto.started_at);
 
+    this.validatePath(path);
+
     if (startedAt > endedAt) {
       throw new BadRequestException('유효하지 않은 시작 시간입니다.');
     }
@@ -117,6 +119,26 @@ export class RunningService {
       earned_points,
       area_sqm,
     };
+  }
+
+  private validatePath(path: { lat: number; lng: number }[]): void {
+    if (path.length < 2) {
+      throw new BadRequestException('path must contain at least two points');
+    }
+
+    const invalid = path.some(
+      ({ lat, lng }) =>
+        !Number.isFinite(lat) ||
+        !Number.isFinite(lng) ||
+        lat < -90 ||
+        lat > 90 ||
+        lng < -180 ||
+        lng > 180,
+    );
+
+    if (invalid) {
+      throw new BadRequestException('path contains invalid coordinates');
+    }
   }
 
   private calculateDistanceKm(path: { lat: number; lng: number }[]): number {
