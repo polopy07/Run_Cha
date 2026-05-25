@@ -9,14 +9,10 @@ export interface TerritoryBounds {
 
 export type Territory = {
   id: number;
-  userId: number;
+  userId?: number;
   coordinates: { lat: number; lng: number }[];
   areaSqm: number;
   occupationRate: number;
-  centerLat?: number;
-  centerLng?: number;
-  center_lat?: number;
-  center_lng?: number;
   lastActiveAt?: string;
 };
 
@@ -32,7 +28,7 @@ export type TerritoryDeployedCharacter = {
   pointLv: number;
 };
 
-export type TerritoryDetail = Territory & {
+export type TerritoryDetail = Omit<Territory, 'userId'> & {
   owner: {
     id: number;
     nickname: string;

@@ -5,6 +5,7 @@ import { RunningLog } from './entities/running-log.entity';
 import { User } from '../users/entities/user.entity';
 import { Territory } from '../territories/entities/territory.entity';
 import { FinishRunningDto } from './dto/finish-running.dto';
+import { calcCenter } from '../common/utils/geo';
 
 const PACE_MULTIPLIER: Record<string, number> = {
   fast_walk: 0.6,
@@ -29,6 +30,8 @@ export class RunningService {
     const { path } = dto;
     const endedAt = new Date();
     const startedAt = new Date(dto.started_at);
+
+    this.validatePath(path);
 
     if (startedAt > endedAt) {
       throw new BadRequestException('유효하지 않은 시작 시간입니다.');
@@ -79,32 +82,32 @@ export class RunningService {
         });
         const savedLog = await manager.save(log);
 
-        await manager.increment(
-          User,
-          { id: userId },
-          'total_distance',
-          distanceKm,
-        );
-        if (earned_points > 0) {
-          await manager.increment(
-            User,
-            { id: userId },
-            'points',
-            earned_points,
+        await manager
+          .createQueryBuilder()
+          .update(User)
+          .set({
+            total_distance: () => 'total_distance + :dist',
+            points: () => 'points + :pts',
+          })
+          .where('id = :id', { id: userId })
+          .setParameter('dist', distanceKm)
+          .setParameter('pts', earned_points)
+          .execute();
+
+        let territory: Territory | null = null;
+        if (area_sqm > 0) {
+          const center = calcCenter(path);
+          territory = await manager.save(
+            manager.create(Territory, {
+              user_id: userId,
+              coordinates: path,
+              area_sqm,
+              occupation_rate: 100,
+              center_lat: center.lat,
+              center_lng: center.lng,
+            }),
           );
         }
-
-        const territory =
-          area_sqm > 0
-            ? await manager.save(
-                manager.create(Territory, {
-                  user_id: userId,
-                  coordinates: path,
-                  area_sqm,
-                  occupation_rate: 100,
-                }),
-              )
-            : null;
 
         return { savedLog, territory };
       },
@@ -116,6 +119,26 @@ export class RunningService {
       earned_points,
       area_sqm,
     };
+  }
+
+  private validatePath(path: { lat: number; lng: number }[]): void {
+    if (path.length < 2) {
+      throw new BadRequestException('path must contain at least two points');
+    }
+
+    const invalid = path.some(
+      ({ lat, lng }) =>
+        !Number.isFinite(lat) ||
+        !Number.isFinite(lng) ||
+        lat < -90 ||
+        lat > 90 ||
+        lng < -180 ||
+        lng > 180,
+    );
+
+    if (invalid) {
+      throw new BadRequestException('path contains invalid coordinates');
+    }
   }
 
   private calculateDistanceKm(path: { lat: number; lng: number }[]): number {
