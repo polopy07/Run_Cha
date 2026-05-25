@@ -1,4 +1,3 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -125,8 +124,10 @@ describe('AttacksService', () => {
     expect(result.occupationRateBefore).toBe(100);
     expect(result.occupationRateAfter).toBe(75);
     expect(result.acquiredAreaSqm).toBe(3091);
+    expect(result.neutralAreaSqm).toBe(0);
     expect(result.remainingDailyAttacks).toBe(4);
     expect(result.nextAttackAvailableAt).toBeNull();
+    expect(result.message).toBe('침략에 성공했습니다.');
     expect(transactionTerritoryRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({ occupation_rate: 75 }),
     );
@@ -150,7 +151,7 @@ describe('AttacksService', () => {
 
     await expect(
       service.attack(1, 10, { runningLogId: 20, attackerCharacterId: 30 }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).rejects.toThrow('자신의 영토는 침략할 수 없습니다.');
     expect(dataSource.transaction).not.toHaveBeenCalled();
   });
 
@@ -159,7 +160,7 @@ describe('AttacksService', () => {
 
     await expect(
       service.attack(1, 10, { runningLogId: 20, attackerCharacterId: 30 }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).rejects.toThrow('오늘의 침략 가능 횟수를 모두 사용했습니다.');
     expect(dataSource.transaction).not.toHaveBeenCalled();
   });
 
@@ -171,7 +172,7 @@ describe('AttacksService', () => {
 
     await expect(
       service.attack(1, 10, { runningLogId: 20, attackerCharacterId: 30 }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).rejects.toThrow('공격형 캐릭터만 침략에 사용할 수 있습니다.');
     expect(dataSource.transaction).not.toHaveBeenCalled();
   });
 
@@ -189,7 +190,7 @@ describe('AttacksService', () => {
 
     await expect(
       service.attack(1, 10, { runningLogId: 20, attackerCharacterId: 30 }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).rejects.toThrow('대상 영토의 30% 이상을 직접 러닝해야 합니다.');
     expect(dataSource.transaction).not.toHaveBeenCalled();
   });
 
@@ -198,6 +199,22 @@ describe('AttacksService', () => {
 
     await expect(
       service.attack(1, 10, { runningLogId: 20, attackerCharacterId: 30 }),
-    ).rejects.toBeInstanceOf(NotFoundException);
+    ).rejects.toThrow('영토를 찾을 수 없습니다.');
+  });
+
+  it('throws NotFoundException when running log does not exist', async () => {
+    runningLogRepo.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.attack(1, 10, { runningLogId: 20, attackerCharacterId: 30 }),
+    ).rejects.toThrow('러닝 기록을 찾을 수 없습니다.');
+  });
+
+  it('throws NotFoundException when attacker character does not exist', async () => {
+    userCharacterRepo.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.attack(1, 10, { runningLogId: 20, attackerCharacterId: 30 }),
+    ).rejects.toThrow('보유 캐릭터를 찾을 수 없습니다.');
   });
 });

@@ -17,6 +17,7 @@ import { Territory } from '../territories/entities/territory.entity';
 
 const MIN_ATTACK_OVERLAP_RATE = 30;
 const DAILY_ATTACK_LIMIT = 5;
+const NEUTRAL_AREA_SQM_PENDING_POLICY = 0;
 
 export type AttackTerritoryResponse = {
   success: boolean;
@@ -124,7 +125,7 @@ export class AttacksService {
       occupationRateBefore: outcome.occupationRateBefore,
       occupationRateAfter: outcome.occupationRateAfter,
       acquiredAreaSqm: outcome.acquiredAreaSqm,
-      neutralAreaSqm: 0,
+      neutralAreaSqm: NEUTRAL_AREA_SQM_PENDING_POLICY,
       nextAttackAvailableAt: null,
       remainingDailyAttacks: Math.max(
         0,
