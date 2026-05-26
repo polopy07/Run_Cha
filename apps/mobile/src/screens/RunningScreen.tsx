@@ -168,7 +168,7 @@ export function RunningScreen() {
   };
 
   const formatPace = (meters: number, sec: number) => {
-    if (meters <= 0 || sec <= 0) return '--:--';
+    if (meters < 10 || sec <= 0) return '--:--';
     const paceSecPerKm = sec / (meters / 1000);
     const pm = Math.floor(paceSecPerKm / 60);
     const ps = Math.round(paceSecPerKm % 60);
