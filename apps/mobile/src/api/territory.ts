@@ -37,6 +37,25 @@ export type TerritoryDetail = Omit<Territory, 'userId'> & {
   deployedCharacters: TerritoryDeployedCharacter[];
 };
 
+export type AttackTerritoryPayload = {
+  runningLogId: number;
+  attackerCharacterId: number;
+};
+
+export type AttackTerritoryResponse = {
+  success: boolean;
+  overlapRate: number;
+  contestedAreaSqm: number;
+  damage: number;
+  occupationRateBefore: number;
+  occupationRateAfter: number;
+  acquiredAreaSqm: number;
+  neutralAreaSqm: number;
+  nextAttackAvailableAt: string | null;
+  remainingDailyAttacks: number;
+  message: string;
+};
+
 export async function getTerritories(bounds: TerritoryBounds) {
   const params = new URLSearchParams({
     minLat: String(bounds.minLat),
@@ -53,4 +72,14 @@ export async function getMyTerritories() {
 
 export async function getTerritoryDetail(id: number) {
   return apiFetch<TerritoryDetail>(`/territories/${id}`);
+}
+
+export async function attackTerritory(
+  id: number,
+  payload: AttackTerritoryPayload,
+) {
+  return apiFetch<AttackTerritoryResponse>(`/territories/${id}/attack`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 }
