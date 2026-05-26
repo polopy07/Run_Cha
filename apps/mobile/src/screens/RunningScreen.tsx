@@ -200,14 +200,27 @@ export function RunningScreen() {
   // ============================
   //  결과 화면
   // ============================
+  const noDistance = result ? result.distanceKm * 1000 < 10 : false;
+
   if (phase === 'result' && result) {
     return (
       <View style={styles.resultContainer}>
         <View style={styles.resultHeader}>
-          <Text style={styles.resultEmoji}>{result.territory ? '🏴' : '🏃'}</Text>
-          <Text style={styles.resultTitle}>
-            {result.territory ? '영토 획득!' : '러닝 완료!'}
+          <Text style={styles.resultEmoji}>
+            {noDistance ? '📍' : result.territory ? '🏴' : '🏃'}
           </Text>
+          <Text style={styles.resultTitle}>
+            {noDistance
+              ? '이동 기록이 없습니다'
+              : result.territory
+                ? '영토 획득!'
+                : '러닝 완료!'}
+          </Text>
+          {noDistance && (
+            <Text style={styles.resultSubtitle}>
+              GPS 위치 이동이 감지되지 않았습니다.
+            </Text>
+          )}
         </View>
 
         <View style={styles.resultCard}>
@@ -218,7 +231,7 @@ export function RunningScreen() {
           <ResultRow
             label="획득 포인트"
             value={`+${result.earnedPoints.toLocaleString()}P`}
-            highlight
+            highlight={!noDistance}
           />
           {result.territory && (
             <ResultRow label="영토" value="새 영토 생성됨" highlight />
@@ -463,6 +476,7 @@ const styles = StyleSheet.create({
   resultHeader: { alignItems: 'center', marginBottom: 24 },
   resultEmoji: { fontSize: 48, marginBottom: 8 },
   resultTitle: { color: '#fff', fontSize: 26, fontWeight: 'bold' },
+  resultSubtitle: { color: '#999', fontSize: 14, marginTop: 6, textAlign: 'center' },
 
   resultCard: {
     backgroundColor: '#1E1E2E',
