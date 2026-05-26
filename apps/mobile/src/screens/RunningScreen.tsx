@@ -127,6 +127,18 @@ export function RunningScreen() {
         style: 'destructive',
         onPress: async () => {
           const data = finishRunning();
+
+          if (data.path.length < 2 || data.distance < 10) {
+            setResult({
+              earnedPoints: 0,
+              distanceKm: data.distance / 1000,
+              durationSec: elapsed,
+              territory: false,
+            });
+            setPhase('result');
+            return;
+          }
+
           setSubmitting(true);
 
           try {
@@ -143,7 +155,6 @@ export function RunningScreen() {
               territory: !!(res.territory),
             });
 
-            // 포인트 갱신
             fetchMe();
           } catch (error: unknown) {
             const msg = error instanceof Error ? error.message : '서버 오류가 발생했습니다.';
