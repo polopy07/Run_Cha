@@ -32,6 +32,10 @@ describe('attack calculator', () => {
     expect(calculateAttackPower(attacker(10.5, 2))).toBe(15.5);
   });
 
+  it('treats attack_lv below 1 as level 1', () => {
+    expect(calculateAttackPower(attacker(20, 0))).toBe(20);
+  });
+
   it('calculates defense power from deployed defenders', () => {
     expect(calculateDefensePower([defender(10, 2), defender(8, 4)])).toBe(38);
   });
@@ -42,6 +46,14 @@ describe('attack calculator', () => {
 
   it('returns zero defense power when there are no deployed defenders', () => {
     expect(calculateDefensePower([])).toBe(0);
+  });
+
+  it('returns zero defense power when deployed defenders are null', () => {
+    expect(calculateDefensePower(null)).toBe(0);
+  });
+
+  it('treats defense_lv below 1 as level 1', () => {
+    expect(calculateDefensePower([defender(20, 0)])).toBe(20);
   });
 
   it('scales defense power by occupation rate', () => {
@@ -60,6 +72,10 @@ describe('attack calculator', () => {
 
   it('does not reduce occupation rate below zero', () => {
     expect(calculateOccupationRateAfter(8, 20)).toBe(0);
+  });
+
+  it('does not return occupation rate above 100', () => {
+    expect(calculateOccupationRateAfter(130, 0)).toBe(100);
   });
 
   it('calculates acquired area from reduced occupation rate', () => {
@@ -121,5 +137,18 @@ describe('attack calculator', () => {
     expect(result.occupationRateAfter).toBe(100);
     expect(result.acquiredAreaSqm).toBe(0);
     expect(result.success).toBe(false);
+  });
+
+  it('normalizes occupation rate before calculating outcome', () => {
+    const result = calculateAttackOutcome({
+      attackerCharacter: attacker(10, 1),
+      deployedDefenders: null,
+      territory: { area_sqm: 1000, occupation_rate: 130 },
+    });
+
+    expect(result.occupationRateBefore).toBe(100);
+    expect(result.occupationRateAfter).toBe(90);
+    expect(result.acquiredAreaSqm).toBe(100);
+    expect(result.success).toBe(true);
   });
 });

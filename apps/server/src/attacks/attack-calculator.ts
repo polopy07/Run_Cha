@@ -16,7 +16,7 @@ type AttackTargetTerritory = Pick<Territory, 'area_sqm' | 'occupation_rate'>;
 
 export type AttackCalculationInput = {
   attackerCharacter: AttackerCharacter;
-  deployedDefenders: DefenderCharacter[];
+  deployedDefenders?: DefenderCharacter[] | null;
   territory: AttackTargetTerritory;
 };
 
@@ -37,18 +37,20 @@ export function calculateAttackPower(
 ): number {
   return (
     attackerCharacter.character.base_attack +
-    (attackerCharacter.attack_lv - 1) * LEVEL_STAT_BONUS
+    (normalizeLevel(attackerCharacter.attack_lv) - 1) * LEVEL_STAT_BONUS
   );
 }
 
 export function calculateDefensePower(
-  deployedDefenders: DefenderCharacter[],
+  deployedDefenders?: DefenderCharacter[] | null,
 ): number {
+  if (!deployedDefenders) return 0;
+
   return deployedDefenders.reduce(
     (sum, defender) =>
       sum +
       defender.character.base_defense +
-      (defender.defense_lv - 1) * LEVEL_STAT_BONUS,
+      (normalizeLevel(defender.defense_lv) - 1) * LEVEL_STAT_BONUS,
     0,
   );
 }
@@ -75,7 +77,7 @@ export function calculateOccupationRateAfter(
   occupationRateBefore: number,
   damage: number,
 ): number {
-  return Math.max(0, occupationRateBefore - damage);
+  return normalizeOccupationRate(occupationRateBefore - damage);
 }
 
 export function calculateAcquiredAreaSqm(
@@ -91,7 +93,9 @@ export function calculateAttackOutcome({
   deployedDefenders,
   territory,
 }: AttackCalculationInput): AttackCalculationResult {
-  const occupationRateBefore = territory.occupation_rate;
+  const occupationRateBefore = normalizeOccupationRate(
+    territory.occupation_rate,
+  );
   const attackPower = calculateAttackPower(attackerCharacter);
   const defensePower = calculateDefensePower(deployedDefenders);
   const defenseWithRate = calculateDefenseWithRate(
@@ -121,4 +125,12 @@ export function calculateAttackOutcome({
     acquiredAreaSqm,
     success: occupationRateAfter < occupationRateBefore,
   };
+}
+
+function normalizeLevel(level: number): number {
+  return Math.max(1, level);
+}
+
+function normalizeOccupationRate(rate: number): number {
+  return Math.min(100, Math.max(0, rate));
 }
