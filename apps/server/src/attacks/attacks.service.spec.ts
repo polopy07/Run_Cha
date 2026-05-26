@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { AttacksService } from './attacks.service';
+import { AttacksService, getKstDayRange } from './attacks.service';
 import { AttackLog } from './entities/attack-log.entity';
 import { AttackResult } from './enums/attack-result.enum';
 import { CharacterType } from '../characters/entities/character.entity';
@@ -30,6 +30,7 @@ function makeRepository() {
 type MockRepository = ReturnType<typeof makeRepository>;
 type MockTransactionManager = {
   getRepository: (entity: unknown) => MockRepository;
+  query: jest.Mock;
 };
 
 describe('AttacksService', () => {
@@ -40,6 +41,7 @@ describe('AttacksService', () => {
   let attackLogRepo: MockRepository;
   let transactionTerritoryRepo: MockRepository;
   let transactionAttackLogRepo: MockRepository;
+  let managerQuery: jest.Mock;
 
   const dataSource = {
     transaction: jest.fn(),
@@ -87,12 +89,13 @@ describe('AttacksService', () => {
     attackLogRepo = makeRepository();
     transactionTerritoryRepo = makeRepository();
     transactionAttackLogRepo = makeRepository();
+    managerQuery = jest.fn().mockResolvedValue([{ acquired: 1 }]);
 
     territoryRepo.findOne.mockResolvedValue({ ...territory });
     runningLogRepo.findOne.mockResolvedValue(runningLog);
     userCharacterRepo.findOne.mockResolvedValue(attackerCharacter);
     userCharacterRepo.find.mockResolvedValue([]);
-    attackLogRepo.count.mockResolvedValue(0);
+    transactionAttackLogRepo.count.mockResolvedValue(0);
     dataSource.transaction.mockImplementation(
       (callback: (manager: MockTransactionManager) => void) =>
         callback({
@@ -100,6 +103,7 @@ describe('AttacksService', () => {
             entity === Territory
               ? transactionTerritoryRepo
               : transactionAttackLogRepo,
+          query: managerQuery,
         }),
     );
 
@@ -147,6 +151,7 @@ describe('AttacksService', () => {
         attacker_id: 1,
         defender_id: 2,
         territory_id: 10,
+        running_log_id: 20,
         attacker_character_id: 30,
         defender_character_id: null,
         result: AttackResult.ATTACKER_WIN,
@@ -155,6 +160,14 @@ describe('AttacksService', () => {
       }),
     );
     expect(transactionAttackLogRepo.save).toHaveBeenCalled();
+    expect(managerQuery).toHaveBeenCalledWith(
+      'SELECT GET_LOCK(?, 5) AS acquired',
+      expect.any(Array),
+    );
+    expect(managerQuery).toHaveBeenCalledWith(
+      'SELECT RELEASE_LOCK(?)',
+      expect.any(Array),
+    );
   });
 
   it('saves deployed defender character id when defender is deployed', async () => {
@@ -217,12 +230,34 @@ describe('AttacksService', () => {
   });
 
   it('rejects when daily attack limit is reached', async () => {
-    attackLogRepo.count.mockResolvedValue(5);
+    transactionAttackLogRepo.count.mockResolvedValueOnce(5);
 
     await expect(
       service.attack(1, 10, { runningLogId: 20, attackerCharacterId: 30 }),
     ).rejects.toThrow('오늘의 침략 가능 횟수를 모두 사용했습니다.');
-    expect(dataSource.transaction).not.toHaveBeenCalled();
+    expect(transactionTerritoryRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('rejects when running log was already used for attack', async () => {
+    transactionAttackLogRepo.count
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(1);
+
+    await expect(
+      service.attack(1, 10, { runningLogId: 20, attackerCharacterId: 30 }),
+    ).rejects.toThrow('이미 침략에 사용한 러닝 기록입니다.');
+    expect(transactionTerritoryRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('rejects when daily attack lock cannot be acquired', async () => {
+    managerQuery.mockResolvedValueOnce([{ acquired: 0 }]);
+
+    await expect(
+      service.attack(1, 10, { runningLogId: 20, attackerCharacterId: 30 }),
+    ).rejects.toThrow(
+      '침략 요청을 처리하는 중입니다. 잠시 후 다시 시도해주세요.',
+    );
+    expect(transactionTerritoryRepo.save).not.toHaveBeenCalled();
   });
 
   it('rejects non-attack character', async () => {
@@ -255,6 +290,21 @@ describe('AttacksService', () => {
     expect(dataSource.transaction).not.toHaveBeenCalled();
   });
 
+  it('converts invalid polygon error to BadRequestException', async () => {
+    runningLogRepo.findOne.mockResolvedValue({
+      ...runningLog,
+      path: [
+        { lat: 37.0, lng: 127.0 },
+        { lat: 37.0, lng: 127.001 },
+      ],
+    });
+
+    await expect(
+      service.attack(1, 10, { runningLogId: 20, attackerCharacterId: 30 }),
+    ).rejects.toThrow('폐곡선 좌표가 부족합니다.');
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+  });
+
   it('throws NotFoundException when target territory does not exist', async () => {
     territoryRepo.findOne.mockResolvedValue(null);
 
@@ -277,5 +327,12 @@ describe('AttacksService', () => {
     await expect(
       service.attack(1, 10, { runningLogId: 20, attackerCharacterId: 30 }),
     ).rejects.toThrow('보유 캐릭터를 찾을 수 없습니다.');
+  });
+
+  it('calculates KST day range regardless of server timezone', () => {
+    const { start, end } = getKstDayRange(new Date('2026-05-26T12:00:00.000Z'));
+
+    expect(start.toISOString()).toBe('2026-05-25T15:00:00.000Z');
+    expect(end.toISOString()).toBe('2026-05-26T14:59:59.999Z');
   });
 });

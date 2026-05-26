@@ -11,6 +11,7 @@ import {
 import { User } from '../../users/entities/user.entity';
 import { Territory } from '../../territories/entities/territory.entity';
 import { UserCharacter } from '../../characters/entities/user-character.entity';
+import { RunningLog } from '../../running/entities/running-log.entity';
 import { AttackResult } from '../enums/attack-result.enum';
 
 @Check(`occupation_rate_before >= 0 AND occupation_rate_before <= 100`)
@@ -18,6 +19,7 @@ import { AttackResult } from '../enums/attack-result.enum';
 @Index('IDX_attack_logs_attacker', ['attacker_id'])
 @Index('IDX_attack_logs_defender', ['defender_id'])
 @Index('IDX_attack_logs_territory', ['territory_id'])
+@Index('UQ_attack_logs_running_log', ['running_log_id'], { unique: true })
 @Index('IDX_attack_logs_created_at', ['created_at'])
 @Entity('attack_logs')
 export class AttackLog {
@@ -32,6 +34,9 @@ export class AttackLog {
 
   @Column()
   territory_id: number;
+
+  @Column({ type: 'int', nullable: true, default: null })
+  running_log_id: number | null;
 
   @Column({ type: 'int', nullable: true, default: null })
   attacker_character_id: number | null;
@@ -62,6 +67,10 @@ export class AttackLog {
   @ManyToOne(() => Territory, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'territory_id' })
   territory: Territory;
+
+  @ManyToOne(() => RunningLog, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'running_log_id' })
+  running_log: RunningLog | null;
 
   @ManyToOne(() => UserCharacter, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'attacker_character_id' })

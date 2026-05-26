@@ -1,4 +1,3 @@
-import { BadRequestException } from '@nestjs/common';
 import { Feature, Polygon } from 'geojson';
 import * as turf from '@turf/turf';
 
@@ -28,7 +27,7 @@ export function calculateAttackOverlap(
 
 export function toPolygon(coordinates: Coordinate[]): Feature<Polygon> {
   if (coordinates.length < 3) {
-    throw new BadRequestException('폐곡선 좌표가 부족합니다.');
+    throw new Error('폐곡선 좌표가 부족합니다.');
   }
 
   const ring = coordinates.map((coord) => [coord.lng, coord.lat]);

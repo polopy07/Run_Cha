@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, DataSource, Repository } from 'typeorm';
+import { Between, DataSource, EntityManager, Repository } from 'typeorm';
 import { calculateAttackOutcome } from './attack-calculator';
 import { calculateAttackOverlap } from './attack-overlap';
 import { AttackTerritoryDto } from './dto/attack-territory.dto';
@@ -18,6 +18,8 @@ import { Territory } from '../territories/entities/territory.entity';
 const MIN_ATTACK_OVERLAP_RATE = 30;
 const DAILY_ATTACK_LIMIT = 5;
 const NEUTRAL_AREA_SQM_PENDING_POLICY = 0;
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type AttackTerritoryResponse = {
   success: boolean;
@@ -43,8 +45,6 @@ export class AttacksService {
     private readonly runningLogsRepository: Repository<RunningLog>,
     @InjectRepository(UserCharacter)
     private readonly userCharactersRepository: Repository<UserCharacter>,
-    @InjectRepository(AttackLog)
-    private readonly attackLogsRepository: Repository<AttackLog>,
   ) {}
 
   async attack(
@@ -52,29 +52,19 @@ export class AttacksService {
     territoryId: number,
     dto: AttackTerritoryDto,
   ): Promise<AttackTerritoryResponse> {
-    const [territory, runningLog, attackerCharacter, dailyAttackCount] =
-      await Promise.all([
-        this.findTargetTerritory(territoryId),
-        this.findRunningLog(dto.runningLogId, userId),
-        this.findAttackerCharacter(dto.attackerCharacterId, userId),
-        this.countTodayAttacks(userId),
-      ]);
+    const [territory, runningLog, attackerCharacter] = await Promise.all([
+      this.findTargetTerritory(territoryId),
+      this.findRunningLog(dto.runningLogId, userId),
+      this.findAttackerCharacter(dto.attackerCharacterId, userId),
+    ]);
 
     if (territory.user_id === userId) {
       throw new BadRequestException('자신의 영토는 침략할 수 없습니다.');
     }
 
-    // TODO: 최종 PR 전 트랜잭션 안에서 하루 공격 횟수 재검증을 검토한다.
-    if (dailyAttackCount >= DAILY_ATTACK_LIMIT) {
-      throw new BadRequestException(
-        '오늘의 침략 가능 횟수를 모두 사용했습니다.',
-      );
-    }
-
-    const { overlapRate, contestedAreaSqm } = calculateAttackOverlap(
-      runningLog.path,
-      territory.coordinates,
-      territory.area_sqm,
+    const { overlapRate, contestedAreaSqm } = this.calculateOverlapOrThrow(
+      runningLog,
+      territory,
     );
 
     if (overlapRate < MIN_ATTACK_OVERLAP_RATE) {
@@ -95,28 +85,62 @@ export class AttacksService {
       territory,
     });
 
+    let remainingDailyAttacks = 0;
+
     await this.dataSource.transaction(async (manager) => {
       const territoryRepo = manager.getRepository(Territory);
       const attackLogRepo = manager.getRepository(AttackLog);
+      const lockKey = this.buildDailyAttackLockKey(userId);
 
-      // TODO: 동시 침략 요청 대비 row lock 또는 조건부 update 적용을 검토한다.
-      territory.occupation_rate = outcome.occupationRateAfter;
-      await territoryRepo.save(territory);
+      await this.acquireDailyAttackLock(manager, lockKey);
 
-      await attackLogRepo.save(
-        attackLogRepo.create({
-          attacker_id: userId,
-          defender_id: territory.user_id,
-          territory_id: territory.id,
-          attacker_character_id: attackerCharacter.id,
-          defender_character_id: deployedDefenders[0]?.id ?? null,
-          result: outcome.success
-            ? AttackResult.ATTACKER_WIN
-            : AttackResult.DEFENDER_WIN,
-          occupation_rate_before: outcome.occupationRateBefore,
-          occupation_rate_after: outcome.occupationRateAfter,
-        }),
-      );
+      try {
+        const dailyAttackCount = await this.countTodayAttacks(
+          attackLogRepo,
+          userId,
+        );
+        if (dailyAttackCount >= DAILY_ATTACK_LIMIT) {
+          throw new BadRequestException(
+            '오늘의 침략 가능 횟수를 모두 사용했습니다.',
+          );
+        }
+
+        const runningLogAttackCount = await attackLogRepo.count({
+          where: {
+            attacker_id: userId,
+            running_log_id: runningLog.id,
+          },
+        });
+        if (runningLogAttackCount > 0) {
+          throw new BadRequestException('이미 침략에 사용한 러닝 기록입니다.');
+        }
+
+        territory.occupation_rate = outcome.occupationRateAfter;
+        await territoryRepo.save(territory);
+
+        await attackLogRepo.save(
+          attackLogRepo.create({
+            attacker_id: userId,
+            defender_id: territory.user_id,
+            territory_id: territory.id,
+            running_log_id: runningLog.id,
+            attacker_character_id: attackerCharacter.id,
+            defender_character_id: deployedDefenders[0]?.id ?? null,
+            result: outcome.success
+              ? AttackResult.ATTACKER_WIN
+              : AttackResult.DEFENDER_WIN,
+            occupation_rate_before: outcome.occupationRateBefore,
+            occupation_rate_after: outcome.occupationRateAfter,
+          }),
+        );
+
+        remainingDailyAttacks = Math.max(
+          0,
+          DAILY_ATTACK_LIMIT - dailyAttackCount - 1,
+        );
+      } finally {
+        await this.releaseDailyAttackLock(manager, lockKey);
+      }
     });
 
     return {
@@ -129,10 +153,7 @@ export class AttacksService {
       acquiredAreaSqm: outcome.acquiredAreaSqm,
       neutralAreaSqm: NEUTRAL_AREA_SQM_PENDING_POLICY,
       nextAttackAvailableAt: null,
-      remainingDailyAttacks: Math.max(
-        0,
-        DAILY_ATTACK_LIMIT - dailyAttackCount - 1,
-      ),
+      remainingDailyAttacks,
       message: outcome.success
         ? '침략에 성공했습니다.'
         : '방어력이 높아 점령률이 감소하지 않았습니다.',
@@ -149,6 +170,25 @@ export class AttacksService {
     }
 
     return territory;
+  }
+
+  private calculateOverlapOrThrow(
+    runningLog: RunningLog,
+    territory: Territory,
+  ) {
+    try {
+      return calculateAttackOverlap(
+        runningLog.path,
+        territory.coordinates,
+        territory.area_sqm,
+      );
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new BadRequestException(error.message);
+      }
+
+      throw error;
+    }
   }
 
   private async findRunningLog(runningLogId: number, userId: number) {
@@ -182,18 +222,60 @@ export class AttacksService {
     return userCharacter;
   }
 
-  private countTodayAttacks(userId: number) {
-    const now = new Date();
-    const start = new Date(now);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(now);
-    end.setHours(23, 59, 59, 999);
+  private countTodayAttacks(
+    attackLogRepo: Repository<AttackLog>,
+    userId: number,
+  ) {
+    const { start, end } = getKstDayRange();
 
-    return this.attackLogsRepository.count({
+    return attackLogRepo.count({
       where: {
         attacker_id: userId,
         created_at: Between(start, end),
       },
     });
   }
+
+  private buildDailyAttackLockKey(userId: number) {
+    return `attack:${userId}:${getKstDateKey()}`;
+  }
+
+  private async acquireDailyAttackLock(
+    manager: EntityManager,
+    lockKey: string,
+  ) {
+    const rows: { acquired: number | string | null }[] = await manager.query(
+      'SELECT GET_LOCK(?, 5) AS acquired',
+      [lockKey],
+    );
+
+    if (Number(rows[0]?.acquired) !== 1) {
+      throw new BadRequestException(
+        '침략 요청을 처리하는 중입니다. 잠시 후 다시 시도해주세요.',
+      );
+    }
+  }
+
+  private async releaseDailyAttackLock(
+    manager: EntityManager,
+    lockKey: string,
+  ) {
+    await manager.query('SELECT RELEASE_LOCK(?)', [lockKey]);
+  }
+}
+
+export function getKstDayRange(now = new Date()) {
+  const kstNow = new Date(now.getTime() + KST_OFFSET_MS);
+  const startKst = new Date(kstNow);
+  startKst.setUTCHours(0, 0, 0, 0);
+
+  const start = new Date(startKst.getTime() - KST_OFFSET_MS);
+  const end = new Date(start.getTime() + DAY_MS - 1);
+
+  return { start, end };
+}
+
+function getKstDateKey(now = new Date()) {
+  const kstNow = new Date(now.getTime() + KST_OFFSET_MS);
+  return kstNow.toISOString().slice(0, 10);
 }

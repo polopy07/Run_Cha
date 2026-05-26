@@ -1,4 +1,3 @@
-import { BadRequestException } from '@nestjs/common';
 import * as turf from '@turf/turf';
 import { calculateAttackOverlap, toPolygon } from './attack-overlap';
 
@@ -68,12 +67,12 @@ describe('attack overlap', () => {
     expect(ring[0]).toEqual(ring[ring.length - 1]);
   });
 
-  it('throws BadRequestException when coordinates are insufficient', () => {
+  it('throws Error when coordinates are insufficient', () => {
     expect(() =>
       toPolygon([
         { lat: 37.0, lng: 127.0 },
         { lat: 37.0, lng: 127.001 },
       ]),
-    ).toThrow(BadRequestException);
+    ).toThrow('폐곡선 좌표가 부족합니다.');
   });
 });
