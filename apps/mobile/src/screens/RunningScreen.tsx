@@ -6,12 +6,15 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  Platform,
+  StatusBar,
 } from 'react-native';
 import MapView, { Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import useRunningStore from '../store/runningStore';
 import useAuthStore from '../store/authStore';
 import { finishRunning as finishRunningAPI } from '../api/running';
+
+const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 
 type Phase = 'ready' | 'running' | 'result';
 
@@ -30,7 +33,6 @@ const DEFAULT_REGION = {
 };
 
 export function RunningScreen() {
-  const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView>(null);
   const userLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
 
@@ -282,7 +284,7 @@ export function RunningScreen() {
 
       {/* 러닝 중 상단 통계 패널 */}
       {phase === 'running' && (
-        <View style={[styles.statsPanel, { paddingTop: insets.top + 12 }]}>
+        <View style={[styles.statsPanel, { paddingTop: STATUS_BAR_HEIGHT + 12 }]}>
           <View style={styles.statItem}>
             <Text style={styles.statLabel}>시간</Text>
             <Text style={styles.statValue}>{formatTime(elapsed)}</Text>
@@ -302,7 +304,7 @@ export function RunningScreen() {
 
       {/* 준비 화면 안내 */}
       {phase === 'ready' && (
-        <View style={[styles.readyOverlay, { paddingTop: insets.top + 20 }]}>
+        <View style={[styles.readyOverlay, { paddingTop: STATUS_BAR_HEIGHT + 20 }]}>
           <Text style={styles.readyTitle}>러닝 준비</Text>
           <Text style={styles.readyDesc}>
             달린 경로가 폐곡선을 이루면{'\n'}영토가 생성됩니다!
@@ -311,7 +313,7 @@ export function RunningScreen() {
       )}
 
       {/* 하단 버튼 */}
-      <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 16 }]}>
+      <View style={[styles.bottomBar, { paddingBottom: 12 + 16 }]}>
         {phase === 'ready' && (
           <TouchableOpacity style={styles.startBtn} onPress={handleStart}>
             <Text style={styles.startBtnText}>🏃 러닝 시작</Text>
