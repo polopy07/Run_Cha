@@ -38,6 +38,7 @@ export function RunningScreen() {
   const [elapsed, setElapsed] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<RunResult | null>(null);
+  const initialMoveDone = useRef(false);
 
   const {
     isRunning,
@@ -80,6 +81,19 @@ export function RunningScreen() {
       const coordinate = e.nativeEvent.coordinate;
       if (!coordinate) return;
       userLocationRef.current = coordinate;
+
+      if (!initialMoveDone.current) {
+        initialMoveDone.current = true;
+        mapRef.current?.animateToRegion(
+          {
+            latitude: coordinate.latitude,
+            longitude: coordinate.longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          },
+          500,
+        );
+      }
 
       if (isRunning) {
         updatePosition({
