@@ -12,6 +12,7 @@ import { GachaModule } from './gacha/gacha.module';
 import { RankingModule } from './ranking/ranking.module';
 import { UsersModule } from './users/users.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
+import { AttacksModule } from './attacks/attacks.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { SchedulerModule } from './scheduler/scheduler.module';
     GachaModule,
     RankingModule,
     SchedulerModule,
+    AttacksModule,
   ],
   controllers: [AppController],
   providers: [AppService],
