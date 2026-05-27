@@ -1,6 +1,6 @@
 module.exports = {
   preset: '@react-native/jest-preset',
-  setupFiles: ['./node_modules/react-native-gesture-handler/jestSetup.js'],
+  setupFiles: ['./jest.setup.js'],
   moduleNameMapper: {
     'react-native-maps': '<rootDir>/__mocks__/react-native-maps.js',
     '@react-native-async-storage/async-storage':

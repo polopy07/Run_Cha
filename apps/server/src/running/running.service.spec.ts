@@ -62,7 +62,12 @@ describe('RunningService', () => {
     createQueryBuilder: jest.fn(() => mockUserQb),
   };
 
+  const mockRunningLogRepo = {
+    find: jest.fn(),
+  };
+
   const mockDataSource = {
+    getRepository: jest.fn(() => mockRunningLogRepo),
     transaction: jest.fn(
       async (cb: (em: typeof mockEntityManager) => Promise<unknown>) =>
         cb(mockEntityManager),
@@ -79,6 +84,47 @@ describe('RunningService', () => {
       ],
     }).compile();
     service = module.get<RunningService>(RunningService);
+  });
+
+  describe('findMine', () => {
+    it('returns latest current user running log summaries without path data', async () => {
+      const startedAt = new Date('2026-05-27T10:00:00.000Z');
+      const endedAt = new Date('2026-05-27T10:10:00.000Z');
+      mockRunningLogRepo.find.mockResolvedValue([
+        {
+          id: 7,
+          user_id: 1,
+          path: OPEN_PATH,
+          distance_km: 1.5,
+          earned_points: 150,
+          area_sqm: 0,
+          avg_pace: 5,
+          started_at: startedAt,
+          ended_at: endedAt,
+        },
+      ]);
+
+      const result = await service.findMine(1);
+
+      expect(mockDataSource.getRepository).toHaveBeenCalledWith(RunningLog);
+      expect(mockRunningLogRepo.find).toHaveBeenCalledWith({
+        where: { user_id: 1 },
+        order: { started_at: 'DESC', id: 'DESC' },
+        take: 20,
+      });
+      expect(result).toEqual([
+        {
+          id: 7,
+          distanceKm: 1.5,
+          earnedPoints: 150,
+          avgPace: 5,
+          areaSqm: 0,
+          startedAt,
+          endedAt,
+        },
+      ]);
+      expect(result[0]).not.toHaveProperty('path');
+    });
   });
 
   describe('finish', () => {
