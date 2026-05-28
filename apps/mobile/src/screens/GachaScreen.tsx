@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity,
-  ActivityIndicator, Alert, ScrollView,
+  Alert, ScrollView, Animated, Easing,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -24,6 +24,102 @@ const TYPE_LABEL: Record<string, string> = {
   attack: 'ATK', defense: 'DEF', buff: 'BUF',
 };
 
+function GachaOrb({ colors }: { colors: { gold: string; primary: string; bg: string; textMuted: string } }) {
+  const pulse = useRef(new Animated.Value(1)).current;
+  const rotate = useRef(new Animated.Value(0)).current;
+  const glow = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    const pulseAnim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1.15, duration: 600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.95, duration: 600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ]),
+    );
+    const rotateAnim = Animated.loop(
+      Animated.timing(rotate, { toValue: 1, duration: 2000, easing: Easing.linear, useNativeDriver: true }),
+    );
+    const glowAnim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glow, { toValue: 0.8, duration: 800, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(glow, { toValue: 0.3, duration: 800, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ]),
+    );
+    pulseAnim.start();
+    rotateAnim.start();
+    glowAnim.start();
+    return () => { pulseAnim.stop(); rotateAnim.stop(); glowAnim.stop(); };
+  }, [pulse, rotate, glow]);
+
+  const spin = rotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+
+  return (
+    <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+      <Animated.View style={{
+        position: 'absolute', width: 120, height: 120, borderRadius: 60,
+        backgroundColor: colors.gold, opacity: glow,
+      }} />
+      <Animated.View style={{
+        width: 80, height: 80, borderRadius: 40,
+        backgroundColor: colors.bg, borderWidth: 3, borderColor: colors.gold,
+        justifyContent: 'center', alignItems: 'center',
+        transform: [{ scale: pulse }, { rotate: spin }],
+      }}>
+        <Text style={{ fontSize: 28, color: colors.gold, fontWeight: '800' }}>◎</Text>
+      </Animated.View>
+      <Text style={{ color: colors.gold, fontSize: 14, fontWeight: '700', marginTop: 20 }}>뽑는 중...</Text>
+    </View>
+  );
+}
+
+function AnimatedCard({ result, index, colors, gradeColor }: {
+  result: GachaResult; index: number;
+  colors: { card: string; danger: string; gold: string; bg: string; text: string; gradeCommon: string };
+  gradeColor: Record<string, string>;
+}) {
+  const scale = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const delay = index * 120;
+    Animated.parallel([
+      Animated.timing(scale, {
+        toValue: 1, duration: 350, delay, easing: Easing.out(Easing.back(1.4)), useNativeDriver: true,
+      }),
+      Animated.timing(opacity, {
+        toValue: 1, duration: 250, delay, useNativeDriver: true,
+      }),
+    ]).start();
+  }, [scale, opacity, index]);
+
+  const gc = gradeColor[result.grade] ?? colors.gradeCommon;
+
+  return (
+    <Animated.View style={{
+      width: '48%', backgroundColor: colors.card, borderRadius: radius.md,
+      padding: 14, alignItems: 'center', marginBottom: 12, overflow: 'hidden',
+      opacity, transform: [{ scale }],
+    }}>
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, backgroundColor: gc }} />
+      {result.isNew && (
+        <View style={{ position: 'absolute', top: 8, right: 8, backgroundColor: colors.danger, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
+          <Text style={{ color: '#fff', fontSize: 9, fontWeight: '800' }}>NEW</Text>
+        </View>
+      )}
+      {result.isGuaranteed && (
+        <View style={{ position: 'absolute', top: 8, left: 8, backgroundColor: colors.gold, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
+          <Text style={{ color: colors.bg, fontSize: 9, fontWeight: '800' }}>천장</Text>
+        </View>
+      )}
+      <View style={{ width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginTop: 8, marginBottom: 8, backgroundColor: `${gc}25` }}>
+        <Text style={{ fontSize: 14, fontWeight: '800', color: gc }}>{TYPE_LABEL[result.type] ?? '?'}</Text>
+      </View>
+      <Text style={{ color: colors.text, fontSize: 13, fontWeight: '700', marginBottom: 4 }} numberOfLines={1}>{result.name}</Text>
+      <Text style={{ fontSize: 11, fontWeight: '700', color: gc }}>{GRADE_LABEL[result.grade]}</Text>
+    </Animated.View>
+  );
+}
+
 export function GachaScreen() {
   const { colors, gradeColor } = useTheme();
   const insets = useSafeAreaInsets();
@@ -34,12 +130,13 @@ export function GachaScreen() {
   const [isDrawing, setIsDrawing] = useState(false);
   const [results, setResults] = useState<GachaResult[] | null>(null);
   const [remainingPoints, setRemainingPoints] = useState<number | null>(null);
+  const [revealKey, setRevealKey] = useState(0);
 
   useEffect(() => {
     if (user?.points != null) setRemainingPoints(user.points);
   }, [user?.points]);
 
-  const handleDraw = async (count: 1 | 10) => {
+  const handleDraw = useCallback(async (count: 1 | 10) => {
     const cost = count === 1 ? 100 : 900;
     if ((remainingPoints ?? 0) < cost) {
       Alert.alert('포인트 부족', `${cost}P가 필요합니다.`);
@@ -49,6 +146,7 @@ export function GachaScreen() {
     setResults(null);
     try {
       const data = await drawGacha(count);
+      setRevealKey(k => k + 1);
       setResults(data.results ?? []);
       if (data.remainingPoints != null) setRemainingPoints(data.remainingPoints);
       void fetchMe().catch(() => {});
@@ -59,7 +157,7 @@ export function GachaScreen() {
     } finally {
       setIsDrawing(false);
     }
-  };
+  }, [remainingPoints, fetchMe, fetchCharacters]);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: insets.top }}>
@@ -88,37 +186,13 @@ export function GachaScreen() {
       <View style={{ flex: 1, marginHorizontal: 16 }}>
         {isDrawing ? (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <ActivityIndicator size="large" color={colors.gold} />
-            <Text style={{ color: colors.gold, fontSize: 14, marginTop: 16, fontWeight: '600' }}>뽑는 중...</Text>
+            <GachaOrb colors={colors} />
           </View>
         ) : results ? (
-          <ScrollView contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingVertical: 8 }}>
-            {results.map((r, i) => {
-              const gc = gradeColor[r.grade] ?? colors.gradeCommon;
-              return (
-                <View key={`${r.characterId}-${i}`} style={{
-                  width: '48%', backgroundColor: colors.card, borderRadius: radius.md,
-                  padding: 14, alignItems: 'center', marginBottom: 12, overflow: 'hidden',
-                }}>
-                  <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, backgroundColor: gc }} />
-                  {r.isNew && (
-                    <View style={{ position: 'absolute', top: 8, right: 8, backgroundColor: colors.danger, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
-                      <Text style={{ color: '#fff', fontSize: 9, fontWeight: '800' }}>NEW</Text>
-                    </View>
-                  )}
-                  {r.isGuaranteed && (
-                    <View style={{ position: 'absolute', top: 8, left: 8, backgroundColor: colors.gold, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
-                      <Text style={{ color: colors.bg, fontSize: 9, fontWeight: '800' }}>천장</Text>
-                    </View>
-                  )}
-                  <View style={{ width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginTop: 8, marginBottom: 8, backgroundColor: `${gc}25` }}>
-                    <Text style={{ fontSize: 14, fontWeight: '800', color: gc }}>{TYPE_LABEL[r.type] ?? '?'}</Text>
-                  </View>
-                  <Text style={{ color: colors.text, fontSize: 13, fontWeight: '700', marginBottom: 4 }} numberOfLines={1}>{r.name}</Text>
-                  <Text style={{ fontSize: 11, fontWeight: '700', color: gc }}>{GRADE_LABEL[r.grade]}</Text>
-                </View>
-              );
-            })}
+          <ScrollView key={revealKey} contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingVertical: 8 }}>
+            {results.map((r, i) => (
+              <AnimatedCard key={`${r.characterId}-${i}`} result={r} index={i} colors={colors} gradeColor={gradeColor} />
+            ))}
           </ScrollView>
         ) : (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
