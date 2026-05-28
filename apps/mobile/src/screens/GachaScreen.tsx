@@ -45,7 +45,7 @@ export function GachaScreen() {
       const data = await drawGacha(count);
       setResults(data.results ?? []);
       if (data.remainingPoints != null) setRemainingPoints(data.remainingPoints);
-      await fetchCharacters();
+      void fetchCharacters().catch(() => {});
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : '서버 오류가 발생했습니다.';
       Alert.alert('뽑기 실패', msg);
