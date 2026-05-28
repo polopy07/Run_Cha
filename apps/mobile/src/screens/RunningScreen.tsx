@@ -32,6 +32,7 @@ export function RunningScreen() {
   const { colors, isDark } = useTheme();
   const mapRef = useRef<MapView>(null);
   const gps = useGPS();
+  const initialMoveDone = useRef(false);
 
   const [phase, setPhase] = useState<Phase>('ready');
   const [elapsed, setElapsed] = useState(0);
@@ -67,7 +68,8 @@ export function RunningScreen() {
       const coordinate = e.nativeEvent.coordinate;
       if (!coordinate) return;
 
-      if (gps.consumeInitialMove()) {
+      if (!initialMoveDone.current) {
+        initialMoveDone.current = true;
         mapRef.current?.animateToRegion(
           { latitude: coordinate.latitude, longitude: coordinate.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 },
           500,
@@ -78,7 +80,7 @@ export function RunningScreen() {
         updatePosition({ latitude: coordinate.latitude, longitude: coordinate.longitude });
       }
     },
-    [gps, isRunning, updatePosition],
+    [gps.handleLocationChange, isRunning, updatePosition],
   );
 
   const handleStart = async () => {
