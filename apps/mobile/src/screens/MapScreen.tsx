@@ -1,12 +1,13 @@
 import React, { useRef } from 'react';
 import { View, Text, TouchableOpacity, Alert } from 'react-native';
-import MapView, { Polygon, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useTheme } from '../contexts/ThemeContext';
 import { radius, mapCardShadow } from '../constants/theme';
 import { darkMapStyle } from '../constants/mapStyle';
+import useAuthStore from '../store/authStore';
 
 type BottomTabParamList = {
   '홈': undefined; '캐릭터': undefined; '러닝': undefined; '랭킹': undefined; '메뉴': undefined;
@@ -18,57 +19,6 @@ const INITIAL_REGION = {
   latitudeDelta: 0.02, longitudeDelta: 0.02,
 };
 
-const MOCK_USER = { nickname: 'Runner123', points: 12450 };
-
-const MOCK_TERRITORIES = [
-  {
-    id: 1, type: 'mine' as const, label: '내 영토', area: '125,830㎡',
-    coords: [
-      { latitude: 37.5685, longitude: 126.9755 },
-      { latitude: 37.5705, longitude: 126.9775 },
-      { latitude: 37.57, longitude: 126.981 },
-      { latitude: 37.5675, longitude: 126.982 },
-      { latitude: 37.5655, longitude: 126.9795 },
-      { latitude: 37.566, longitude: 126.9765 },
-    ],
-  },
-  {
-    id: 2, type: 'enemy' as const, label: '상대 유저', area: '85,400㎡',
-    coords: [
-      { latitude: 37.5695, longitude: 126.9825 },
-      { latitude: 37.5715, longitude: 126.9845 },
-      { latitude: 37.5708, longitude: 126.987 },
-      { latitude: 37.5688, longitude: 126.9865 },
-      { latitude: 37.5678, longitude: 126.984 },
-    ],
-  },
-  {
-    id: 3, type: 'neutral' as const, label: '중립 지역', area: '45,220㎡',
-    coords: [
-      { latitude: 37.5648, longitude: 126.98 },
-      { latitude: 37.5665, longitude: 126.982 },
-      { latitude: 37.5658, longitude: 126.9848 },
-      { latitude: 37.5638, longitude: 126.9845 },
-      { latitude: 37.5632, longitude: 126.9818 },
-    ],
-  },
-];
-
-const MOCK_RANKING = [
-  { rank: 1, nickname: 'Runner_K',  area: '235,600㎡' },
-  { rank: 2, nickname: 'FastRun',   area: '198,300㎡' },
-  { rank: 3, nickname: 'RunMaster', area: '176,500㎡' },
-];
-
-const RANK_COLORS = ['#FFB300', '#B0B0C0', '#CD7F32'];
-
-function centroid(coords: { latitude: number; longitude: number }[]) {
-  return {
-    latitude: coords.reduce((s, c) => s + c.latitude, 0) / coords.length,
-    longitude: coords.reduce((s, c) => s + c.longitude, 0) / coords.length,
-  };
-}
-
 export function MapScreen() {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
@@ -76,12 +26,7 @@ export function MapScreen() {
   const mapRef = useRef<MapView>(null);
   const regionRef = useRef(INITIAL_REGION);
   const userLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
-
-  const TERRITORY_STYLE = {
-    mine:    { stroke: colors.primary, fill: colors.primaryDim },
-    enemy:   { stroke: colors.danger, fill: colors.dangerDim },
-    neutral: { stroke: colors.textMuted, fill: 'rgba(94,94,122,0.15)' },
-  };
+  const user = useAuthStore(s => s.user);
 
   const zoomIn = () => {
     const r = regionRef.current;
@@ -123,25 +68,7 @@ export function MapScreen() {
         }}
         showsUserLocation
         showsMyLocationButton={false}
-      >
-        {MOCK_TERRITORIES.map((t) => {
-          const s = TERRITORY_STYLE[t.type];
-          return (
-            <React.Fragment key={t.id}>
-              <Polygon coordinates={t.coords} strokeColor={s.stroke} strokeWidth={2} fillColor={s.fill} />
-              <Marker coordinate={centroid(t.coords)} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
-                <View style={{
-                  backgroundColor: colors.overlay, borderRadius: 8,
-                  paddingHorizontal: 8, paddingVertical: 4, alignItems: 'center',
-                }}>
-                  <Text style={{ color: colors.text, fontSize: 10, fontWeight: '700' }}>{t.label}</Text>
-                  <Text style={{ color: colors.textSecondary, fontSize: 9 }}>{t.area}</Text>
-                </View>
-              </Marker>
-            </React.Fragment>
-          );
-        })}
-      </MapView>
+      />
 
       {/* 상단 헤더 */}
       <View style={{
@@ -157,9 +84,9 @@ export function MapScreen() {
             backgroundColor: colors.primary,
             justifyContent: 'center', alignItems: 'center',
           }}>
-            <Text style={{ color: colors.bg, fontSize: 15, fontWeight: '800' }}>{MOCK_USER.nickname[0]}</Text>
+            <Text style={{ color: colors.bg, fontSize: 15, fontWeight: '800' }}>{user?.nickname?.[0] ?? '?'}</Text>
           </View>
-          <Text style={{ color: colors.text, fontSize: 14, fontWeight: '700' }}>{MOCK_USER.nickname}</Text>
+          <Text style={{ color: colors.text, fontSize: 14, fontWeight: '700' }}>{user?.nickname ?? '유저'}</Text>
         </View>
         <View style={{
           flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -167,7 +94,7 @@ export function MapScreen() {
           borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 6,
         }}>
           <Text style={{ fontSize: 12, fontWeight: '800', color: colors.gold }}>P</Text>
-          <Text style={{ fontSize: 13, fontWeight: '700', color: colors.gold }}>{MOCK_USER.points.toLocaleString()}</Text>
+          <Text style={{ fontSize: 13, fontWeight: '700', color: colors.gold }}>{(user?.points ?? 0).toLocaleString()}</Text>
         </View>
       </View>
 
@@ -195,53 +122,22 @@ export function MapScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* 미니 랭킹 */}
-      <View style={{
-        position: 'absolute', left: 12, bottom: 100,
-        backgroundColor: colors.overlay,
-        borderRadius: radius.md, padding: 12, minWidth: 170,
-        borderWidth: isDark ? 1 : 0, borderColor: colors.divider,
-        ...mapCardShadow(isDark),
-      }}>
-        <Text style={{ color: colors.text, fontSize: 11, fontWeight: '800', letterSpacing: 1, marginBottom: 8 }}>TOP 3</Text>
-        {MOCK_RANKING.map((item, i) => (
-          <View key={item.rank} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, gap: 8 }}>
-            <Text style={{ fontSize: 13, fontWeight: '800', width: 14, textAlign: 'center', color: RANK_COLORS[i] }}>{item.rank}</Text>
-            <Text style={{ color: colors.text, fontSize: 12, flex: 1 }} numberOfLines={1}>{item.nickname}</Text>
-            <Text style={{ color: colors.textMuted, fontSize: 11 }}>{item.area}</Text>
-          </View>
-        ))}
-      </View>
-
       {/* 하단 액션 */}
       <View style={{
         position: 'absolute', bottom: 0, left: 0, right: 0,
-        flexDirection: 'row', paddingHorizontal: 12, gap: 8,
+        paddingHorizontal: 12,
         paddingBottom: insets.bottom + 8,
       }}>
         <TouchableOpacity
           onPress={() => navigation.navigate('러닝')}
           activeOpacity={0.85}
           style={{
-            flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+            flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
             backgroundColor: colors.primary, borderRadius: radius.lg,
-            paddingVertical: 14, paddingHorizontal: 18,
+            paddingVertical: 16,
           }}
         >
-          <View>
-            <Text style={{ color: colors.bg, fontSize: 15, fontWeight: '800' }}>러닝 시작</Text>
-            <Text style={{ color: 'rgba(11,11,20,0.6)', fontSize: 11, marginTop: 2 }}>영토를 넓히러 가자</Text>
-          </View>
-          <Text style={{ color: colors.bg, fontSize: 20, fontWeight: '700' }}>→</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity activeOpacity={0.85} style={{
-          flex: 1, backgroundColor: colors.overlay, borderRadius: radius.lg,
-          justifyContent: 'center', alignItems: 'center',
-          borderWidth: isDark ? 1 : 0, borderColor: colors.divider,
-          ...mapCardShadow(isDark),
-        }}>
-          <Text style={{ color: colors.text, fontSize: 13, fontWeight: '700' }}>근처 유저</Text>
+          <Text style={{ color: colors.bg, fontSize: 16, fontWeight: '800' }}>러닝 시작</Text>
         </TouchableOpacity>
       </View>
     </View>
