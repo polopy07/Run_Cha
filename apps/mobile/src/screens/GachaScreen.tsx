@@ -39,6 +39,11 @@ export function GachaScreen() {
   }, [user?.points]);
 
   const handleDraw = async (count: 1 | 10) => {
+    const cost = count === 1 ? 100 : 900;
+    if ((remainingPoints ?? 0) < cost) {
+      Alert.alert('포인트 부족', `${cost}P가 필요합니다.`);
+      return;
+    }
     setIsDrawing(true);
     setResults(null);
     try {
