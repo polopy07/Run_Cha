@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useTheme } from '../contexts/ThemeContext';
-import { radius } from '../constants/theme';
+import { radius, mapCardShadow } from '../constants/theme';
 
 type BottomTabParamList = {
   '홈': undefined; '캐릭터': undefined; '러닝': undefined; '랭킹': undefined; '메뉴': undefined;
@@ -69,7 +69,7 @@ function centroid(coords: { latitude: number; longitude: number }[]) {
 }
 
 export function MapScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<MapNav>();
   const mapRef = useRef<MapView>(null);
@@ -147,6 +147,7 @@ export function MapScreen() {
         flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
         backgroundColor: colors.overlay,
         paddingHorizontal: 16, paddingBottom: 12, paddingTop: insets.top + 8,
+        ...mapCardShadow(isDark),
       }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <View style={{
@@ -177,6 +178,7 @@ export function MapScreen() {
           <TouchableOpacity key={btn.label} onPress={btn.onPress} style={{
             width: 40, height: 40, backgroundColor: colors.overlayLight,
             borderRadius: radius.sm, justifyContent: 'center', alignItems: 'center', marginBottom: 4,
+            ...mapCardShadow(isDark),
           }}>
             <Text style={{ fontSize: 20, color: colors.text, fontWeight: '600' }}>{btn.label}</Text>
           </TouchableOpacity>
@@ -185,6 +187,7 @@ export function MapScreen() {
         <TouchableOpacity onPress={goToMyLocation} style={{
           width: 40, height: 40, backgroundColor: colors.overlayLight,
           borderRadius: radius.sm, justifyContent: 'center', alignItems: 'center',
+          ...mapCardShadow(isDark),
         }}>
           <Text style={{ fontSize: 20, color: colors.text, fontWeight: '600' }}>◎</Text>
         </TouchableOpacity>
@@ -195,7 +198,8 @@ export function MapScreen() {
         position: 'absolute', left: 12, bottom: 100,
         backgroundColor: colors.overlay,
         borderRadius: radius.md, padding: 12, minWidth: 170,
-        borderWidth: 1, borderColor: colors.divider,
+        borderWidth: isDark ? 1 : 0, borderColor: colors.divider,
+        ...mapCardShadow(isDark),
       }}>
         <Text style={{ color: colors.text, fontSize: 11, fontWeight: '800', letterSpacing: 1, marginBottom: 8 }}>TOP 3</Text>
         {MOCK_RANKING.map((item, i) => (
@@ -232,7 +236,8 @@ export function MapScreen() {
         <TouchableOpacity activeOpacity={0.85} style={{
           flex: 1, backgroundColor: colors.overlay, borderRadius: radius.lg,
           justifyContent: 'center', alignItems: 'center',
-          borderWidth: 1, borderColor: colors.divider,
+          borderWidth: isDark ? 1 : 0, borderColor: colors.divider,
+          ...mapCardShadow(isDark),
         }}>
           <Text style={{ color: colors.text, fontSize: 13, fontWeight: '700' }}>근처 유저</Text>
         </TouchableOpacity>

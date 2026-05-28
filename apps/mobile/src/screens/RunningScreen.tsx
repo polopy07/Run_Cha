@@ -8,7 +8,7 @@ import useRunningStore from '../store/runningStore';
 import useAuthStore from '../store/authStore';
 import { finishRunning as finishRunningAPI } from '../api/running';
 import { useTheme } from '../contexts/ThemeContext';
-import { radius } from '../constants/theme';
+import { radius, mapCardShadow } from '../constants/theme';
 
 const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 
@@ -27,7 +27,7 @@ const DEFAULT_REGION = {
 };
 
 export function RunningScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const mapRef = useRef<MapView>(null);
   const userLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
 
@@ -240,17 +240,18 @@ export function RunningScreen() {
           flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center',
           backgroundColor: colors.overlay,
           paddingBottom: 16, paddingHorizontal: 16, paddingTop: STATUS_BAR_HEIGHT + 12,
+          ...mapCardShadow(isDark),
         }}>
           <View style={{ alignItems: 'center', flex: 1 }}>
             <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>시간</Text>
             <Text style={{ color: colors.text, fontSize: 24, fontWeight: '800' }}>{formatTime(elapsed)}</Text>
           </View>
-          <View style={{ width: 1, height: 36, backgroundColor: 'rgba(255,255,255,0.15)' }} />
+          <View style={{ width: 1, height: 36, backgroundColor: colors.divider }} />
           <View style={{ alignItems: 'center', flex: 1 }}>
             <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>거리</Text>
             <Text style={{ color: colors.text, fontSize: 24, fontWeight: '800' }}>{formatDist(distance)}</Text>
           </View>
-          <View style={{ width: 1, height: 36, backgroundColor: 'rgba(255,255,255,0.15)' }} />
+          <View style={{ width: 1, height: 36, backgroundColor: colors.divider }} />
           <View style={{ alignItems: 'center', flex: 1 }}>
             <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>페이스</Text>
             <Text style={{ color: colors.text, fontSize: 24, fontWeight: '800' }}>{formatPace(distance, elapsed)}</Text>
@@ -263,6 +264,7 @@ export function RunningScreen() {
           position: 'absolute', top: 0, left: 0, right: 0,
           alignItems: 'center', backgroundColor: colors.overlay,
           paddingBottom: 24, paddingTop: STATUS_BAR_HEIGHT + 20,
+          ...mapCardShadow(isDark),
         }}>
           <Text style={{ color: colors.text, fontSize: 22, fontWeight: '800', marginBottom: 8 }}>러닝 준비</Text>
           <Text style={{ color: colors.textSecondary, fontSize: 14, textAlign: 'center', lineHeight: 22 }}>

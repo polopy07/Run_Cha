@@ -96,8 +96,8 @@ export const lightColors: ThemeColors = {
   gradeEpic: '#9B4DFF',
   gradeLegendary: '#F5A623',
 
-  overlay: 'rgba(0,0,0,0.6)',
-  overlayLight: 'rgba(0,0,0,0.5)',
+  overlay: 'rgba(255,255,255,0.95)',
+  overlayLight: 'rgba(255,255,255,0.9)',
 };
 
 export type ThemeMode = 'dark' | 'light';
@@ -131,6 +131,17 @@ export function getGradeColor(c: ThemeColors): Record<string, string> {
 }
 
 export const GRADE_COLOR: Record<string, string> = getGradeColor(darkColors);
+
+export function mapCardShadow(isDark: boolean) {
+  if (isDark) return {};
+  return {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
+  } as const;
+}
 
 export const GRADE_LABEL: Record<string, string> = {
   common: '일반',
