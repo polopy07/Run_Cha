@@ -5,9 +5,9 @@ jest.mock('@env', () => ({
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { attackTerritory } from '../src/api/territory';
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
-  (AsyncStorage.clear as jest.Mock)();
+  await AsyncStorage.clear();
   (global.fetch as jest.Mock) = jest.fn();
 });
 
@@ -49,5 +49,20 @@ describe('territory api', () => {
       }),
     );
     expect(result).toEqual(response);
+  });
+
+  it('throws error when server returns non-ok response', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: () => Promise.resolve({ message: 'bad request' }),
+    });
+
+    await expect(
+      attackTerritory(10, {
+        runningLogId: 20,
+        attackerCharacterId: 30,
+      }),
+    ).rejects.toThrow('bad request');
   });
 });
