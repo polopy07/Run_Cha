@@ -139,13 +139,15 @@ export function RunningScreen() {
             return;
           }
 
+          if (!data.startedAt) return;
+
           setSubmitting(true);
 
           try {
             const res = await finishRunningAPI({
               path: data.path,
               distance_km: data.distance / 1000,
-              started_at: data.startedAt!,
+              started_at: data.startedAt,
             });
 
             setResult({
@@ -155,7 +157,7 @@ export function RunningScreen() {
               territory: !!(res.territory),
             });
 
-            fetchMe();
+            void fetchMe().catch(() => {});
           } catch (error: unknown) {
             const msg = error instanceof Error ? error.message : '서버 오류가 발생했습니다.';
             Alert.alert('전송 실패', msg);
