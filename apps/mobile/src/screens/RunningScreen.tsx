@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity,
-  Alert, ActivityIndicator, Platform, StatusBar, Linking,
+  Alert, ActivityIndicator, Platform, StatusBar,
 } from 'react-native';
 import MapView, { Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import useRunningStore from '../store/runningStore';
@@ -80,7 +80,7 @@ export function RunningScreen() {
         updatePosition({ latitude: coordinate.latitude, longitude: coordinate.longitude });
       }
     },
-    [gps.handleLocationChange, isRunning, updatePosition],
+    [gps, isRunning, updatePosition],
   );
 
   const handleStart = async () => {
