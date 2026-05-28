@@ -7,6 +7,16 @@ type FinishRunningPayload = {
   started_at: string;
 };
 
+export type RunningLogSummary = {
+  id: number;
+  distanceKm: number;
+  earnedPoints: number;
+  avgPace: number;
+  areaSqm: number;
+  startedAt: string;
+  endedAt: string | null;
+};
+
 export type FinishRunningResponse = {
   log: {
     id: number;
@@ -26,6 +36,10 @@ export type FinishRunningResponse = {
   earned_points: number;
   area_sqm: number;
 };
+
+export async function getRunningLogs() {
+  return apiFetch<RunningLogSummary[]>('/running/logs');
+}
 
 export async function finishRunning(payload: FinishRunningPayload) {
   return apiFetch<FinishRunningResponse>('/running/finish', {
