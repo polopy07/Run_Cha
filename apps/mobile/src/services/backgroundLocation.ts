@@ -1,59 +1,42 @@
-import * as Location from 'expo-location';
-import * as TaskManager from 'expo-task-manager';
+import BackgroundService from 'react-native-background-actions';
 import useRunningStore from '../store/runningStore';
 
-const TASK_NAME = 'background-location-task';
+const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
-TaskManager.defineTask(TASK_NAME, async ({ data, error }) => {
-  if (error) return;
-  const { locations } = data as { locations: Location.LocationObject[] };
-  if (!locations || locations.length === 0) return;
-
-  const store = useRunningStore.getState();
-  if (!store.isRunning) return;
-
-  for (const loc of locations) {
-    store.updatePosition({
-      latitude: loc.coords.latitude,
-      longitude: loc.coords.longitude,
-    });
+const backgroundTask = async () => {
+  while (BackgroundService.isRunning()) {
+    // 위치 수신은 MapView.onUserLocationChange + useGPS가 처리
+    // 이 서비스는 앱을 백그라운드에서도 살려두는 역할
+    await sleep(3000);
   }
-});
+};
 
-export async function requestLocationPermissions(): Promise<boolean> {
-  const { status: foreground } = await Location.requestForegroundPermissionsAsync();
-  if (foreground !== 'granted') return false;
+const options = {
+  taskName: 'RunTerritory',
+  taskTitle: 'Run Territory',
+  taskDesc: '러닝 중 GPS를 기록하고 있습니다',
+  taskIcon: {
+    name: 'ic_launcher',
+    type: 'mipmap',
+  },
+  color: '#3EEBBE',
+  linkingURI: undefined,
+  parameters: { delay: 3000 },
+};
 
-  const { status: background } = await Location.requestBackgroundPermissionsAsync();
-  return background === 'granted';
-}
-
-export async function startBackgroundTracking(): Promise<boolean> {
-  const hasPermission = await requestLocationPermissions();
-  if (!hasPermission) return false;
-
-  const isStarted = await Location.hasStartedLocationUpdatesAsync(TASK_NAME).catch(() => false);
-  if (isStarted) return true;
-
-  await Location.startLocationUpdatesAsync(TASK_NAME, {
-    accuracy: Location.Accuracy.High,
-    timeInterval: 3000,
-    distanceInterval: 5,
-    foregroundService: {
-      notificationTitle: 'Run Territory',
-      notificationBody: '러닝 중 GPS를 기록하고 있습니다',
-      notificationColor: '#3EEBBE',
-    },
-    pausesUpdatesAutomatically: false,
-    showsBackgroundLocationIndicator: true,
-  });
-
-  return true;
+export async function startBackgroundTracking(): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await BackgroundService.start(backgroundTask, options);
+    return { ok: true };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.warn('[BackgroundLocation] start failed:', msg);
+    return { ok: false, error: msg };
+  }
 }
 
 export async function stopBackgroundTracking(): Promise<void> {
-  const isStarted = await Location.hasStartedLocationUpdatesAsync(TASK_NAME).catch(() => false);
-  if (isStarted) {
-    await Location.stopLocationUpdatesAsync(TASK_NAME);
-  }
+  try {
+    await BackgroundService.stop();
+  } catch {}
 }
