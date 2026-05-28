@@ -23,10 +23,10 @@ export function useGPS() {
     [],
   );
 
-  const start = useCallback(async (): Promise<boolean> => {
-    const granted = await startBackgroundTracking();
-    setIsTracking(granted);
-    return granted;
+  const start = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
+    const result = await startBackgroundTracking();
+    setIsTracking(result.ok);
+    return result;
   }, []);
 
   const stop = useCallback(async () => {

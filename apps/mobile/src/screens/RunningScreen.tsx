@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity,
-  Alert, ActivityIndicator, Platform, StatusBar,
+  Alert, ActivityIndicator, Platform, StatusBar, Linking,
 } from 'react-native';
 import MapView, { Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import useRunningStore from '../store/runningStore';
@@ -86,9 +86,10 @@ export function RunningScreen() {
       Alert.alert('위치 오류', '현재 위치를 확인할 수 없습니다.\n위치 권한을 허용해주세요.');
       return;
     }
-    const bgGranted = await gps.start();
-    if (!bgGranted) {
-      Alert.alert('권한 필요', '백그라운드 위치 권한을 허용해야 러닝 중 GPS가 기록됩니다.');
+    const bgResult = await gps.start();
+    if (!bgResult.ok) {
+      Alert.alert('백그라운드 GPS 실패', bgResult.error ?? '알 수 없는 에러');
+      return;
     }
     startRunning();
     setElapsed(0);
