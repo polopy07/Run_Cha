@@ -1,5 +1,6 @@
 import {
   canSubmitAttack,
+  formatRunningLogDate,
   formatRunningLogDistance,
   formatRunningLogLabel,
   getAttackCharacters,
@@ -55,6 +56,10 @@ describe('attackFlow', () => {
     });
 
     expect(label).toContain('1.25km');
+  });
+
+  it('keeps invalid running log date text as-is', () => {
+    expect(formatRunningLogDate('invalid-date')).toBe('invalid-date');
   });
 
   it('allows attack submit only when both selections exist', () => {

@@ -9,13 +9,14 @@ import {
   Text,
   View,
 } from 'react-native';
-import { getCharacters } from '../../api/character';
 import { getRunningLogs, type RunningLogSummary } from '../../api/running';
 import {
   attackTerritory,
   type AttackTerritoryResponse,
 } from '../../api/territory';
-import type { Character } from '../../store/characterStore';
+import { useTheme } from '../../contexts/ThemeContext';
+import useCharacterStore from '../../store/characterStore';
+import { radius } from '../../constants/theme';
 import {
   canSubmitAttack,
   formatRunningLogLabel,
@@ -37,8 +38,10 @@ export function AttackTerritoryPanel({
   onClose,
   onCompleted,
 }: AttackTerritoryPanelProps) {
+  const { colors } = useTheme();
+  const characters = useCharacterStore(state => state.characters);
+  const fetchCharacters = useCharacterStore(state => state.fetchCharacters);
   const [runningLogs, setRunningLogs] = useState<RunningLogSummary[]>([]);
-  const [characters, setCharacters] = useState<Character[]>([]);
   const [selectedRunningLogId, setSelectedRunningLogId] = useState<number | null>(
     null,
   );
@@ -54,19 +57,26 @@ export function AttackTerritoryPanel({
     [characters],
   );
 
+  const resetPanelState = useCallback(() => {
+    setRunningLogs([]);
+    setSelectedRunningLogId(null);
+    setSelectedCharacterId(null);
+    setResult(null);
+    setIsSubmitting(false);
+  }, []);
+
   const loadAttackOptions = useCallback(async () => {
     setIsLoading(true);
-    setResult(null);
 
     try {
-      const [logs, characterList] = await Promise.all([
+      const [logs] = await Promise.all([
         getRunningLogs(),
-        getCharacters(),
+        fetchCharacters(),
       ]);
-      const attackOnly = getAttackCharacters(characterList);
+      const latestCharacters = useCharacterStore.getState().characters;
+      const attackOnly = getAttackCharacters(latestCharacters);
 
       setRunningLogs(logs);
-      setCharacters(characterList);
       setSelectedRunningLogId(logs[0]?.id ?? null);
       setSelectedCharacterId(attackOnly[0]?.id ?? null);
     } catch (error) {
@@ -78,13 +88,14 @@ export function AttackTerritoryPanel({
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [fetchCharacters]);
 
   useEffect(() => {
     if (visible && territoryId !== null) {
+      resetPanelState();
       loadAttackOptions().catch(() => undefined);
     }
-  }, [loadAttackOptions, territoryId, visible]);
+  }, [loadAttackOptions, resetPanelState, territoryId, visible]);
 
   const submitAttack = async () => {
     if (territoryId === null) {
@@ -93,7 +104,7 @@ export function AttackTerritoryPanel({
     }
 
     if (selectedRunningLogId === null || selectedCharacterId === null) {
-      Alert.alert('침략 불가', '러닝 기록과 공격형 캐릭터를 선택해주세요.');
+      Alert.alert('침략 불가', '러닝 기록과 공격 캐릭터를 선택해주세요.');
       return;
     }
 
@@ -119,112 +130,177 @@ export function AttackTerritoryPanel({
     }
   };
 
+  const isSubmitDisabled =
+    !canSubmitAttack(selectedRunningLogId, selectedCharacterId) ||
+    isSubmitting ||
+    result !== null;
+
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent
+      onRequestClose={onClose}
+    >
       <View style={styles.backdrop}>
-        <View style={styles.panel}>
+        <View style={[styles.panel, { backgroundColor: colors.surface }]}>
           <View style={styles.header}>
             <View>
-              <Text style={styles.title}>영토 침략</Text>
-              <Text style={styles.subtitle}>
+              <Text style={[styles.title, { color: colors.text }]}>
+                영토 침략
+              </Text>
+              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
                 {territoryName ?? '선택한 영토'}
               </Text>
             </View>
             <Pressable style={styles.closeButton} onPress={onClose}>
-              <Text style={styles.closeText}>닫기</Text>
+              <Text style={[styles.closeText, { color: colors.textSecondary }]}>
+                닫기
+              </Text>
             </Pressable>
           </View>
 
           {isLoading ? (
             <View style={styles.loading}>
-              <ActivityIndicator color="#E74C3C" />
-              <Text style={styles.loadingText}>침략 정보를 불러오는 중</Text>
+              <ActivityIndicator color={colors.danger} />
+              <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+                침략 정보를 불러오는 중
+              </Text>
             </View>
           ) : (
-            <ScrollView contentContainerStyle={styles.content}>
-              <Text style={styles.sectionTitle}>러닝 기록</Text>
-              {runningLogs.length === 0 ? (
-                <Text style={styles.emptyText}>
-                  침략에 사용할 러닝 기록이 없습니다.
+            <>
+              <ScrollView contentContainerStyle={styles.content}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                  러닝 기록
                 </Text>
-              ) : (
-                runningLogs.map((log) => (
-                  <Pressable
-                    key={log.id}
-                    style={[
-                      styles.option,
-                      selectedRunningLogId === log.id && styles.optionSelected,
-                    ]}
-                    onPress={() => setSelectedRunningLogId(log.id)}
-                  >
-                    <Text style={styles.optionTitle}>
-                      {formatRunningLogLabel(log)}
-                    </Text>
-                    <Text style={styles.optionMeta}>
-                      포인트 {log.earnedPoints} · 면적{' '}
-                      {Math.round(log.areaSqm).toLocaleString()}㎡
-                    </Text>
-                  </Pressable>
-                ))
-              )}
+                {runningLogs.length === 0 ? (
+                  <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+                    침략에 사용할 러닝 기록이 없습니다.
+                  </Text>
+                ) : (
+                  runningLogs.map(log => {
+                    const selected = selectedRunningLogId === log.id;
+                    return (
+                      <Pressable
+                        key={log.id}
+                        style={[
+                          styles.option,
+                          {
+                            backgroundColor: selected
+                              ? colors.dangerDim
+                              : colors.card,
+                            borderColor: selected
+                              ? colors.danger
+                              : colors.divider,
+                          },
+                        ]}
+                        onPress={() => setSelectedRunningLogId(log.id)}
+                        disabled={result !== null}
+                      >
+                        <Text style={[styles.optionTitle, { color: colors.text }]}>
+                          {formatRunningLogLabel(log)}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.optionMeta,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          포인트 {log.earnedPoints} · 면적{' '}
+                          {Math.round(log.areaSqm).toLocaleString()}㎡
+                        </Text>
+                      </Pressable>
+                    );
+                  })
+                )}
 
-              <Text style={styles.sectionTitle}>공격 캐릭터</Text>
-              {attackCharacters.length === 0 ? (
-                <Text style={styles.emptyText}>
-                  보유한 공격형 캐릭터가 없습니다.
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                  공격 캐릭터
                 </Text>
-              ) : (
-                attackCharacters.map((character) => (
-                  <Pressable
-                    key={character.id}
-                    style={[
-                      styles.option,
-                      selectedCharacterId === character.id &&
-                        styles.optionSelected,
-                    ]}
-                    onPress={() => setSelectedCharacterId(character.id)}
-                  >
-                    <Text style={styles.optionTitle}>{character.name}</Text>
-                    <Text style={styles.optionMeta}>
-                      {character.grade} · 공격 Lv.{character.attackLv}
-                    </Text>
-                  </Pressable>
-                ))
-              )}
+                {attackCharacters.length === 0 ? (
+                  <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+                    보유한 공격형 캐릭터가 없습니다.
+                  </Text>
+                ) : (
+                  attackCharacters.map(character => {
+                    const selected = selectedCharacterId === character.id;
+                    return (
+                      <Pressable
+                        key={character.id}
+                        style={[
+                          styles.option,
+                          {
+                            backgroundColor: selected
+                              ? colors.dangerDim
+                              : colors.card,
+                            borderColor: selected
+                              ? colors.danger
+                              : colors.divider,
+                          },
+                        ]}
+                        onPress={() => setSelectedCharacterId(character.id)}
+                        disabled={result !== null}
+                      >
+                        <Text style={[styles.optionTitle, { color: colors.text }]}>
+                          {character.name}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.optionMeta,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          {character.grade} · 공격 Lv.{character.attackLv}
+                        </Text>
+                      </Pressable>
+                    );
+                  })
+                )}
+              </ScrollView>
 
               {result ? (
-                <View style={styles.resultBox}>
-                  <Text style={styles.resultTitle}>{result.message}</Text>
-                  <Text style={styles.resultText}>
+                <View
+                  style={[
+                    styles.resultBox,
+                    {
+                      backgroundColor: colors.primaryDim,
+                      borderColor: colors.primary,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.resultTitle, { color: colors.text }]}>
+                    {result.message}
+                  </Text>
+                  <Text style={[styles.resultText, { color: colors.textSecondary }]}>
                     점령률 {result.occupationRateBefore}% →{' '}
                     {result.occupationRateAfter}%
                   </Text>
-                  <Text style={styles.resultText}>
-                    획득 면적 {Math.round(result.acquiredAreaSqm).toLocaleString()}㎡
+                  <Text style={[styles.resultText, { color: colors.textSecondary }]}>
+                    획득 면적{' '}
+                    {Math.round(result.acquiredAreaSqm).toLocaleString()}㎡
                   </Text>
-                  <Text style={styles.resultText}>
+                  <Text style={[styles.resultText, { color: colors.textSecondary }]}>
                     남은 침략 횟수 {result.remainingDailyAttacks}회
                   </Text>
                 </View>
               ) : null}
-            </ScrollView>
+            </>
           )}
 
           <Pressable
             style={[
               styles.submitButton,
-              (!canSubmitAttack(selectedRunningLogId, selectedCharacterId) ||
-                isSubmitting) &&
-                styles.submitButtonDisabled,
+              {
+                backgroundColor: isSubmitDisabled
+                  ? colors.divider
+                  : colors.danger,
+              },
             ]}
             onPress={submitAttack}
-            disabled={
-              !canSubmitAttack(selectedRunningLogId, selectedCharacterId) ||
-              isSubmitting
-            }
+            disabled={isSubmitDisabled}
           >
-            <Text style={styles.submitButtonText}>
-              {isSubmitting ? '침략 요청 중' : '침략하기'}
+            <Text style={[styles.submitButtonText, { color: colors.bg }]}>
+              {isSubmitting ? '침략 요청 중' : result ? '침략 완료' : '침략하기'}
             </Text>
           </Pressable>
         </View>
@@ -242,9 +318,8 @@ const styles = StyleSheet.create({
   panel: {
     maxHeight: '86%',
     padding: 18,
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
   },
   header: {
     flexDirection: 'row',
@@ -255,19 +330,16 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#151515',
   },
   subtitle: {
     marginTop: 4,
     fontSize: 13,
-    color: '#666666',
   },
   closeButton: {
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   closeText: {
-    color: '#555555',
     fontWeight: '600',
   },
   loading: {
@@ -277,72 +349,55 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   loadingText: {
-    color: '#555555',
+    fontSize: 13,
   },
   content: {
-    paddingBottom: 16,
+    paddingBottom: 8,
   },
   sectionTitle: {
     marginTop: 14,
     marginBottom: 8,
     fontSize: 15,
     fontWeight: '700',
-    color: '#222222',
   },
   emptyText: {
     paddingVertical: 12,
-    color: '#777777',
   },
   option: {
     padding: 12,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
-  },
-  optionSelected: {
-    borderColor: '#E74C3C',
-    backgroundColor: '#FFF3F1',
+    borderRadius: radius.sm,
   },
   optionTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#222222',
   },
   optionMeta: {
     marginTop: 4,
     fontSize: 12,
-    color: '#666666',
   },
   resultBox: {
     marginTop: 12,
     padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#F5F7FA',
+    borderWidth: 1,
+    borderRadius: radius.sm,
   },
   resultTitle: {
     marginBottom: 6,
     fontSize: 14,
     fontWeight: '700',
-    color: '#222222',
   },
   resultText: {
     marginTop: 3,
-    color: '#555555',
   },
   submitButton: {
     marginTop: 12,
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: radius.sm,
     paddingVertical: 14,
-    backgroundColor: '#E74C3C',
-  },
-  submitButtonDisabled: {
-    backgroundColor: '#C9C9C9',
   },
   submitButtonText: {
-    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
   },
