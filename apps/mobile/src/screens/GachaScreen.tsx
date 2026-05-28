@@ -30,6 +30,7 @@ export function GachaScreen() {
   const navigation = useNavigation();
   const { fetchCharacters } = useCharacterStore();
   const user = useAuthStore((s) => s.user);
+  const fetchMe = useAuthStore((s) => s.fetchMe);
   const [isDrawing, setIsDrawing] = useState(false);
   const [results, setResults] = useState<GachaResult[] | null>(null);
   const [remainingPoints, setRemainingPoints] = useState<number | null>(null);
@@ -50,6 +51,7 @@ export function GachaScreen() {
       const data = await drawGacha(count);
       setResults(data.results ?? []);
       if (data.remainingPoints != null) setRemainingPoints(data.remainingPoints);
+      void fetchMe().catch(() => {});
       void fetchCharacters().catch(() => {});
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : '서버 오류가 발생했습니다.';
