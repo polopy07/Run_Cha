@@ -9,6 +9,7 @@ import useAuthStore from '../store/authStore';
 import { finishRunning as finishRunningAPI } from '../api/running';
 import { useTheme } from '../contexts/ThemeContext';
 import { radius, mapCardShadow } from '../constants/theme';
+import { darkMapStyle } from '../constants/mapStyle';
 
 const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 
@@ -197,6 +198,7 @@ export function RunningScreen() {
             <MapView
               style={{ flex: 1 }}
               provider={PROVIDER_GOOGLE}
+              customMapStyle={isDark ? darkMapStyle : []}
               initialRegion={{
                 latitude: polylineCoords[0].latitude, longitude: polylineCoords[0].longitude,
                 latitudeDelta: 0.01, longitudeDelta: 0.01,
@@ -226,6 +228,7 @@ export function RunningScreen() {
         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
         provider={PROVIDER_GOOGLE}
         initialRegion={DEFAULT_REGION}
+        customMapStyle={isDark ? darkMapStyle : []}
         showsUserLocation showsMyLocationButton={false}
         onUserLocationChange={handleUserLocationChange}
       >

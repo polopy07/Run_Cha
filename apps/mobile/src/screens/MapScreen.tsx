@@ -6,6 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useTheme } from '../contexts/ThemeContext';
 import { radius, mapCardShadow } from '../constants/theme';
+import { darkMapStyle } from '../constants/mapStyle';
 
 type BottomTabParamList = {
   '홈': undefined; '캐릭터': undefined; '러닝': undefined; '랭킹': undefined; '메뉴': undefined;
@@ -114,6 +115,7 @@ export function MapScreen() {
         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
         provider={PROVIDER_GOOGLE}
         initialRegion={INITIAL_REGION}
+        customMapStyle={isDark ? darkMapStyle : []}
         onRegionChangeComplete={(r) => { regionRef.current = r; }}
         onUserLocationChange={(e) => {
           const c = e.nativeEvent.coordinate;
