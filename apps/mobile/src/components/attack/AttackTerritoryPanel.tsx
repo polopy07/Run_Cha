@@ -63,6 +63,7 @@ export function AttackTerritoryPanel({
     setSelectedCharacterId(null);
     setResult(null);
     setIsSubmitting(false);
+    setIsLoading(false);
   }, []);
 
   const loadAttackOptions = useCallback(async () => {
@@ -73,12 +74,9 @@ export function AttackTerritoryPanel({
         getRunningLogs(),
         fetchCharacters(),
       ]);
-      const latestCharacters = useCharacterStore.getState().characters;
-      const attackOnly = getAttackCharacters(latestCharacters);
 
       setRunningLogs(logs);
       setSelectedRunningLogId(logs[0]?.id ?? null);
-      setSelectedCharacterId(attackOnly[0]?.id ?? null);
     } catch (error) {
       const message =
         error instanceof Error
@@ -91,13 +89,35 @@ export function AttackTerritoryPanel({
   }, [fetchCharacters]);
 
   useEffect(() => {
+    if (!visible) {
+      return;
+    }
+
+    setSelectedCharacterId((current) => {
+      if (
+        current !== null &&
+        attackCharacters.some((character) => character.id === current)
+      ) {
+        return current;
+      }
+
+      return attackCharacters[0]?.id ?? null;
+    });
+  }, [attackCharacters, visible]);
+
+  useEffect(() => {
     if (visible && territoryId !== null) {
       resetPanelState();
       loadAttackOptions().catch(() => undefined);
     }
   }, [loadAttackOptions, resetPanelState, territoryId, visible]);
 
-  const submitAttack = async () => {
+  const handleClose = useCallback(() => {
+    resetPanelState();
+    onClose();
+  }, [onClose, resetPanelState]);
+
+  const submitAttack = useCallback(async () => {
     if (territoryId === null) {
       Alert.alert('침략 불가', '침략할 영토를 먼저 선택해주세요.');
       return;
@@ -128,7 +148,7 @@ export function AttackTerritoryPanel({
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [onCompleted, selectedCharacterId, selectedRunningLogId, territoryId]);
 
   const isSubmitDisabled =
     !canSubmitAttack(selectedRunningLogId, selectedCharacterId) ||
@@ -140,7 +160,7 @@ export function AttackTerritoryPanel({
       visible={visible}
       animationType="slide"
       transparent
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       <View style={styles.backdrop}>
         <View style={[styles.panel, { backgroundColor: colors.surface }]}>
@@ -153,7 +173,7 @@ export function AttackTerritoryPanel({
                 {territoryName ?? '선택한 영토'}
               </Text>
             </View>
-            <Pressable style={styles.closeButton} onPress={onClose}>
+            <Pressable style={styles.closeButton} onPress={handleClose}>
               <Text style={[styles.closeText, { color: colors.textSecondary }]}>
                 닫기
               </Text>
@@ -299,7 +319,12 @@ export function AttackTerritoryPanel({
             onPress={submitAttack}
             disabled={isSubmitDisabled}
           >
-            <Text style={[styles.submitButtonText, { color: colors.bg }]}>
+            <Text
+              style={[
+                styles.submitButtonText,
+                { color: isSubmitDisabled ? colors.textMuted : colors.bg },
+              ]}
+            >
               {isSubmitting ? '침략 요청 중' : result ? '침략 완료' : '침략하기'}
             </Text>
           </Pressable>
