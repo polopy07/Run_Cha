@@ -26,6 +26,12 @@ Authorization: Bearer {token}
 
 Firebase ID Token은 `POST /auth/login`에서만 사용한다. 서버는 Firebase ID Token을 검증한 뒤 서버 JWT를 발급하며, 이후 보호 API는 서버 JWT를 사용한다.
 
+엔드포인트 목록의 인증 표기는 다음 기준을 사용한다.
+
+- `O`: 인증 필요
+- `X`: 인증 불필요
+- `△`: 인증 선택. 비로그인 요청도 가능하지만, 로그인 요청이면 사용자 기준 추가 필드를 계산한다.
+
 ### 공통 에러 응답
 
 앱 연동 전 최소 에러 포맷은 아래 형태로 통일한다.
@@ -629,6 +635,6 @@ const success = occupationRateAfter < territory.occupation_rate;
 5. 수비형/버프형 캐릭터의 자연 감소 계산 반영 방식
 6. 공통 에러 메시지 세부 코드 정의
 7. 영토 이름 저장 컬럼 및 `PATCH /territories/:id/name` 구현 방식
-8. 지도 목록 응답에 보유자 이름/배치 캐릭터 요약을 포함할지, 상세 API에서만 제공할지 여부
+8. `GET /territories/:id` 상세 응답의 보유자/배치 캐릭터 JOIN 최적화 방식
 9. 캐릭터 레벨/경험치/이미지 필드의 DB 저장 방식
 10. 캐릭터 분해 스탯 포인트 저장 위치와 사용 API
