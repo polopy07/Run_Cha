@@ -7,13 +7,42 @@ function initializeFirebaseAdmin() {
     return admin;
   }
 
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+
+  const hasAnyEnvVar = projectId || clientEmail || privateKey;
+  if (hasAnyEnvVar) {
+    const missing = [
+      !projectId && 'FIREBASE_PROJECT_ID',
+      !clientEmail && 'FIREBASE_CLIENT_EMAIL',
+      !privateKey && 'FIREBASE_PRIVATE_KEY',
+    ].filter(Boolean);
+
+    if (missing.length > 0) {
+      throw new Error(
+        `Firebase 환경변수가 일부 누락되었습니다: ${missing.join(', ')}`,
+      );
+    }
+
+    admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId: projectId!,
+        clientEmail: clientEmail!,
+        privateKey: privateKey!,
+      }),
+    });
+    console.log('[Firebase] initialized via env vars');
+    return admin;
+  }
+
   const serviceAccountPath =
     process.env.FIREBASE_SERVICE_ACCOUNT_PATH ??
     path.join(process.cwd(), 'firebase-service-key.json');
 
   if (!fs.existsSync(serviceAccountPath)) {
     throw new Error(
-      `Firebase service account file not found: ${serviceAccountPath}`,
+      `Firebase credentials not found. Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY env vars or provide ${serviceAccountPath}`,
     );
   }
 
@@ -24,6 +53,7 @@ function initializeFirebaseAdmin() {
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
   });
+  console.log('[Firebase] initialized via JSON file');
 
   return admin;
 }
