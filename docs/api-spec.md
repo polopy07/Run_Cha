@@ -84,7 +84,6 @@ Firebase Auth 로그인/회원가입 후 발급받은 ID Token을 서버에 전�
 | nickname | string | 사용자 닉네임 |
 | points | number | 보유 포인트 |
 | totalDistance | number | 누적 러닝 거리 |
-| pityCount | number | 가챠 천장 카운트 |
 
 #### 닉네임 초기값 정책
 
@@ -114,7 +113,6 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | nickname | string | 사용자 닉네임 |
 | points | number | 보유 포인트 |
 | totalDistance | number | 누적 러닝 거리 |
-| pityCount | number | 가챠 천장 카운트 |
 
 ### PATCH `/users/me/nickname`
 
@@ -135,7 +133,6 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | nickname | string | 변경된 사용자 닉네임 |
 | points | number | 보유 포인트 |
 | totalDistance | number | 누적 러닝 거리 |
-| pityCount | number | 가챠 천장 카운트 |
 
 ---
 
@@ -445,7 +442,6 @@ const success = occupationRateAfter < territory.occupation_rate;
 | grade | string | 등급. `common`, `rare`, `epic`, `legendary` |
 | type | string | 종류. `attack`, `defense`, `buff` |
 | isNew | boolean | 신규 캐릭터 여부 |
-| isGuaranteed | boolean | 천장 보장 여부 |
 
 ### GET `/characters/me`
 
@@ -538,7 +534,7 @@ const success = occupationRateAfter < territory.occupation_rate;
 
 - 가챠 비용: 1회 100 포인트, 10회 900 포인트
 - 가챠 확률: common 60%, rare 30%, epic 9%, legendary 1%
-- 천장: 100회차 legendary 보장
+- 천장 보장 시스템은 사용하지 않는다.
 - 강화 비용: `Math.min(Math.floor(100 * 1.5 ** currentLevel), 5000)`
 - 위 수치는 현재 구현 기준이며, 밸런스 검토 후 조정될 수 있다.
 

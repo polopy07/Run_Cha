@@ -128,7 +128,7 @@ const earnedPoints = isClosedLoop ? basePoints : Math.floor(basePoints * 1.3);
 - 캐릭터 등급은 `common`, `rare`, `epic`, `legendary`를 사용한다.
 - 캐릭터 타입은 `attack`, `defense`, `buff`를 사용한다.
 - 점령형 캐릭터 타입은 사용하지 않는다.
-- 100회 뽑기 천장 보장 여부를 기록할 수 있어야 한다.
+- 천장 보장 시스템은 사용하지 않는다.
 - 가챠 비용은 현재 구현 기준 1회 100 포인트, 10회 900 포인트를 사용한다.
 - 가챠 확률은 현재 구현 기준 common 60%, rare 30%, epic 9%, legendary 1%를 사용한다.
 - 캐릭터 강화 비용은 현재 구현 기준 `Math.min(Math.floor(100 * 1.5 ** currentLevel), 5000)`을 사용한다.

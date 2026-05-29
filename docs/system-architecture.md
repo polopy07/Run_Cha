@@ -228,7 +228,7 @@ const earnedPoints = isClosedLoop ? basePoints : Math.floor(basePoints * 1.3);
 ```text
 1. 앱이 POST /gacha/draw 호출
 2. 서버가 사용자 포인트 확인
-3. 서버가 뽑기 횟수와 천장 조건 확인
+3. 서버가 뽑기 횟수와 포인트를 확인
 4. 서버가 캐릭터 결과 생성
 5. 서버가 user_characters 및 gacha_log 저장
 6. 서버가 results와 remainingPoints 응답
@@ -238,7 +238,7 @@ const earnedPoints = isClosedLoop ? basePoints : Math.floor(basePoints * 1.3);
 
 - 가챠 비용은 1회 100 포인트, 10회 900 포인트다.
 - 가챠 확률은 common 60%, rare 30%, epic 9%, legendary 1%다.
-- 천장은 100회차 legendary 보장으로 처리한다.
+- 천장 보장 시스템은 사용하지 않는다.
 - 캐릭터 강화 비용은 `Math.min(Math.floor(100 * 1.5 ** currentLevel), 5000)`을 사용한다.
 
 ### 3.5 캐릭터 배치 흐름
