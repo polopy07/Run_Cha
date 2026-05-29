@@ -113,6 +113,7 @@ export class UsersService {
       email: user.email,
       nickname: user.nickname,
       points: user.points,
+      statPoints: user.stat_points,
       totalDistance: user.total_distance,
     };
   }

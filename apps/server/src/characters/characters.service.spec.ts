@@ -11,6 +11,8 @@ import { Territory } from '../territories/entities/territory.entity';
 const mockUserCharactersRepository = () => ({
   find: jest.fn(),
   findOne: jest.fn(),
+  delete: jest.fn(),
+  count: jest.fn(),
   save: jest.fn(),
 });
 
@@ -248,6 +250,59 @@ describe('CharactersService', () => {
     await expect(service.deploy(1, 10, 999)).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+
+  it('dismantles owned characters and grants stat points by grade', async () => {
+    const user = { id: 1, stat_points: 5 } as User;
+    const rareCharacter = {
+      ...userCharacter,
+      id: 11,
+      character: {
+        ...userCharacter.character,
+        grade: CharacterGrade.RARE,
+      },
+    };
+    usersRepository.findOne.mockResolvedValue(user);
+    userCharactersRepository.find.mockResolvedValue([
+      { ...userCharacter },
+      rareCharacter,
+    ]);
+    userCharactersRepository.delete.mockResolvedValue({ affected: 2 });
+    usersRepository.save.mockResolvedValue(user);
+    userCharactersRepository.count.mockResolvedValue(4);
+
+    await expect(service.dismantle(1, [10, 11])).resolves.toEqual({
+      dismantledCount: 2,
+      earnedStatPoints: 3,
+      statPoints: 8,
+      remainingCharacterCount: 4,
+    });
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    expect(usersRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ stat_points: 8 }),
+    );
+    expect(userCharactersRepository.delete).toHaveBeenCalledWith(
+      expect.objectContaining({ user_id: 1 }),
+    );
+  });
+
+  it('rejects dismantle when more than 10 characters are requested', async () => {
+    await expect(
+      service.dismantle(1, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects dismantle for deployed characters', async () => {
+    usersRepository.findOne.mockResolvedValue({ id: 1, stat_points: 0 });
+    userCharactersRepository.find.mockResolvedValue([
+      { ...userCharacter, deployed_territory_id: 7 },
+    ]);
+
+    await expect(service.dismantle(1, [10])).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(userCharactersRepository.delete).not.toHaveBeenCalled();
   });
 
   it('rejects upgrade for missing user character', async () => {

@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { Territory } from '../territories/entities/territory.entity';
 import { User } from '../users/entities/user.entity';
 import { CharacterGrade, CharacterType } from './entities/character.entity';
@@ -23,6 +23,14 @@ const UPGRADE_MAX_COST = 5000;
 const UPGRADE_MAX_COST_START_LEVEL = Math.ceil(
   Math.log(UPGRADE_MAX_COST / UPGRADE_BASE_COST) / Math.log(1.5),
 );
+const DISMANTLE_MAX_COUNT = 10;
+
+const DISMANTLE_REWARD_BY_GRADE: Record<CharacterGrade, number> = {
+  [CharacterGrade.COMMON]: 1,
+  [CharacterGrade.RARE]: 2,
+  [CharacterGrade.EPIC]: 3,
+  [CharacterGrade.LEGENDARY]: 4,
+};
 
 type StatLevelColumn = 'attack_lv' | 'defense_lv' | 'speed_lv' | 'point_lv';
 
@@ -159,6 +167,82 @@ export class CharactersService {
       await userCharactersRepository.save(userCharacter);
 
       return this.toUserCharacterResponse(userCharacter);
+    });
+  }
+
+  async dismantle(userId: number, userCharacterIds: number[]) {
+    const uniqueIds = [...new Set(userCharacterIds)];
+
+    if (userCharacterIds.length === 0) {
+      throw new BadRequestException('At least one character is required.');
+    }
+
+    if (userCharacterIds.length > DISMANTLE_MAX_COUNT) {
+      throw new BadRequestException(
+        `You can dismantle up to ${DISMANTLE_MAX_COUNT} characters at once.`,
+      );
+    }
+
+    if (uniqueIds.length !== userCharacterIds.length) {
+      throw new BadRequestException('Duplicate character IDs are not allowed.');
+    }
+
+    return this.dataSource.transaction(async (manager) => {
+      const userCharactersRepository = manager.getRepository(UserCharacter);
+      const usersRepository = manager.getRepository(User);
+
+      const user = await usersRepository.findOne({
+        where: { id: userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!user) {
+        throw new NotFoundException('User not found.');
+      }
+
+      const userCharacters = await userCharactersRepository.find({
+        where: { id: In(uniqueIds), user_id: userId },
+        relations: { character: true },
+      });
+
+      if (userCharacters.length !== uniqueIds.length) {
+        throw new NotFoundException('Owned character not found.');
+      }
+
+      if (
+        userCharacters.some(
+          (userCharacter) => userCharacter.deployed_territory_id !== null,
+        )
+      ) {
+        throw new BadRequestException(
+          'Deployed characters cannot be dismantled.',
+        );
+      }
+
+      const earnedStatPoints = userCharacters.reduce(
+        (sum, userCharacter) =>
+          sum + DISMANTLE_REWARD_BY_GRADE[userCharacter.character.grade],
+        0,
+      );
+
+      user.stat_points = (user.stat_points ?? 0) + earnedStatPoints;
+
+      await userCharactersRepository.delete({
+        id: In(uniqueIds),
+        user_id: userId,
+      });
+      await usersRepository.save(user);
+
+      const remainingCharacterCount = await userCharactersRepository.count({
+        where: { user_id: userId },
+      });
+
+      return {
+        dismantledCount: userCharacters.length,
+        earnedStatPoints,
+        statPoints: user.stat_points,
+        remainingCharacterCount,
+      };
     });
   }
 

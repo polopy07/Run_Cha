@@ -3,6 +3,13 @@ import type { Character } from '../store/characterStore';
 
 export type UpgradeStat = 'attack' | 'defense' | 'speed' | 'point';
 
+export type DismantleCharactersResponse = {
+  dismantledCount: number;
+  earnedStatPoints: number;
+  statPoints: number;
+  remainingCharacterCount: number;
+};
+
 export async function getCharacters() {
   return apiFetch<Character[]>('/characters/me');
 }
@@ -21,5 +28,12 @@ export async function deployCharacter(
   return apiFetch<Character>(`/characters/${characterId}/deploy`, {
     method: 'PATCH',
     body: JSON.stringify({ territory_id: territoryId }),
+  });
+}
+
+export async function dismantleCharacters(userCharacterIds: number[]) {
+  return apiFetch<DismantleCharactersResponse>('/characters/dismantle', {
+    method: 'POST',
+    body: JSON.stringify({ userCharacterIds }),
   });
 }
