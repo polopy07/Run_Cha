@@ -6,7 +6,6 @@ const mockLoginResponse = {
   nickname: 'tester',
   points: 100,
   totalDistance: 5.5,
-  pityCount: 3,
   accessToken: 'jwt-token-123',
 };
 
@@ -16,7 +15,6 @@ const mockUserResponse = {
   nickname: 'tester',
   points: 100,
   totalDistance: 5.5,
-  pityCount: 3,
 };
 
 beforeEach(() => {

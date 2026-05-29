@@ -114,7 +114,6 @@ export class UsersService {
       nickname: user.nickname,
       points: user.points,
       totalDistance: user.total_distance,
-      pityCount: user.pity_count,
     };
   }
 }

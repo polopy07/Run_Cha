@@ -13,7 +13,6 @@ export type User = {
   nickname: string;
   points: number;
   totalDistance: number;
-  pityCount: number;
 };
 
 type LoginResponse = User & { accessToken: string };

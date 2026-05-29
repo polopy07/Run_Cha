@@ -17,64 +17,74 @@ type GachaResult = {
   grade: 'common' | 'rare' | 'epic' | 'legendary';
   type: 'attack' | 'defense' | 'buff';
   isNew: boolean;
-  isGuaranteed: boolean;
 };
 
 const TYPE_LABEL: Record<string, string> = {
   attack: 'ATK', defense: 'DEF', buff: 'BUF',
 };
 
-function GachaOrb({ colors }: { colors: { gold: string; primary: string; bg: string; textMuted: string } }) {
-  const pulse = useRef(new Animated.Value(1)).current;
-  const rotate = useRef(new Animated.Value(0)).current;
-  const glow = useRef(new Animated.Value(0.3)).current;
+function DrawingIndicator({ colors }: { colors: { primary: string; card: string; text: string; textMuted: string } }) {
+  const progress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const pulseAnim = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 1.15, duration: 600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0.95, duration: 600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      ]),
+    const animation = Animated.loop(
+      Animated.timing(progress, {
+        toValue: 1,
+        duration: 900,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: false,
+      }),
     );
-    const rotateAnim = Animated.loop(
-      Animated.timing(rotate, { toValue: 1, duration: 2000, easing: Easing.linear, useNativeDriver: true }),
-    );
-    const glowAnim = Animated.loop(
-      Animated.sequence([
-        Animated.timing(glow, { toValue: 0.8, duration: 800, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(glow, { toValue: 0.3, duration: 800, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      ]),
-    );
-    pulseAnim.start();
-    rotateAnim.start();
-    glowAnim.start();
-    return () => { pulseAnim.stop(); rotateAnim.stop(); glowAnim.stop(); };
-  }, [pulse, rotate, glow]);
-
-  const spin = rotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+    animation.start();
+    return () => {
+      animation.stop();
+    };
+  }, [progress]);
 
   return (
-    <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-      <Animated.View style={{
-        position: 'absolute', width: 120, height: 120, borderRadius: 60,
-        backgroundColor: colors.gold, opacity: glow,
-      }} />
-      <Animated.View style={{
-        width: 80, height: 80, borderRadius: 40,
-        backgroundColor: colors.bg, borderWidth: 3, borderColor: colors.gold,
-        justifyContent: 'center', alignItems: 'center',
-        transform: [{ scale: pulse }, { rotate: spin }],
+    <View style={{ alignItems: 'center', justifyContent: 'center', width: 220 }}>
+      <View style={{
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        backgroundColor: colors.card,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 18,
       }}>
-        <Text style={{ fontSize: 28, color: colors.gold, fontWeight: '800' }}>◎</Text>
-      </Animated.View>
-      <Text style={{ color: colors.gold, fontSize: 14, fontWeight: '700', marginTop: 20 }}>뽑는 중...</Text>
+        <View style={{ flexDirection: 'row', gap: 6 }}>
+          {[0, 1, 2].map((index) => {
+            const opacity = progress.interpolate({
+              inputRange: [0, 0.33, 0.66, 1],
+              outputRange:
+                index === 0 ? [1, 0.35, 0.35, 1]
+                  : index === 1 ? [0.35, 1, 0.35, 0.35]
+                    : [0.35, 0.35, 1, 0.35],
+            });
+            return (
+              <Animated.View
+                key={index}
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: colors.primary,
+                  opacity,
+                }}
+              />
+            );
+          })}
+        </View>
+      </View>
+      <Text style={{ color: colors.text, fontSize: 15, fontWeight: '800' }}>뽑는 중...</Text>
+      <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 6 }}>잠시만 기다려주세요</Text>
     </View>
   );
 }
 
 function AnimatedCard({ result, index, colors, gradeColor }: {
   result: GachaResult; index: number;
-  colors: { card: string; danger: string; gold: string; bg: string; text: string; gradeCommon: string };
+  colors: { card: string; danger: string; bg: string; text: string; gradeCommon: string };
   gradeColor: Record<string, string>;
 }) {
   const scale = useRef(new Animated.Value(0)).current;
@@ -104,11 +114,6 @@ function AnimatedCard({ result, index, colors, gradeColor }: {
       {result.isNew && (
         <View style={{ position: 'absolute', top: 8, right: 8, backgroundColor: colors.danger, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
           <Text style={{ color: '#fff', fontSize: 9, fontWeight: '800' }}>NEW</Text>
-        </View>
-      )}
-      {result.isGuaranteed && (
-        <View style={{ position: 'absolute', top: 8, left: 8, backgroundColor: colors.gold, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
-          <Text style={{ color: colors.bg, fontSize: 9, fontWeight: '800' }}>천장</Text>
         </View>
       )}
       <View style={{ width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginTop: 8, marginBottom: 8, backgroundColor: `${gc}25` }}>
@@ -186,7 +191,7 @@ export function GachaScreen() {
       <View style={{ flex: 1, marginHorizontal: 16 }}>
         {isDrawing ? (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <GachaOrb colors={colors} />
+            <DrawingIndicator colors={colors} />
           </View>
         ) : results ? (
           <ScrollView key={revealKey} contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingVertical: 8 }}>

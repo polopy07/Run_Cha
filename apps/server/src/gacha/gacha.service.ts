@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import {
   Character,
   CharacterGrade,
@@ -20,8 +20,14 @@ const DRAW_COST: Record<1 | 10, number> = {
   10: 900,
 };
 
-const LEGENDARY_PITY_THRESHOLD = 99;
 const CHARACTER_CACHE_TTL_MS = 5 * 60 * 1000;
+
+type GachaCharacter = Pick<Character, 'id' | 'name' | 'grade' | 'type'>;
+type CharacterPool = Record<CharacterGrade, GachaCharacter[]>;
+
+type DrawCandidate = {
+  character: GachaCharacter;
+};
 
 type GachaResult = {
   characterId: number;
@@ -29,13 +35,13 @@ type GachaResult = {
   grade: CharacterGrade;
   type: CharacterType;
   isNew: boolean;
-  isGuaranteed: boolean;
 };
 
 @Injectable()
 export class GachaService {
-  private characterCache: Character[] | null = null;
+  private characterCache: CharacterPool | null = null;
   private characterCacheExpiresAt = 0;
+  private characterCachePromise: Promise<CharacterPool> | null = null;
 
   constructor(
     @InjectRepository(Character)
@@ -45,9 +51,9 @@ export class GachaService {
 
   async draw(userId: number, count: 1 | 10) {
     const cost = DRAW_COST[count];
-    const characters = await this.getCharacters();
+    const characterPool = await this.getCharacterPool();
 
-    if (characters.length === 0) {
+    if (this.countCharacters(characterPool) === 0) {
       throw new InternalServerErrorException('뽑기 가능한 캐릭터가 없습니다.');
     }
 
@@ -69,10 +75,24 @@ export class GachaService {
         throw new BadRequestException('포인트가 부족합니다.');
       }
 
+      const drawCandidates: DrawCandidate[] = [];
+
+      for (let i = 0; i < count; i += 1) {
+        const grade = this.pickGrade();
+        const character = this.pickCharacterByGrade(characterPool, grade);
+
+        drawCandidates.push({
+          character,
+        });
+      }
+
+      const drawnCharacterIds = [
+        ...new Set(drawCandidates.map(({ character }) => character.id)),
+      ];
       const ownedCharacterIds = new Set(
         (
           await userCharactersRepository.find({
-            where: { user_id: userId },
+            where: { user_id: userId, character_id: In(drawnCharacterIds) },
             select: { character_id: true },
           })
         ).map((userCharacter) => userCharacter.character_id),
@@ -81,19 +101,9 @@ export class GachaService {
       const results: GachaResult[] = [];
       const userCharacters: Partial<UserCharacter>[] = [];
       const gachaLogs: Partial<GachaLog>[] = [];
-      let pityCount = user.pity_count;
 
-      for (let i = 0; i < count; i += 1) {
-        const isGuaranteed = pityCount >= LEGENDARY_PITY_THRESHOLD;
-        const pityCountBeforeDraw = pityCount;
-        const grade = isGuaranteed
-          ? CharacterGrade.LEGENDARY
-          : this.pickGrade();
-        const character = this.pickCharacterByGrade(characters, grade);
+      for (const { character } of drawCandidates) {
         const isNew = !ownedCharacterIds.has(character.id);
-
-        pityCount =
-          character.grade === CharacterGrade.LEGENDARY ? 0 : pityCount + 1;
 
         userCharacters.push({
           user_id: userId,
@@ -102,8 +112,8 @@ export class GachaService {
         gachaLogs.push({
           user_id: userId,
           result_character_id: character.id,
-          is_guaranteed: isGuaranteed,
-          pity_count: pityCountBeforeDraw,
+          is_guaranteed: false,
+          pity_count: 0,
         });
         ownedCharacterIds.add(character.id);
 
@@ -113,7 +123,6 @@ export class GachaService {
           grade: character.grade,
           type: character.type,
           isNew,
-          isGuaranteed,
         });
       }
 
@@ -121,7 +130,6 @@ export class GachaService {
       await gachaLogsRepository.insert(gachaLogs);
 
       user.points -= cost;
-      user.pity_count = pityCount;
       await usersRepository.save(user);
 
       return {
@@ -131,15 +139,58 @@ export class GachaService {
     });
   }
 
-  private async getCharacters() {
+  private async getCharacterPool() {
     const now = Date.now();
 
-    if (!this.characterCache || now >= this.characterCacheExpiresAt) {
-      this.characterCache = await this.charactersRepository.find();
-      this.characterCacheExpiresAt = now + CHARACTER_CACHE_TTL_MS;
+    if (this.characterCache && now < this.characterCacheExpiresAt) {
+      return this.characterCache;
     }
 
-    return this.characterCache;
+    if (!this.characterCachePromise) {
+      this.characterCachePromise = this.loadCharacterPool().finally(() => {
+        this.characterCachePromise = null;
+      });
+    }
+
+    return this.characterCachePromise;
+  }
+
+  private async loadCharacterPool() {
+    const characters: GachaCharacter[] = await this.charactersRepository.find({
+      select: {
+        id: true,
+        name: true,
+        grade: true,
+        type: true,
+      },
+    });
+
+    const pool = this.createEmptyCharacterPool();
+
+    for (const character of characters) {
+      pool[character.grade].push(character);
+    }
+
+    this.characterCache = pool;
+    this.characterCacheExpiresAt = Date.now() + CHARACTER_CACHE_TTL_MS;
+
+    return pool;
+  }
+
+  private createEmptyCharacterPool(): CharacterPool {
+    return {
+      [CharacterGrade.COMMON]: [],
+      [CharacterGrade.RARE]: [],
+      [CharacterGrade.EPIC]: [],
+      [CharacterGrade.LEGENDARY]: [],
+    };
+  }
+
+  private countCharacters(pool: CharacterPool) {
+    return Object.values(pool).reduce(
+      (total, characters) => total + characters.length,
+      0,
+    );
   }
 
   private pickGrade() {
@@ -151,10 +202,8 @@ export class GachaService {
     return CharacterGrade.LEGENDARY;
   }
 
-  private pickCharacterByGrade(characters: Character[], grade: CharacterGrade) {
-    const candidates = characters.filter(
-      (character) => character.grade === grade,
-    );
+  private pickCharacterByGrade(pool: CharacterPool, grade: CharacterGrade) {
+    const candidates = pool[grade];
 
     if (candidates.length === 0) {
       throw new InternalServerErrorException(

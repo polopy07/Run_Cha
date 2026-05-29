@@ -105,7 +105,6 @@ describe('GachaService', () => {
           grade: CharacterGrade.COMMON,
           type: CharacterType.ATTACK,
           isNew: true,
-          isGuaranteed: false,
         },
       ],
       remainingPoints: 400,
@@ -121,13 +120,37 @@ describe('GachaService', () => {
       expect.objectContaining({
         user_id: 1,
         result_character_id: 1,
-        is_guaranteed: false,
         pity_count: 0,
+        is_guaranteed: false,
       }),
     ]);
     expect(usersRepository.save).toHaveBeenCalledWith(
-      expect.objectContaining({ points: 400, pity_count: 1 }),
+      expect.objectContaining({ points: 400, pity_count: 0 }),
     );
+    const characterIdMatcher: unknown = expect.any(Object);
+    expect(userCharactersRepository.find).toHaveBeenCalledWith({
+      where: { user_id: 1, character_id: characterIdMatcher },
+      select: { character_id: true },
+    });
+    expect(charactersRepository.find).toHaveBeenCalledWith({
+      select: {
+        id: true,
+        name: true,
+        grade: true,
+        type: true,
+      },
+    });
+  });
+
+  it('캐릭터 마스터 목록은 등급별 캐시를 재사용한다', async () => {
+    usersRepository.findOne
+      .mockResolvedValueOnce({ id: 1, points: 500, pity_count: 0 })
+      .mockResolvedValueOnce({ id: 1, points: 500, pity_count: 0 });
+
+    await service.draw(1, 1);
+    await service.draw(1, 1);
+
+    expect(charactersRepository.find).toHaveBeenCalledTimes(1);
   });
 
   it('10회 뽑기는 캐릭터와 로그를 배열 insert로 저장한다', async () => {
@@ -138,19 +161,24 @@ describe('GachaService', () => {
 
     expect(result.remainingPoints).toBe(100);
     expect(result.results).toHaveLength(10);
+    expect(result.results[0]).toEqual(expect.objectContaining({ isNew: true }));
+    expect(result.results[1]).toEqual(
+      expect.objectContaining({ isNew: false }),
+    );
     expect(userCharactersRepository.insert).toHaveBeenCalledTimes(1);
     expect(gachaLogsRepository.insert).toHaveBeenCalledTimes(1);
     expect(userCharactersRepository.insert.mock.calls[0][0]).toHaveLength(10);
     expect(gachaLogsRepository.insert.mock.calls[0][0]).toHaveLength(10);
-    expect(gachaLogsRepository.insert.mock.calls[0][0]).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ pity_count: 0 }),
-        expect.objectContaining({ pity_count: 9 }),
-      ]),
-    );
+    const insertedLogs = gachaLogsRepository.insert.mock
+      .calls[0][0] as Partial<GachaLog>[];
+    expect(
+      insertedLogs.every(
+        (log) => log.pity_count === 0 && log.is_guaranteed === false,
+      ),
+    ).toBe(true);
   });
 
-  it('천장 조건이면 전설 캐릭터를 확정 지급하고 pityCount를 초기화한다', async () => {
+  it('확률에 따라 등급을 선택하고 레거시 카운트는 변경하지 않는다', async () => {
     const user = { id: 1, points: 500, pity_count: 99 } as User;
     usersRepository.findOne.mockResolvedValue(user);
 
@@ -158,13 +186,12 @@ describe('GachaService', () => {
 
     expect(result.results[0]).toEqual(
       expect.objectContaining({
-        characterId: 4,
-        grade: CharacterGrade.LEGENDARY,
-        isGuaranteed: true,
+        characterId: 1,
+        grade: CharacterGrade.COMMON,
       }),
     );
     expect(usersRepository.save).toHaveBeenCalledWith(
-      expect.objectContaining({ pity_count: 0 }),
+      expect.objectContaining({ points: 400, pity_count: 99 }),
     );
   });
 

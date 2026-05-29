@@ -210,7 +210,6 @@ describe('UsersService', () => {
       nickname: 'test',
       points: 100,
       totalDistance: 3.5,
-      pityCount: 7,
     });
   });
 });
