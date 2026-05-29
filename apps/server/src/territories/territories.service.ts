@@ -114,6 +114,7 @@ export class TerritoriesService {
   private toPublicTerritoryResponse(territory: Territory) {
     return {
       id: territory.id,
+      userId: territory.user_id,
       coordinates: territory.coordinates,
       areaSqm: territory.area_sqm,
       occupationRate: territory.occupation_rate,

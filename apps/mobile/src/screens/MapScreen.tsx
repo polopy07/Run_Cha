@@ -1,6 +1,6 @@
-import React, { useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, Alert } from 'react-native';
-import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Polygon, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -8,6 +8,25 @@ import { useTheme } from '../contexts/ThemeContext';
 import { radius, mapCardShadow } from '../constants/theme';
 import { darkMapStyle } from '../constants/mapStyle';
 import useAuthStore from '../store/authStore';
+import { getTerritories, type Territory } from '../api/territory';
+
+function hslToHex(h: number, s: number, l: number): string {
+  s /= 100;
+  l /= 100;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    return Math.round(255 * color).toString(16).padStart(2, '0');
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+function getUserColor(userId: number | undefined): string {
+  if (userId == null) return '#888888';
+  const hue = (userId * 137.508) % 360;
+  return hslToHex(hue, 70, 55);
+}
 
 type BottomTabParamList = {
   '홈': undefined; '캐릭터': undefined; '러닝': undefined; '랭킹': undefined; '메뉴': undefined;
@@ -27,6 +46,26 @@ export function MapScreen() {
   const regionRef = useRef(INITIAL_REGION);
   const userLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const user = useAuthStore(s => s.user);
+  const [territories, setTerritories] = useState<Territory[]>([]);
+
+  const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchTerritories = useCallback(async (region: Region) => {
+    const bounds = {
+      minLat: region.latitude - region.latitudeDelta / 2,
+      maxLat: region.latitude + region.latitudeDelta / 2,
+      minLng: region.longitude - region.longitudeDelta / 2,
+      maxLng: region.longitude + region.longitudeDelta / 2,
+    };
+    try {
+      const data = await getTerritories(bounds);
+      setTerritories(data);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    fetchTerritories(INITIAL_REGION);
+  }, [fetchTerritories]);
 
   const zoomIn = () => {
     const r = regionRef.current;
@@ -61,14 +100,32 @@ export function MapScreen() {
         provider={PROVIDER_GOOGLE}
         initialRegion={INITIAL_REGION}
         customMapStyle={isDark ? darkMapStyle : []}
-        onRegionChangeComplete={(r) => { regionRef.current = r; }}
+        onRegionChangeComplete={(r) => {
+          regionRef.current = r;
+          if (fetchTimer.current) clearTimeout(fetchTimer.current);
+          fetchTimer.current = setTimeout(() => fetchTerritories(r), 300);
+        }}
         onUserLocationChange={(e) => {
           const c = e.nativeEvent.coordinate;
           if (c) userLocationRef.current = { latitude: c.latitude, longitude: c.longitude };
         }}
         showsUserLocation
         showsMyLocationButton={false}
-      />
+      >
+        {territories.map((t) => {
+          const isMine = t.userId === user?.id;
+          const color = isMine ? colors.primary : getUserColor(t.userId);
+          return (
+            <Polygon
+              key={t.id}
+              coordinates={t.coordinates.map(c => ({ latitude: c.lat, longitude: c.lng }))}
+              fillColor={color + '40'}
+              strokeColor={color}
+              strokeWidth={isMine ? 3 : 2}
+            />
+          );
+        })}
+      </MapView>
 
       {/* 상단 헤더 */}
       <View style={{

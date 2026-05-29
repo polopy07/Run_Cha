@@ -10,6 +10,7 @@ import { finishRunning as finishRunningAPI } from '../api/running';
 import { useTheme } from '../contexts/ThemeContext';
 import { radius, mapCardShadow } from '../constants/theme';
 import { darkMapStyle } from '../constants/mapStyle';
+import { useGPS } from '../hooks/useGPS';
 
 const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 
@@ -30,13 +31,13 @@ const DEFAULT_REGION = {
 export function RunningScreen() {
   const { colors, isDark } = useTheme();
   const mapRef = useRef<MapView>(null);
-  const userLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const gps = useGPS();
+  const initialMoveDone = useRef(false);
 
   const [phase, setPhase] = useState<Phase>('ready');
   const [elapsed, setElapsed] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<RunResult | null>(null);
-  const initialMoveDone = useRef(false);
 
   const {
     isRunning, distance, path,
@@ -63,9 +64,9 @@ export function RunningScreen() {
 
   const handleUserLocationChange = useCallback(
     (e: { nativeEvent: { coordinate?: { latitude: number; longitude: number } } }) => {
+      gps.handleLocationChange(e);
       const coordinate = e.nativeEvent.coordinate;
       if (!coordinate) return;
-      userLocationRef.current = coordinate;
 
       if (!initialMoveDone.current) {
         initialMoveDone.current = true;
@@ -79,12 +80,17 @@ export function RunningScreen() {
         updatePosition({ latitude: coordinate.latitude, longitude: coordinate.longitude });
       }
     },
-    [isRunning, updatePosition],
+    [gps, isRunning, updatePosition],
   );
 
-  const handleStart = () => {
-    if (!userLocationRef.current) {
+  const handleStart = async () => {
+    if (!gps.currentLocation) {
       Alert.alert('위치 오류', '현재 위치를 확인할 수 없습니다.\n위치 권한을 허용해주세요.');
+      return;
+    }
+    const bgResult = await gps.start();
+    if (!bgResult.ok) {
+      Alert.alert('백그라운드 GPS 실패', bgResult.error ?? '알 수 없는 에러');
       return;
     }
     startRunning();
@@ -98,6 +104,7 @@ export function RunningScreen() {
       {
         text: '종료', style: 'destructive',
         onPress: async () => {
+          await gps.stop();
           const data = finishRunning();
 
           if (data.path.length < 2 || data.distance < 10) {
