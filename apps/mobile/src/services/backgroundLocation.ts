@@ -37,5 +37,7 @@ export async function startBackgroundTracking(): Promise<{ ok: boolean; error?: 
 export async function stopBackgroundTracking(): Promise<void> {
   try {
     await BackgroundService.stop();
-  } catch {}
+  } catch (e) {
+    console.warn('[BackgroundLocation] stop failed:', e);
+  }
 }

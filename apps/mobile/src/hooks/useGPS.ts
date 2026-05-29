@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   startBackgroundTracking,
   stopBackgroundTracking,
@@ -12,7 +12,6 @@ export type LatLng = {
 export function useGPS() {
   const [currentLocation, setCurrentLocation] = useState<LatLng | null>(null);
   const [isTracking, setIsTracking] = useState(false);
-  const initialMoveDone = useRef(false);
 
   const handleLocationChange = useCallback(
     (e: { nativeEvent: { coordinate?: LatLng } }) => {
@@ -34,25 +33,11 @@ export function useGPS() {
     setIsTracking(false);
   }, []);
 
-  const resetInitialMove = useCallback(() => {
-    initialMoveDone.current = false;
-  }, []);
-
-  const consumeInitialMove = useCallback((): boolean => {
-    if (initialMoveDone.current) return false;
-    initialMoveDone.current = true;
-    return true;
-  }, []);
-
   return {
     currentLocation,
     isTracking,
     handleLocationChange,
     start,
     stop,
-    resetInitialMove,
-    consumeInitialMove,
-    // TODO: Socket.io 연동 시 추가 예정
-    // emitLocation: (coord: LatLng) => socket.emit('location', coord),
   };
 }
