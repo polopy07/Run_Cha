@@ -11,9 +11,26 @@ function initializeFirebaseAdmin() {
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
 
-  if (projectId && clientEmail && privateKey) {
+  const hasAnyEnvVar = projectId || clientEmail || privateKey;
+  if (hasAnyEnvVar) {
+    const missing = [
+      !projectId && 'FIREBASE_PROJECT_ID',
+      !clientEmail && 'FIREBASE_CLIENT_EMAIL',
+      !privateKey && 'FIREBASE_PRIVATE_KEY',
+    ].filter(Boolean);
+
+    if (missing.length > 0) {
+      throw new Error(
+        `Firebase 환경변수가 일부 누락되었습니다: ${missing.join(', ')}`,
+      );
+    }
+
     admin.initializeApp({
-      credential: admin.credential.cert({ projectId, clientEmail, privateKey }),
+      credential: admin.credential.cert({
+        projectId: projectId!,
+        clientEmail: clientEmail!,
+        privateKey: privateKey!,
+      }),
     });
     return admin;
   }
