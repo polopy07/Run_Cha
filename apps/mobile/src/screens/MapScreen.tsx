@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, Alert } from 'react-native';
-import MapView, { Polygon, PROVIDER_GOOGLE, Region } from 'react-native-maps';
+import MapView, { Polygon, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -48,6 +48,8 @@ export function MapScreen() {
   const user = useAuthStore(s => s.user);
   const [territories, setTerritories] = useState<Territory[]>([]);
 
+  const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const fetchTerritories = useCallback(async (region: Region) => {
     const bounds = {
       minLat: region.latitude - region.latitudeDelta / 2,
@@ -57,7 +59,7 @@ export function MapScreen() {
     };
     try {
       const data = await getTerritories(bounds);
-      setTerritories(data as Territory[]);
+      setTerritories(data);
     } catch {}
   }, []);
 
@@ -100,7 +102,8 @@ export function MapScreen() {
         customMapStyle={isDark ? darkMapStyle : []}
         onRegionChangeComplete={(r) => {
           regionRef.current = r;
-          fetchTerritories(r);
+          if (fetchTimer.current) clearTimeout(fetchTimer.current);
+          fetchTimer.current = setTimeout(() => fetchTerritories(r), 300);
         }}
         onUserLocationChange={(e) => {
           const c = e.nativeEvent.coordinate;
