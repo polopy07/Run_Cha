@@ -32,6 +32,7 @@ function initializeFirebaseAdmin() {
         privateKey: privateKey!,
       }),
     });
+    console.log('[Firebase] initialized via env vars');
     return admin;
   }
 
@@ -52,6 +53,7 @@ function initializeFirebaseAdmin() {
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
   });
+  console.log('[Firebase] initialized via JSON file');
 
   return admin;
 }
