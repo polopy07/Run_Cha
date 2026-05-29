@@ -4,6 +4,7 @@ import {
   formatRunningLogDistance,
   formatRunningLogLabel,
   getAttackCharacters,
+  resolveSelectedAttackCharacterId,
 } from '../src/utils/attackFlow';
 import type { Character } from '../src/store/characterStore';
 
@@ -66,5 +67,21 @@ describe('attackFlow', () => {
     expect(canSubmitAttack(1, 2)).toBe(true);
     expect(canSubmitAttack(null, 2)).toBe(false);
     expect(canSubmitAttack(1, null)).toBe(false);
+  });
+
+  it('keeps selected attack character when it still exists', () => {
+    const characters = [makeCharacter(1, 'attack'), makeCharacter(2, 'attack')];
+
+    expect(resolveSelectedAttackCharacterId(characters, 2)).toBe(2);
+  });
+
+  it('falls back to first attack character when selected one disappears', () => {
+    const characters = [makeCharacter(1, 'attack'), makeCharacter(2, 'attack')];
+
+    expect(resolveSelectedAttackCharacterId(characters, 3)).toBe(1);
+  });
+
+  it('clears selected attack character when no attack character exists', () => {
+    expect(resolveSelectedAttackCharacterId([], 3)).toBeNull();
   });
 });

@@ -5,6 +5,20 @@ export function getAttackCharacters(characters: Character[]) {
   return characters.filter((character) => character.type === 'attack');
 }
 
+export function resolveSelectedAttackCharacterId(
+  attackCharacters: Character[],
+  selectedCharacterId: number | null,
+) {
+  if (
+    selectedCharacterId !== null &&
+    attackCharacters.some((character) => character.id === selectedCharacterId)
+  ) {
+    return selectedCharacterId;
+  }
+
+  return attackCharacters[0]?.id ?? null;
+}
+
 export function formatRunningLogDistance(distanceKm: number) {
   if (distanceKm < 1) {
     return `${Math.round(distanceKm * 1000)}m`;

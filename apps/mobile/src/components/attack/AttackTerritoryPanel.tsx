@@ -21,6 +21,7 @@ import {
   canSubmitAttack,
   formatRunningLogLabel,
   getAttackCharacters,
+  resolveSelectedAttackCharacterId,
 } from '../../utils/attackFlow';
 
 type AttackTerritoryPanelProps = {
@@ -94,14 +95,7 @@ export function AttackTerritoryPanel({
     }
 
     setSelectedCharacterId((current) => {
-      if (
-        current !== null &&
-        attackCharacters.some((character) => character.id === current)
-      ) {
-        return current;
-      }
-
-      return attackCharacters[0]?.id ?? null;
+      return resolveSelectedAttackCharacterId(attackCharacters, current);
     });
   }, [attackCharacters, visible]);
 
