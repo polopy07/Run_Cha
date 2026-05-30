@@ -335,9 +335,9 @@ const success = occupationRateAfter < territory.occupation_rate;
 6. 현재 사용자의 영토라면 이름 수정과 캐릭터 배치/회수 진입을 제공
 ```
 
-`GET /territories` 목록 응답의 `userId`는 현재 로그인 사용자 ID와 비교해 내 영토와 다른 사용자 영토의 색상 및 클릭 분기를 처리하는 데 사용한다. 이 값은 `territories.user_id`에서 바로 내려주는 경량 필드이며, 보유자 닉네임이나 배치 캐릭터처럼 JOIN이 필요한 상세 정보는 `GET /territories/:id`에서 조회한다.
+지도 화면은 영토 목록의 소유자 식별값으로 내 영토와 다른 사용자 영토의 색상 및 클릭 분기를 처리한다. 목록/상세 응답 필드 기준은 `api-spec.md`의 영토 API 명세를 따른다.
 
-메뉴의 내 영토 관리 화면은 `GET /territories/me`를 사용해 현재 사용자의 보유 영토 목록을 경량 조회하고, 영토 이름 수정과 캐릭터 배치/회수 흐름으로 연결한다. 영토 이름 기능은 `territories.name` 컬럼 마이그레이션 이후 활성화한다.
+메뉴의 내 영토 관리 화면은 `GET /territories/me`를 사용해 현재 사용자의 보유 영토 목록을 조회하고, 지도 표시와 영토 이름 수정, 캐릭터 배치/회수 흐름으로 연결한다. 영토 이름 기능은 `territories.name` 컬럼 마이그레이션 이후 활성화한다.
 
 ---
 
