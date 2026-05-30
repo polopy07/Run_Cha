@@ -202,7 +202,6 @@ describe('UsersService', () => {
       points: 100,
       stat_points: 3,
       total_distance: 3.5,
-      pity_count: 7,
     } as User;
 
     expect(service.toResponse(user)).toEqual({

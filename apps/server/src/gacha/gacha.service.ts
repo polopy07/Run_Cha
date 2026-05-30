@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -25,10 +26,6 @@ const CHARACTER_CACHE_TTL_MS = 5 * 60 * 1000;
 type GachaCharacter = Pick<Character, 'id' | 'name' | 'grade' | 'type'>;
 type CharacterPool = Record<CharacterGrade, GachaCharacter[]>;
 
-type DrawCandidate = {
-  character: GachaCharacter;
-};
-
 type GachaResult = {
   characterId: number;
   name: string;
@@ -39,6 +36,7 @@ type GachaResult = {
 
 @Injectable()
 export class GachaService {
+  private readonly logger = new Logger(GachaService.name);
   private characterCache: CharacterPool | null = null;
   private characterCacheExpiresAt = 0;
   private characterCachePromise: Promise<CharacterPool> | null = null;
@@ -75,19 +73,17 @@ export class GachaService {
         throw new BadRequestException('포인트가 부족합니다.');
       }
 
-      const drawCandidates: DrawCandidate[] = [];
+      const drawCandidates: GachaCharacter[] = [];
 
       for (let i = 0; i < count; i += 1) {
         const grade = this.pickGrade();
         const character = this.pickCharacterByGrade(characterPool, grade);
 
-        drawCandidates.push({
-          character,
-        });
+        drawCandidates.push(character);
       }
 
       const drawnCharacterIds = [
-        ...new Set(drawCandidates.map(({ character }) => character.id)),
+        ...new Set(drawCandidates.map((character) => character.id)),
       ];
       const ownedCharacterIds = new Set(
         (
@@ -102,7 +98,7 @@ export class GachaService {
       const userCharacters: Partial<UserCharacter>[] = [];
       const gachaLogs: Partial<GachaLog>[] = [];
 
-      for (const { character } of drawCandidates) {
+      for (const character of drawCandidates) {
         const isNew = !ownedCharacterIds.has(character.id);
 
         userCharacters.push({
@@ -112,8 +108,6 @@ export class GachaService {
         gachaLogs.push({
           user_id: userId,
           result_character_id: character.id,
-          is_guaranteed: false,
-          pity_count: 0,
         });
         ownedCharacterIds.add(character.id);
 
@@ -147,9 +141,18 @@ export class GachaService {
     }
 
     if (!this.characterCachePromise) {
-      this.characterCachePromise = this.loadCharacterPool().finally(() => {
-        this.characterCachePromise = null;
-      });
+      this.characterCachePromise = this.loadCharacterPool()
+        .catch((error: unknown) => {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          this.logger.warn(
+            `Failed to refresh gacha character cache: ${message}`,
+          );
+          throw error;
+        })
+        .finally(() => {
+          this.characterCachePromise = null;
+        });
     }
 
     return this.characterCachePromise;
