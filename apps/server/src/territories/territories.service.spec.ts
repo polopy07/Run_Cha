@@ -36,6 +36,7 @@ describe('TerritoriesService', () => {
   let service: TerritoriesService;
 
   const mockQb = {
+    leftJoinAndSelect: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     getMany: jest.fn().mockResolvedValue([]),
@@ -86,6 +87,7 @@ describe('TerritoriesService', () => {
       expect(mockRepo.find).toHaveBeenCalledWith({
         where: { user_id: 1 },
         order: { id: 'ASC' },
+        relations: ['user'],
         select: {
           id: true,
           user_id: true,
@@ -93,12 +95,14 @@ describe('TerritoriesService', () => {
           area_sqm: true,
           occupation_rate: true,
           last_active_at: true,
+          user: { id: true, nickname: true },
         },
       });
       expect(result).toEqual([
         {
           id: territory.id,
           userId: territory.user_id,
+          ownerNickname: territory.user.nickname,
           coordinates: territory.coordinates,
           areaSqm: territory.area_sqm,
           occupationRate: territory.occupation_rate,
@@ -113,6 +117,12 @@ describe('TerritoriesService', () => {
   });
 
   describe('findInBounds', () => {
+    it('joins user to include owner nickname', async () => {
+      await service.findInBounds(BOUNDS);
+
+      expect(mockQb.leftJoinAndSelect).toHaveBeenCalledWith('t.user', 'u');
+    });
+
     it('uses center_lat BETWEEN condition for DB filtering', async () => {
       await service.findInBounds(BOUNDS);
 
@@ -141,6 +151,7 @@ describe('TerritoriesService', () => {
         {
           id: territory.id,
           userId: territory.user_id,
+          ownerNickname: territory.user.nickname,
           coordinates: territory.coordinates,
           areaSqm: territory.area_sqm,
           occupationRate: territory.occupation_rate,
