@@ -1,6 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddTerritoryName1747600000000 implements MigrationInterface {
+export class AddTerritoryName1747650000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
       `ALTER TABLE territories ADD COLUMN name VARCHAR(100) NULL DEFAULT NULL AFTER user_id`,
