@@ -8,6 +8,8 @@ import {
   IsNumber,
   IsOptional,
   IsPositive,
+  IsString,
+  MaxLength,
   ValidateNested,
 } from 'class-validator';
 
@@ -33,4 +35,9 @@ export class FinishRunningDto {
 
   @IsDateString()
   started_at: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  territory_name?: string;
 }

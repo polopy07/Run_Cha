@@ -48,7 +48,7 @@ export class RunningService {
   }
 
   async finish(userId: number, dto: FinishRunningDto) {
-    const { path } = dto;
+    const { path, territory_name } = dto;
     const endedAt = new Date();
     const startedAt = new Date(dto.started_at);
 
@@ -121,6 +121,7 @@ export class RunningService {
           territory = await manager.save(
             manager.create(Territory, {
               user_id: userId,
+              name: territory_name ?? null,
               coordinates: path,
               area_sqm,
               occupation_rate: 100,
