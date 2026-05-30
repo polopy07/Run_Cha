@@ -44,8 +44,7 @@ export class TerritoriesService {
 
     const territories = await this.territoryRepo
       .createQueryBuilder('t')
-      .leftJoin('t.user', 'u')
-      .addSelect(['u.id', 'u.nickname'])
+      .leftJoinAndSelect('t.user', 'u')
       .where('t.center_lat BETWEEN :minLat AND :maxLat', { minLat, maxLat })
       .andWhere('t.center_lng BETWEEN :minLng AND :maxLng', { minLng, maxLng })
       .getMany();

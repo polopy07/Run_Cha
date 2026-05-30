@@ -37,8 +37,7 @@ describe('TerritoriesService', () => {
   let service: TerritoriesService;
 
   const mockQb = {
-    leftJoin: jest.fn().mockReturnThis(),
-    addSelect: jest.fn().mockReturnThis(),
+    leftJoinAndSelect: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     getMany: jest.fn().mockResolvedValue([]),
@@ -121,11 +120,10 @@ describe('TerritoriesService', () => {
   });
 
   describe('findInBounds', () => {
-    it('joins user to include owner nickname', async () => {
+    it('joins user with leftJoinAndSelect to populate ownerNickname', async () => {
       await service.findInBounds(BOUNDS);
 
-      expect(mockQb.leftJoin).toHaveBeenCalledWith('t.user', 'u');
-      expect(mockQb.addSelect).toHaveBeenCalledWith(['u.id', 'u.nickname']);
+      expect(mockQb.leftJoinAndSelect).toHaveBeenCalledWith('t.user', 'u');
     });
 
     it('uses center_lat BETWEEN condition for DB filtering', async () => {
@@ -146,7 +144,7 @@ describe('TerritoriesService', () => {
       );
     });
 
-    it('maps found territories to response format', async () => {
+    it('maps ownerNickname from joined user relation', async () => {
       const territory = makeTerritory(37.5, 127.0);
       mockQb.getMany.mockResolvedValue([territory]);
 
@@ -163,6 +161,18 @@ describe('TerritoriesService', () => {
           occupationRate: territory.occupation_rate,
         },
       ]);
+    });
+
+    it('returns ownerNickname as null when user relation is not loaded', async () => {
+      const territory = {
+        ...makeTerritory(37.5, 127.0),
+        user: null as unknown as User,
+      };
+      mockQb.getMany.mockResolvedValue([territory]);
+
+      const result = await service.findInBounds(BOUNDS);
+
+      expect(result[0].ownerNickname).toBeNull();
     });
 
     it('returns an empty array when no territories are found', async () => {
