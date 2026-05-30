@@ -166,6 +166,30 @@ describe('GachaService', () => {
     expect(charactersRepository.find).toHaveBeenCalledTimes(2);
   });
 
+  it('uses the stale character cache when refresh fails after TTL expires', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+    usersRepository.findOne
+      .mockResolvedValueOnce({ id: 1, points: 500 })
+      .mockResolvedValueOnce({ id: 1, points: 500 });
+
+    await service.draw(1, 1);
+    jest.advanceTimersByTime(5 * 60 * 1000 + 1);
+    charactersRepository.find.mockRejectedValueOnce(new Error('db down'));
+
+    await expect(service.draw(1, 1)).resolves.toEqual(
+      expect.objectContaining({
+        results: [
+          expect.objectContaining({
+            characterId: 1,
+            grade: CharacterGrade.COMMON,
+          }),
+        ],
+      }),
+    );
+    expect(charactersRepository.find).toHaveBeenCalledTimes(2);
+  });
+
   it('batch inserts user characters and gacha logs for 10 draws', async () => {
     const user = { id: 1, points: 1000 } as User;
     usersRepository.findOne.mockResolvedValue(user);
@@ -229,6 +253,19 @@ describe('GachaService', () => {
 
   it('throws a server setup error when no drawable characters exist', async () => {
     charactersRepository.find.mockResolvedValue([]);
+
+    await expect(service.draw(1, 1)).rejects.toBeInstanceOf(
+      InternalServerErrorException,
+    );
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+  });
+
+  it('throws a server setup error when a grade has no drawable characters', async () => {
+    charactersRepository.find.mockResolvedValue(
+      characters.filter(
+        (character) => character.grade !== CharacterGrade.LEGENDARY,
+      ),
+    );
 
     await expect(service.draw(1, 1)).rejects.toBeInstanceOf(
       InternalServerErrorException,

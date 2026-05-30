@@ -148,6 +148,9 @@ export class GachaService {
           this.logger.warn(
             `Failed to refresh gacha character cache: ${message}`,
           );
+          if (this.characterCache) {
+            return this.characterCache;
+          }
           throw error;
         })
         .finally(() => {
@@ -174,10 +177,24 @@ export class GachaService {
       pool[character.grade].push(character);
     }
 
+    this.validateCharacterPool(pool);
+
     this.characterCache = pool;
     this.characterCacheExpiresAt = Date.now() + CHARACTER_CACHE_TTL_MS;
 
     return pool;
+  }
+
+  private validateCharacterPool(pool: CharacterPool) {
+    const grades = Object.values(CharacterGrade);
+
+    for (const grade of grades) {
+      if (pool[grade].length === 0) {
+        throw new InternalServerErrorException(
+          `${grade} ?깃툒 罹먮┃?곌? ?놁뒿?덈떎.`,
+        );
+      }
+    }
   }
 
   private createEmptyCharacterPool(): CharacterPool {
