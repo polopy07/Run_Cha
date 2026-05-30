@@ -8,7 +8,7 @@ import {
 
 export class UpdateTerritoryNameDto {
   @IsOptional()
-  @ValidateIf((o) => o.name !== null)
+  @ValidateIf((o: UpdateTerritoryNameDto) => o.name !== null)
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
