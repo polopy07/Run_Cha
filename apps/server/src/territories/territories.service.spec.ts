@@ -36,7 +36,8 @@ describe('TerritoriesService', () => {
   let service: TerritoriesService;
 
   const mockQb = {
-    leftJoinAndSelect: jest.fn().mockReturnThis(),
+    leftJoin: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     getMany: jest.fn().mockResolvedValue([]),
@@ -120,7 +121,8 @@ describe('TerritoriesService', () => {
     it('joins user to include owner nickname', async () => {
       await service.findInBounds(BOUNDS);
 
-      expect(mockQb.leftJoinAndSelect).toHaveBeenCalledWith('t.user', 'u');
+      expect(mockQb.leftJoin).toHaveBeenCalledWith('t.user', 'u');
+      expect(mockQb.addSelect).toHaveBeenCalledWith(['u.id', 'u.nickname']);
     });
 
     it('uses center_lat BETWEEN condition for DB filtering', async () => {
