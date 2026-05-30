@@ -10,6 +10,7 @@ import { User } from '../users/entities/user.entity';
 import { CharacterGrade, CharacterType } from './entities/character.entity';
 import { UserCharacter } from './entities/user-character.entity';
 import { UpgradeStat } from './dto/upgrade-character.dto';
+import { DISMANTLE_MAX_COUNT } from './dto/dismantle-characters.dto';
 
 const MAX_LEVEL_BY_GRADE: Record<CharacterGrade, number> = {
   [CharacterGrade.COMMON]: 10,
@@ -23,8 +24,6 @@ const UPGRADE_MAX_COST = 5000;
 const UPGRADE_MAX_COST_START_LEVEL = Math.ceil(
   Math.log(UPGRADE_MAX_COST / UPGRADE_BASE_COST) / Math.log(1.5),
 );
-const DISMANTLE_MAX_COUNT = 10;
-
 const DISMANTLE_REWARD_BY_GRADE: Record<CharacterGrade, number> = {
   [CharacterGrade.COMMON]: 1,
   [CharacterGrade.RARE]: 2,
@@ -200,22 +199,34 @@ export class CharactersService {
         throw new NotFoundException('User not found.');
       }
 
-      const userCharacters = await userCharactersRepository.find({
-        where: { id: In(uniqueIds), user_id: userId },
-        relations: { character: true },
-      });
+      const userCharacters = await userCharactersRepository
+        .createQueryBuilder('userCharacter')
+        .leftJoinAndSelect('userCharacter.character', 'character')
+        .where('userCharacter.user_id = :userId', { userId })
+        .andWhere('userCharacter.id IN (:...ids)', { ids: uniqueIds })
+        .setLock('pessimistic_write')
+        .getMany();
 
       if (userCharacters.length !== uniqueIds.length) {
-        throw new NotFoundException('Owned character not found.');
+        const ownedIds = new Set(
+          userCharacters.map((userCharacter) => userCharacter.id),
+        );
+        const missingIds = uniqueIds.filter((id) => !ownedIds.has(id));
+
+        throw new NotFoundException(
+          `Owned character not found: ${missingIds.join(', ')}`,
+        );
       }
 
-      if (
-        userCharacters.some(
-          (userCharacter) => userCharacter.deployed_territory_id !== null,
-        )
-      ) {
+      const deployedCharacters = userCharacters.filter(
+        (userCharacter) => userCharacter.deployed_territory_id !== null,
+      );
+
+      if (deployedCharacters.length > 0) {
         throw new BadRequestException(
-          'Deployed characters cannot be dismantled.',
+          `Deployed characters cannot be dismantled: ${deployedCharacters
+            .map((userCharacter) => userCharacter.id)
+            .join(', ')}`,
         );
       }
 
@@ -225,7 +236,7 @@ export class CharactersService {
         0,
       );
 
-      user.stat_points = (user.stat_points ?? 0) + earnedStatPoints;
+      user.stat_points += earnedStatPoints;
 
       await userCharactersRepository.delete({
         id: In(uniqueIds),

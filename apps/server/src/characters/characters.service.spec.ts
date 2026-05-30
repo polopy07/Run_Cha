@@ -14,6 +14,7 @@ const mockUserCharactersRepository = () => ({
   delete: jest.fn(),
   count: jest.fn(),
   save: jest.fn(),
+  createQueryBuilder: jest.fn(),
 });
 
 const mockUsersRepository = () => ({
@@ -25,12 +26,33 @@ type MockManager = {
   getRepository: jest.Mock;
 };
 
+type MockUserCharactersQueryBuilder = {
+  leftJoinAndSelect: jest.Mock<MockUserCharactersQueryBuilder>;
+  where: jest.Mock<MockUserCharactersQueryBuilder>;
+  andWhere: jest.Mock<MockUserCharactersQueryBuilder>;
+  setLock: jest.Mock<MockUserCharactersQueryBuilder>;
+  getMany: jest.Mock<Promise<UserCharacter[]>>;
+};
+
+const createMockQueryBuilder = (): MockUserCharactersQueryBuilder => {
+  const queryBuilder = {} as MockUserCharactersQueryBuilder;
+
+  queryBuilder.leftJoinAndSelect = jest.fn(() => queryBuilder);
+  queryBuilder.where = jest.fn(() => queryBuilder);
+  queryBuilder.andWhere = jest.fn(() => queryBuilder);
+  queryBuilder.setLock = jest.fn(() => queryBuilder);
+  queryBuilder.getMany = jest.fn<Promise<UserCharacter[]>, []>();
+
+  return queryBuilder;
+};
+
 describe('CharactersService', () => {
   let service: CharactersService;
   let userCharactersRepository: ReturnType<typeof mockUserCharactersRepository>;
   let usersRepository: ReturnType<typeof mockUsersRepository>;
   let territoriesRepository: ReturnType<typeof mockUsersRepository>;
   let dataSource: { transaction: jest.Mock };
+  let userCharactersQueryBuilder: ReturnType<typeof createMockQueryBuilder>;
 
   const userCharacter = {
     id: 10,
@@ -83,6 +105,10 @@ describe('CharactersService', () => {
     userCharactersRepository = module.get(getRepositoryToken(UserCharacter));
     usersRepository = module.get(getRepositoryToken(User));
     territoriesRepository = module.get(getRepositoryToken(Territory));
+    userCharactersQueryBuilder = createMockQueryBuilder();
+    userCharactersRepository.createQueryBuilder.mockReturnValue(
+      userCharactersQueryBuilder,
+    );
   });
 
   it('returns current user characters', async () => {
@@ -263,7 +289,7 @@ describe('CharactersService', () => {
       },
     };
     usersRepository.findOne.mockResolvedValue(user);
-    userCharactersRepository.find.mockResolvedValue([
+    userCharactersQueryBuilder.getMany.mockResolvedValue([
       { ...userCharacter },
       rareCharacter,
     ]);
@@ -281,9 +307,19 @@ describe('CharactersService', () => {
     expect(usersRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({ stat_points: 8 }),
     );
+    expect(userCharactersQueryBuilder.setLock).toHaveBeenCalledWith(
+      'pessimistic_write',
+    );
     expect(userCharactersRepository.delete).toHaveBeenCalledWith(
       expect.objectContaining({ user_id: 1 }),
     );
+  });
+
+  it('rejects dismantle when no character ids are requested', async () => {
+    await expect(service.dismantle(1, [])).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(dataSource.transaction).not.toHaveBeenCalled();
   });
 
   it('rejects dismantle when more than 10 characters are requested', async () => {
@@ -295,12 +331,24 @@ describe('CharactersService', () => {
 
   it('rejects dismantle for deployed characters', async () => {
     usersRepository.findOne.mockResolvedValue({ id: 1, stat_points: 0 });
-    userCharactersRepository.find.mockResolvedValue([
+    userCharactersQueryBuilder.getMany.mockResolvedValue([
       { ...userCharacter, deployed_territory_id: 7 },
     ]);
 
-    await expect(service.dismantle(1, [10])).rejects.toBeInstanceOf(
-      BadRequestException,
+    await expect(service.dismantle(1, [10])).rejects.toThrow(
+      'Deployed characters cannot be dismantled: 10',
+    );
+    expect(userCharactersRepository.delete).not.toHaveBeenCalled();
+  });
+
+  it('reports missing owned character ids when dismantle target is not found', async () => {
+    usersRepository.findOne.mockResolvedValue({ id: 1, stat_points: 0 });
+    userCharactersQueryBuilder.getMany.mockResolvedValue([
+      { ...userCharacter },
+    ]);
+
+    await expect(service.dismantle(1, [10, 11])).rejects.toThrow(
+      'Owned character not found: 11',
     );
     expect(userCharactersRepository.delete).not.toHaveBeenCalled();
   });
