@@ -28,9 +28,6 @@ export class User {
   @Column({ type: 'float', default: 0 })
   total_distance: number;
 
-  @Column({ default: 0 })
-  pity_count: number;
-
   @CreateDateColumn()
   created_at: Date;
 

@@ -32,7 +32,7 @@ function DrawingIndicator({ colors }: { colors: { primary: string; card: string;
         toValue: 1,
         duration: 900,
         easing: Easing.inOut(Easing.ease),
-        useNativeDriver: false,
+        useNativeDriver: true,
       }),
     );
     animation.start();

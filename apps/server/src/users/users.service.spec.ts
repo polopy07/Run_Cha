@@ -201,7 +201,6 @@ describe('UsersService', () => {
       nickname: 'test',
       points: 100,
       total_distance: 3.5,
-      pity_count: 7,
     } as User;
 
     expect(service.toResponse(user)).toEqual({
