@@ -230,11 +230,10 @@ export class CharactersService {
         );
       }
 
-      const earnedStatPoints = userCharacters.reduce(
-        (sum, userCharacter) =>
-          sum + DISMANTLE_REWARD_BY_GRADE[userCharacter.character.grade],
-        0,
-      );
+      const earnedStatPoints = userCharacters.reduce((sum, userCharacter) => {
+        const grade = userCharacter.character?.grade;
+        return sum + (grade ? DISMANTLE_REWARD_BY_GRADE[grade] : 0);
+      }, 0);
 
       user.stat_points += earnedStatPoints;
 

@@ -315,6 +315,27 @@ describe('CharactersService', () => {
     );
   });
 
+  it('treats missing character relation as zero stat points when dismantling', async () => {
+    const user = { id: 1, stat_points: 5 } as User;
+    usersRepository.findOne.mockResolvedValue(user);
+    userCharactersQueryBuilder.getMany.mockResolvedValue([
+      { ...userCharacter, character: null },
+    ]);
+    userCharactersRepository.delete.mockResolvedValue({ affected: 1 });
+    usersRepository.save.mockResolvedValue(user);
+    userCharactersRepository.count.mockResolvedValue(3);
+
+    await expect(service.dismantle(1, [10])).resolves.toEqual({
+      dismantledCount: 1,
+      earnedStatPoints: 0,
+      statPoints: 5,
+      remainingCharacterCount: 3,
+    });
+    expect(usersRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ stat_points: 5 }),
+    );
+  });
+
   it('rejects dismantle when no character ids are requested', async () => {
     await expect(service.dismantle(1, [])).rejects.toBeInstanceOf(
       BadRequestException,
