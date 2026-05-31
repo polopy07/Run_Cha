@@ -81,6 +81,40 @@ describe('UsersService', () => {
     expect(dataSource.transaction).not.toHaveBeenCalled();
   });
 
+  it('같은 이메일 사용자가 있으면 Firebase uid를 갱신하고 기존 사용자를 반환한다', async () => {
+    const user = {
+      id: 1,
+      firebase_uid: 'old-firebase-uid',
+      email: 'test@example.com',
+    };
+    usersRepository.findOne
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(user);
+    usersRepository.save.mockResolvedValue({
+      ...user,
+      firebase_uid: 'new-firebase-uid',
+    });
+
+    await expect(
+      service.findOrCreateUser('new-firebase-uid', 'test@example.com'),
+    ).resolves.toEqual({
+      ...user,
+      firebase_uid: 'new-firebase-uid',
+    });
+
+    expect(usersRepository.findOne).toHaveBeenNthCalledWith(1, {
+      where: { firebase_uid: 'new-firebase-uid' },
+    });
+    expect(usersRepository.findOne).toHaveBeenNthCalledWith(2, {
+      where: { email: 'test@example.com' },
+    });
+    expect(usersRepository.save).toHaveBeenCalledWith({
+      ...user,
+      firebase_uid: 'new-firebase-uid',
+    });
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+  });
+
   it('기존 사용자가 없으면 이메일 앞부분을 기본 닉네임으로 생성한다', async () => {
     const createdUser = {
       firebase_uid: 'firebase-uid',

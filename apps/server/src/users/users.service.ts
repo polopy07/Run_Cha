@@ -32,12 +32,21 @@ export class UsersService {
     email: string,
     displayName?: string,
   ) {
-    const existingUser = await this.usersRepository.findOne({
+    const existingUserByUid = await this.usersRepository.findOne({
       where: { firebase_uid: firebaseUid },
     });
 
-    if (existingUser) {
-      return existingUser;
+    if (existingUserByUid) {
+      return existingUserByUid;
+    }
+
+    const existingUserByEmail = await this.usersRepository.findOne({
+      where: { email },
+    });
+
+    if (existingUserByEmail) {
+      existingUserByEmail.firebase_uid = firebaseUid;
+      return this.usersRepository.save(existingUserByEmail);
     }
 
     return this.dataSource.transaction(async (manager) => {
