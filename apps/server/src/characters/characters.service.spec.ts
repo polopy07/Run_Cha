@@ -3,7 +3,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { CharactersService } from './characters.service';
-import { CharacterGrade, CharacterType } from './entities/character.entity';
+import {
+  CharacterGrade,
+  CharacterType,
+} from './entities/character.entity';
 import { UserCharacter } from './entities/user-character.entity';
 import { User } from '../users/entities/user.entity';
 import { Territory } from '../territories/entities/territory.entity';

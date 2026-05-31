@@ -251,11 +251,12 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | 필드 | 타입 | 설명 |
 |---|---|---|
 | id | number | 영토 ID |
+| userId | number | 소유 사용자 ID. 현재 로그인 사용자 ID와 비교해 내 영토/다른 사용자 영토를 구분할 때 사용 |
 | coordinates | `{ lat: number, lng: number }[]` | 영토 좌표 데이터 |
 | areaSqm | number | 영토 면적 |
 | occupationRate | number | 점령률 |
 
-목록 응답은 지도 렌더링에 필요한 경량 필드만 포함한다. 보유자 닉네임과 배치 캐릭터 정보는 N+1 쿼리를 피하기 위해 상세 API에서 조회한다.
+목록 응답은 지도 렌더링에 필요한 경량 필드만 포함한다. `userId`는 JOIN 없이 영토 테이블에서 바로 내려줄 수 있는 값이며, 지도에서 내 영토와 다른 사용자 영토의 색상을 구분하거나 클릭 후 분기할 때 사용한다. 보유자 닉네임과 배치 캐릭터 정보는 N+1 쿼리를 피하기 위해 상세 API에서 조회한다.
 
 ### GET `/territories/:id`
 
@@ -287,7 +288,7 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | speedLv | number | 속도 레벨 |
 | pointLv | number | 포인트 배율 레벨 |
 
-비로그인 사용자도 접근 가능하며, 로그인 사용자인 경우에만 `isMine`을 현재 사용자 기준으로 계산한다.
+비로그인 사용자도 접근 가능하며, 로그인 사용자인 경우에만 `isMine`을 현재 사용자 기준으로 계산한다. 상세 응답에서는 소유자 ID를 별도 `userId` 필드가 아닌 `owner.id`로 참조한다.
 
 영토 이름은 `territories.name` 컬럼 마이그레이션 이후 상세 응답에 추가한다.
 
@@ -297,19 +298,20 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 
 캐릭터 배치 화면에서 사용자가 배치할 영토를 선택할 때 사용한다.
 
-현재 응답은 내 영토 관리의 텍스트 목록과 배치 진입에 필요한 경량 필드만 포함한다. 지도 위 위치 표시가 필요해지면 전체 좌표보다 가벼운 `centerLat`, `centerLng`를 응답에 추가한다.
+현재 응답은 내 영토 관리 화면에서 목록과 지도 위치를 표시할 수 있도록 `coordinates`를 포함한다. 보유자 닉네임, 배치 캐릭터 등 상세 정보가 필요한 경우 `GET /territories/:id`를 추가 호출한다.
 
 #### Response
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
 | id | number | 영토 ID |
+| userId | number | 소유 사용자 ID |
+| coordinates | `{ lat: number, lng: number }[]` | 영토 좌표 데이터 |
 | areaSqm | number | 영토 면적 |
 | occupationRate | number | 점령률 |
-| userId | number | 소유 사용자 ID |
 | lastActiveAt | string (ISO 8601) | 마지막 활동 시각 |
 
-내 영토 관리 화면에서 사용자가 보유한 영토 목록을 확인하고, 캐릭터 배치/회수 화면으로 진입할 때 사용한다. 상세 정보가 필요한 경우 `GET /territories/:id`를 추가 호출한다.
+내 영토 관리 화면에서 사용자가 보유한 영토 목록을 확인하고, 지도 표시와 캐릭터 배치/회수 화면 진입에 사용한다.
 
 ### PATCH `/territories/:id/name`
 

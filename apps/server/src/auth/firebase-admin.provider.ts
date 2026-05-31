@@ -38,6 +38,7 @@ function initializeFirebaseAdmin() {
       credential: admin.credential.cert(envServiceAccount),
     });
 
+    console.log('[Firebase] initialized via env vars');
     return admin;
   }
 
@@ -47,7 +48,7 @@ function initializeFirebaseAdmin() {
 
   if (!fs.existsSync(serviceAccountPath)) {
     throw new Error(
-      `Firebase service account file not found: ${serviceAccountPath}`,
+      `Firebase credentials not found. Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY env vars or provide ${serviceAccountPath}`,
     );
   }
 
@@ -58,6 +59,7 @@ function initializeFirebaseAdmin() {
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
   });
+  console.log('[Firebase] initialized via JSON file');
 
   return admin;
 }
