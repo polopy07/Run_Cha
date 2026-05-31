@@ -3,7 +3,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { CharactersService } from './characters.service';
-import { CharacterGrade, CharacterType } from './entities/character.entity';
+import {
+  Character,
+  CharacterGrade,
+  CharacterType,
+} from './entities/character.entity';
 import { UserCharacter } from './entities/user-character.entity';
 import { User } from '../users/entities/user.entity';
 import { Territory } from '../territories/entities/territory.entity';
@@ -319,7 +323,7 @@ describe('CharactersService', () => {
     const user = { id: 1, stat_points: 5 } as User;
     usersRepository.findOne.mockResolvedValue(user);
     userCharactersQueryBuilder.getMany.mockResolvedValue([
-      { ...userCharacter, character: null },
+      { ...userCharacter, character: null as unknown as Character },
     ]);
     userCharactersRepository.delete.mockResolvedValue({ affected: 1 });
     usersRepository.save.mockResolvedValue(user);

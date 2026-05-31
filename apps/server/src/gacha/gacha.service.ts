@@ -51,10 +51,6 @@ export class GachaService {
     const cost = DRAW_COST[count];
     const characterPool = await this.getCharacterPool();
 
-    if (this.countCharacters(characterPool) === 0) {
-      throw new InternalServerErrorException('뽑기 가능한 캐릭터가 없습니다.');
-    }
-
     return this.dataSource.transaction(async (manager) => {
       const usersRepository = manager.getRepository(User);
       const userCharactersRepository = manager.getRepository(UserCharacter);
@@ -148,6 +144,9 @@ export class GachaService {
           this.logger.warn(
             `Failed to refresh gacha character cache: ${message}`,
           );
+          if (this.characterCache) {
+            return this.characterCache;
+          }
           throw error;
         })
         .finally(() => {
@@ -174,10 +173,24 @@ export class GachaService {
       pool[character.grade].push(character);
     }
 
+    this.validateCharacterPool(pool);
+
     this.characterCache = pool;
     this.characterCacheExpiresAt = Date.now() + CHARACTER_CACHE_TTL_MS;
 
     return pool;
+  }
+
+  private validateCharacterPool(pool: CharacterPool) {
+    const grades = Object.values(CharacterGrade);
+
+    for (const grade of grades) {
+      if (pool[grade].length === 0) {
+        throw new InternalServerErrorException(
+          `${grade} 등급 캐릭터가 없습니다.`,
+        );
+      }
+    }
   }
 
   private createEmptyCharacterPool(): CharacterPool {
@@ -187,13 +200,6 @@ export class GachaService {
       [CharacterGrade.EPIC]: [],
       [CharacterGrade.LEGENDARY]: [],
     };
-  }
-
-  private countCharacters(pool: CharacterPool) {
-    return Object.values(pool).reduce(
-      (total, characters) => total + characters.length,
-      0,
-    );
   }
 
   private pickGrade() {
