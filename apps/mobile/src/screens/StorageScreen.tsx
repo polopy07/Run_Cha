@@ -36,7 +36,7 @@ const TYPE_FULL: Record<Character['type'], string> = {
   buff: '버프',
 };
 
-const DISMANTLE_MAX_COUNT = 10;
+const DISMANTLE_MAX_COUNT = 29;
 
 const DISMANTLE_REWARD_BY_GRADE: Record<Character['grade'], number> = {
   common: 1,
@@ -100,6 +100,11 @@ export function StorageScreen() {
     [selectedDismantleCharacters],
   );
 
+  const maxSelectableDismantleCount = Math.min(
+    DISMANTLE_MAX_COUNT,
+    Math.max(0, characters.length - 1),
+  );
+
   const load = useCallback(async () => {
     const [characterResult, territoryResult] = await Promise.allSettled([
       fetchCharacters(),
@@ -158,6 +163,11 @@ export function StorageScreen() {
         return current.filter(id => id !== character.id);
       }
 
+      if (characters.length - (current.length + 1) < 1) {
+        Alert.alert('분해 불가', '캐릭터는 최소 1개 이상 보유해야 합니다.');
+        return current;
+      }
+
       if (current.length >= DISMANTLE_MAX_COUNT) {
         Alert.alert('선택 제한', `한 번에 최대 ${DISMANTLE_MAX_COUNT}개까지 분해할 수 있습니다.`);
         return current;
@@ -165,7 +175,7 @@ export function StorageScreen() {
 
       return [...current, character.id];
     });
-  }, []);
+  }, [characters.length]);
 
   const openDeploy = useCallback((character: Character) => {
     if (isDismantleMode) {
@@ -227,6 +237,11 @@ export function StorageScreen() {
       return;
     }
 
+    if (characters.length - selectedDismantleIds.length < 1) {
+      Alert.alert('분해 불가', '캐릭터는 최소 1개 이상 보유해야 합니다.');
+      return;
+    }
+
     Alert.alert(
       '캐릭터 분해',
       `${selectedDismantleIds.length}개를 분해하고 스탯 포인트 ${expectedStatPoints}개를 획득합니다.`,
@@ -241,7 +256,12 @@ export function StorageScreen() {
         },
       ],
     );
-  }, [executeDismantle, expectedStatPoints, selectedDismantleIds.length]);
+  }, [
+    characters.length,
+    executeDismantle,
+    expectedStatPoints,
+    selectedDismantleIds.length,
+  ]);
 
   const renderItem = ({ item }: { item: Character }) => {
     const grade = gradeColor[item.grade] ?? colors.gradeCommon;
@@ -397,7 +417,7 @@ export function StorageScreen() {
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <View>
               <Text style={{ color: colors.text, fontSize: 14, fontWeight: '800' }}>
-                {selectedDismantleIds.length}/{DISMANTLE_MAX_COUNT}개 선택
+                {selectedDismantleIds.length}/{maxSelectableDismantleCount}개 선택
               </Text>
               <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
                 예상 획득 스탯 포인트 {expectedStatPoints}
@@ -419,7 +439,7 @@ export function StorageScreen() {
             </TouchableOpacity>
           </View>
           <Text style={{ color: colors.textMuted, fontSize: 11 }}>
-            배치 중인 캐릭터는 분해할 수 없습니다.
+            배치 중인 캐릭터는 분해할 수 없고, 캐릭터는 최소 1개 이상 보유해야 합니다.
           </Text>
         </View>
       )}

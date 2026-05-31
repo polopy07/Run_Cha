@@ -8,7 +8,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
-export const DISMANTLE_MAX_COUNT = 10;
+export const DISMANTLE_MAX_COUNT = 29;
 
 export class DismantleCharactersDto {
   @IsArray()

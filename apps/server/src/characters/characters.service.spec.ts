@@ -295,7 +295,9 @@ describe('CharactersService', () => {
     ]);
     userCharactersRepository.delete.mockResolvedValue({ affected: 2 });
     usersRepository.save.mockResolvedValue(user);
-    userCharactersRepository.count.mockResolvedValue(4);
+    userCharactersRepository.count
+      .mockResolvedValueOnce(6)
+      .mockResolvedValueOnce(4);
 
     await expect(service.dismantle(1, [10, 11])).resolves.toEqual({
       dismantledCount: 2,
@@ -323,7 +325,9 @@ describe('CharactersService', () => {
     ]);
     userCharactersRepository.delete.mockResolvedValue({ affected: 1 });
     usersRepository.save.mockResolvedValue(user);
-    userCharactersRepository.count.mockResolvedValue(3);
+    userCharactersRepository.count
+      .mockResolvedValueOnce(4)
+      .mockResolvedValueOnce(3);
 
     await expect(service.dismantle(1, [10])).resolves.toEqual({
       dismantledCount: 1,
@@ -343,11 +347,26 @@ describe('CharactersService', () => {
     expect(dataSource.transaction).not.toHaveBeenCalled();
   });
 
-  it('rejects dismantle when more than 10 characters are requested', async () => {
-    await expect(
-      service.dismantle(1, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
-    ).rejects.toBeInstanceOf(BadRequestException);
+  it('rejects dismantle when more than 29 characters are requested', async () => {
+    const ids = Array.from({ length: 30 }, (_, index) => index + 1);
+
+    await expect(service.dismantle(1, ids)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
     expect(dataSource.transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects dismantle when no character would remain', async () => {
+    usersRepository.findOne.mockResolvedValue({ id: 1, stat_points: 0 });
+    userCharactersQueryBuilder.getMany.mockResolvedValue([
+      { ...userCharacter },
+    ]);
+    userCharactersRepository.count.mockResolvedValue(1);
+
+    await expect(service.dismantle(1, [10])).rejects.toThrow(
+      'At least one character must remain after dismantling.',
+    );
+    expect(userCharactersRepository.delete).not.toHaveBeenCalled();
   });
 
   it('rejects dismantle for deployed characters', async () => {

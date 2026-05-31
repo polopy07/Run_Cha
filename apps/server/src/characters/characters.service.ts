@@ -230,6 +230,16 @@ export class CharactersService {
         );
       }
 
+      const ownedCharacterCount = await userCharactersRepository.count({
+        where: { user_id: userId },
+      });
+
+      if (ownedCharacterCount - userCharacters.length < 1) {
+        throw new BadRequestException(
+          'At least one character must remain after dismantling.',
+        );
+      }
+
       const earnedStatPoints = userCharacters.reduce((sum, userCharacter) => {
         const grade = userCharacter.character?.grade;
         return sum + (grade ? DISMANTLE_REWARD_BY_GRADE[grade] : 0);
