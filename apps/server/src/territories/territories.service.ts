@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Territory } from './entities/territory.entity';
@@ -22,6 +26,7 @@ export class TerritoriesService {
       select: {
         id: true,
         user_id: true,
+        name: true,
         coordinates: true,
         area_sqm: true,
         occupation_rate: true,
@@ -51,6 +56,7 @@ export class TerritoriesService {
       select: {
         id: true,
         user_id: true,
+        name: true,
         coordinates: true,
         area_sqm: true,
         occupation_rate: true,
@@ -71,6 +77,7 @@ export class TerritoriesService {
 
     return {
       id: territory.id,
+      name: territory.name,
       coordinates: territory.coordinates,
       areaSqm: territory.area_sqm,
       occupationRate: territory.occupation_rate,
@@ -98,10 +105,12 @@ export class TerritoriesService {
     userId: number,
     coordinates: { lat: number; lng: number }[],
     areaSqm: number,
+    name?: string | null,
   ): Promise<Territory> {
     const center = calcCenter(coordinates);
     const territory = this.territoryRepo.create({
       user_id: userId,
+      name: name ?? null,
       coordinates,
       area_sqm: areaSqm,
       occupation_rate: 100,
@@ -111,10 +120,33 @@ export class TerritoriesService {
     return this.territoryRepo.save(territory);
   }
 
+  async updateName(
+    id: number,
+    userId: number,
+    name: string | null,
+  ): Promise<{ id: number; name: string | null }> {
+    const territory = await this.territoryRepo.findOne({
+      where: { id },
+      select: { id: true, user_id: true },
+    });
+
+    if (!territory) {
+      throw new NotFoundException('영토를 찾을 수 없습니다.');
+    }
+    if (territory.user_id !== userId) {
+      throw new ForbiddenException('본인 소유의 영토만 수정할 수 있습니다.');
+    }
+
+    await this.territoryRepo.update(id, { name });
+
+    return { id, name };
+  }
+
   private toPublicTerritoryResponse(territory: Territory) {
     return {
       id: territory.id,
       userId: territory.user_id,
+      name: territory.name,
       coordinates: territory.coordinates,
       areaSqm: territory.area_sqm,
       occupationRate: territory.occupation_rate,

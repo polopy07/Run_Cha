@@ -22,6 +22,7 @@ function makeTerritory(lat: number, lng: number): Territory {
   return {
     id: 1,
     user_id: 1,
+    name: null,
     coordinates: [{ lat, lng }],
     area_sqm: 1000,
     occupation_rate: 100,
@@ -89,6 +90,7 @@ describe('TerritoriesService', () => {
         select: {
           id: true,
           user_id: true,
+          name: true,
           coordinates: true,
           area_sqm: true,
           occupation_rate: true,
@@ -99,6 +101,7 @@ describe('TerritoriesService', () => {
         {
           id: territory.id,
           userId: territory.user_id,
+          name: territory.name,
           coordinates: territory.coordinates,
           areaSqm: territory.area_sqm,
           occupationRate: territory.occupation_rate,
@@ -141,6 +144,7 @@ describe('TerritoriesService', () => {
         {
           id: territory.id,
           userId: territory.user_id,
+          name: territory.name,
           coordinates: territory.coordinates,
           areaSqm: territory.area_sqm,
           occupationRate: territory.occupation_rate,
@@ -184,6 +188,7 @@ describe('TerritoriesService', () => {
         select: {
           id: true,
           user_id: true,
+          name: true,
           coordinates: true,
           area_sqm: true,
           occupation_rate: true,
@@ -198,6 +203,7 @@ describe('TerritoriesService', () => {
       });
       expect(result).toEqual({
         id: territory.id,
+        name: territory.name,
         coordinates: territory.coordinates,
         areaSqm: territory.area_sqm,
         occupationRate: territory.occupation_rate,
@@ -256,6 +262,7 @@ describe('TerritoriesService', () => {
 
       expect(mockRepo.create).toHaveBeenCalledWith({
         user_id: 1,
+        name: null,
         coordinates: coords,
         area_sqm: 5000,
         occupation_rate: 100,
