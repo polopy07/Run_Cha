@@ -17,7 +17,9 @@ import { OptionalJwtAuthGuard } from './guards/optional-jwt-auth.guard';
         const secret = config.get<string>('JWT_SECRET');
 
         if (!secret) {
-          throw new Error('JWT_SECRET is required');
+          throw new Error(
+            'JWT_SECRET is required. Copy apps/server/.env.example to apps/server/.env and set JWT_SECRET.',
+          );
         }
 
         return {
