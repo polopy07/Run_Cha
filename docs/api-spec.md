@@ -83,6 +83,7 @@ Firebase Auth 로그인/회원가입 후 발급받은 ID Token을 서버에 전�
 | email | string | 사용자 이메일 |
 | nickname | string | 사용자 닉네임 |
 | points | number | 보유 포인트 |
+| statPoints | number | 보유 스탯 포인트 |
 | totalDistance | number | 누적 러닝 거리 |
 
 #### 닉네임 초기값 정책
@@ -112,6 +113,7 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | email | string | 사용자 이메일 |
 | nickname | string | 사용자 닉네임 |
 | points | number | 보유 포인트 |
+| statPoints | number | 보유 스탯 포인트 |
 | totalDistance | number | 누적 러닝 거리 |
 
 ### PATCH `/users/me/nickname`
@@ -132,6 +134,7 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | email | string | 사용자 이메일 |
 | nickname | string | 변경된 사용자 닉네임 |
 | points | number | 보유 포인트 |
+| statPoints | number | 보유 스탯 포인트 |
 | totalDistance | number | 누적 러닝 거리 |
 
 ---
