@@ -10,6 +10,7 @@ export interface TerritoryBounds {
 export type Territory = {
   id: number;
   userId?: number;
+  name: string | null;
   coordinates: { lat: number; lng: number }[];
   areaSqm: number;
   occupationRate: number;
@@ -28,12 +29,13 @@ export type TerritoryDeployedCharacter = {
   pointLv: number;
 };
 
-export type TerritoryDetail = Omit<Territory, 'userId'> & {
+export type TerritoryDetail = Omit<Territory, 'userId' | 'lastActiveAt'> & {
   owner: {
     id: number;
     nickname: string;
   };
   isMine: boolean;
+  lastActiveAt: string;
   deployedCharacters: TerritoryDeployedCharacter[];
 };
 
@@ -82,4 +84,14 @@ export async function attackTerritory(
     method: 'POST',
     body: JSON.stringify(payload),
   });
+}
+
+export async function updateTerritoryName(id: number, name: string | null) {
+  return apiFetch<{ id: number; name: string | null }>(
+    `/territories/${id}/name`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    },
+  );
 }
