@@ -92,6 +92,11 @@ export function StorageScreen() {
     [characters, selectedDismantleIds],
   );
 
+  const dismantlableCharacterCount = useMemo(
+    () => characters.filter((character) => !isDeployed(character)).length,
+    [characters],
+  );
+
   const expectedStatPoints = useMemo(
     () => selectedDismantleCharacters.reduce(
       (sum, character) => sum + DISMANTLE_REWARD_BY_GRADE[character.grade],
@@ -102,6 +107,7 @@ export function StorageScreen() {
 
   const maxSelectableDismantleCount = Math.min(
     DISMANTLE_MAX_COUNT,
+    dismantlableCharacterCount,
     Math.max(0, characters.length - 1),
   );
 
@@ -267,6 +273,7 @@ export function StorageScreen() {
     const grade = gradeColor[item.grade] ?? colors.gradeCommon;
     const selectedForDismantle = selectedDismantleIds.includes(item.id);
     const deployed = isDeployed(item);
+    const disabledForDismantle = isDismantleMode && deployed;
 
     return (
       <TouchableOpacity
@@ -276,12 +283,14 @@ export function StorageScreen() {
           borderColor: selectedForDismantle ? colors.primary : colors.cardBorder,
           borderRadius: radius.md,
           borderWidth: selectedForDismantle ? 2 : 1,
-          opacity: isDismantleMode && deployed ? 0.45 : 1,
+          opacity: disabledForDismantle ? 0.45 : 1,
           padding: 14,
           alignItems: 'center',
           overflow: 'hidden',
         }}
+        accessibilityState={{ disabled: disabledForDismantle, selected: selectedForDismantle }}
         activeOpacity={0.85}
+        disabled={disabledForDismantle}
         onPress={() => openDeploy(item)}
       >
         <View
@@ -311,7 +320,7 @@ export function StorageScreen() {
             }}
           >
             <Text style={{ color: selectedForDismantle ? colors.bg : colors.textMuted, fontSize: 11, fontWeight: '800' }}>
-              {selectedForDismantle ? '✓' : ''}
+              {deployed ? '×' : selectedForDismantle ? '✓' : ''}
             </Text>
           </View>
         )}
@@ -330,7 +339,7 @@ export function StorageScreen() {
             <Text style={{ fontSize: 10, fontWeight: '700', color: grade }}>{GRADE_LABEL[item.grade]}</Text>
           </View>
           <Text style={{ fontSize: 9, color: colors.textMuted }}>
-            {deployed ? `배치 #${item.deployedTerritoryId}` : item.type !== 'attack' ? '미배치' : '공격'}
+            {deployed ? `배치중 #${item.deployedTerritoryId}` : item.type !== 'attack' ? '미배치' : '공격'}
           </Text>
         </View>
 
