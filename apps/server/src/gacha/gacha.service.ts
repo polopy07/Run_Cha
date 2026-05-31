@@ -51,10 +51,6 @@ export class GachaService {
     const cost = DRAW_COST[count];
     const characterPool = await this.getCharacterPool();
 
-    if (this.countCharacters(characterPool) === 0) {
-      throw new InternalServerErrorException('뽑기 가능한 캐릭터가 없습니다.');
-    }
-
     return this.dataSource.transaction(async (manager) => {
       const usersRepository = manager.getRepository(User);
       const userCharactersRepository = manager.getRepository(UserCharacter);
@@ -191,7 +187,7 @@ export class GachaService {
     for (const grade of grades) {
       if (pool[grade].length === 0) {
         throw new InternalServerErrorException(
-          `${grade} ?깃툒 罹먮┃?곌? ?놁뒿?덈떎.`,
+          `${grade} 등급 캐릭터가 없습니다.`,
         );
       }
     }
@@ -204,13 +200,6 @@ export class GachaService {
       [CharacterGrade.EPIC]: [],
       [CharacterGrade.LEGENDARY]: [],
     };
-  }
-
-  private countCharacters(pool: CharacterPool) {
-    return Object.values(pool).reduce(
-      (total, characters) => total + characters.length,
-      0,
-    );
   }
 
   private pickGrade() {
