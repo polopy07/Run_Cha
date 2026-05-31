@@ -249,11 +249,12 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 |---|---|---|
 | id | number | 영토 ID |
 | userId | number | 소유 사용자 ID. 현재 로그인 사용자 ID와 비교해 내 영토/다른 사용자 영토를 구분할 때 사용 |
+| ownerNickname | string \| null | 보유자 닉네임 |
 | coordinates | `{ lat: number, lng: number }[]` | 영토 좌표 데이터 |
 | areaSqm | number | 영토 면적 |
 | occupationRate | number | 점령률 |
 
-목록 응답은 지도 렌더링에 필요한 경량 필드만 포함한다. `userId`는 JOIN 없이 영토 테이블에서 바로 내려줄 수 있는 값이며, 지도에서 내 영토와 다른 사용자 영토의 색상을 구분하거나 클릭 후 분기할 때 사용한다. 보유자 닉네임과 배치 캐릭터 정보는 N+1 쿼리를 피하기 위해 상세 API에서 조회한다.
+목록 응답은 지도 렌더링에 필요한 경량 필드만 포함한다. `userId`는 영토 소유 여부 판단에 사용하고, `ownerNickname`은 지도 위 보유자 표시 등 간단한 라벨 표시에 사용한다. 배치 캐릭터 등 상세 정보는 N+1 쿼리를 피하기 위해 상세 API에서 조회한다.
 
 ### GET `/territories/:id`
 
@@ -303,6 +304,7 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 |---|---|---|
 | id | number | 영토 ID |
 | userId | number | 소유 사용자 ID |
+| ownerNickname | string \| null | 보유자 닉네임 |
 | coordinates | `{ lat: number, lng: number }[]` | 영토 좌표 데이터 |
 | areaSqm | number | 영토 면적 |
 | occupationRate | number | 점령률 |

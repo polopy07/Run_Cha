@@ -10,6 +10,7 @@ export interface TerritoryBounds {
 export type Territory = {
   id: number;
   userId?: number;
+  ownerNickname?: string | null;
   coordinates: { lat: number; lng: number }[];
   areaSqm: number;
   occupationRate: number;
