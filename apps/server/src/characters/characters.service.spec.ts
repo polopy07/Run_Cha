@@ -321,7 +321,7 @@ describe('CharactersService', () => {
     const user = { id: 1, stat_points: 5 } as User;
     usersRepository.findOne.mockResolvedValue(user);
     userCharactersQueryBuilder.getMany.mockResolvedValue([
-      { ...userCharacter, character: null },
+      { ...userCharacter, character: null } as unknown as UserCharacter,
     ]);
     userCharactersRepository.delete.mockResolvedValue({ affected: 1 });
     usersRepository.save.mockResolvedValue(user);
