@@ -200,6 +200,7 @@ describe('UsersService', () => {
       email: 'test@example.com',
       nickname: 'test',
       points: 100,
+      stat_points: 3,
       total_distance: 3.5,
     } as User;
 
@@ -208,6 +209,7 @@ describe('UsersService', () => {
       email: 'test@example.com',
       nickname: 'test',
       points: 100,
+      statPoints: 3,
       totalDistance: 3.5,
     });
   });

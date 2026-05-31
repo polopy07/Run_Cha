@@ -4,12 +4,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { Territory } from '../territories/entities/territory.entity';
 import { User } from '../users/entities/user.entity';
 import { CharacterGrade, CharacterType } from './entities/character.entity';
 import { UserCharacter } from './entities/user-character.entity';
 import { UpgradeStat } from './dto/upgrade-character.dto';
+import { DISMANTLE_MAX_COUNT } from './dto/dismantle-characters.dto';
 
 const MAX_LEVEL_BY_GRADE: Record<CharacterGrade, number> = {
   [CharacterGrade.COMMON]: 10,
@@ -23,6 +24,12 @@ const UPGRADE_MAX_COST = 5000;
 const UPGRADE_MAX_COST_START_LEVEL = Math.ceil(
   Math.log(UPGRADE_MAX_COST / UPGRADE_BASE_COST) / Math.log(1.5),
 );
+const DISMANTLE_REWARD_BY_GRADE: Record<CharacterGrade, number> = {
+  [CharacterGrade.COMMON]: 1,
+  [CharacterGrade.RARE]: 2,
+  [CharacterGrade.EPIC]: 3,
+  [CharacterGrade.LEGENDARY]: 4,
+};
 
 type StatLevelColumn = 'attack_lv' | 'defense_lv' | 'speed_lv' | 'point_lv';
 
@@ -159,6 +166,93 @@ export class CharactersService {
       await userCharactersRepository.save(userCharacter);
 
       return this.toUserCharacterResponse(userCharacter);
+    });
+  }
+
+  async dismantle(userId: number, userCharacterIds: number[]) {
+    const uniqueIds = [...new Set(userCharacterIds)];
+
+    if (userCharacterIds.length === 0) {
+      throw new BadRequestException('At least one character is required.');
+    }
+
+    if (userCharacterIds.length > DISMANTLE_MAX_COUNT) {
+      throw new BadRequestException(
+        `You can dismantle up to ${DISMANTLE_MAX_COUNT} characters at once.`,
+      );
+    }
+
+    if (uniqueIds.length !== userCharacterIds.length) {
+      throw new BadRequestException('Duplicate character IDs are not allowed.');
+    }
+
+    return this.dataSource.transaction(async (manager) => {
+      const userCharactersRepository = manager.getRepository(UserCharacter);
+      const usersRepository = manager.getRepository(User);
+
+      const user = await usersRepository.findOne({
+        where: { id: userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!user) {
+        throw new NotFoundException('User not found.');
+      }
+
+      const userCharacters = await userCharactersRepository
+        .createQueryBuilder('userCharacter')
+        .leftJoinAndSelect('userCharacter.character', 'character')
+        .where('userCharacter.user_id = :userId', { userId })
+        .andWhere('userCharacter.id IN (:...ids)', { ids: uniqueIds })
+        .setLock('pessimistic_write')
+        .getMany();
+
+      if (userCharacters.length !== uniqueIds.length) {
+        const ownedIds = new Set(
+          userCharacters.map((userCharacter) => userCharacter.id),
+        );
+        const missingIds = uniqueIds.filter((id) => !ownedIds.has(id));
+
+        throw new NotFoundException(
+          `Owned character not found: ${missingIds.join(', ')}`,
+        );
+      }
+
+      const deployedCharacters = userCharacters.filter(
+        (userCharacter) => userCharacter.deployed_territory_id !== null,
+      );
+
+      if (deployedCharacters.length > 0) {
+        throw new BadRequestException(
+          `Deployed characters cannot be dismantled: ${deployedCharacters
+            .map((userCharacter) => userCharacter.id)
+            .join(', ')}`,
+        );
+      }
+
+      const earnedStatPoints = userCharacters.reduce((sum, userCharacter) => {
+        const grade = userCharacter.character?.grade;
+        return sum + (grade ? DISMANTLE_REWARD_BY_GRADE[grade] : 0);
+      }, 0);
+
+      user.stat_points += earnedStatPoints;
+
+      await userCharactersRepository.delete({
+        id: In(uniqueIds),
+        user_id: userId,
+      });
+      await usersRepository.save(user);
+
+      const remainingCharacterCount = await userCharactersRepository.count({
+        where: { user_id: userId },
+      });
+
+      return {
+        dismantledCount: userCharacters.length,
+        earnedStatPoints,
+        statPoints: user.stat_points,
+        remainingCharacterCount,
+      };
     });
   }
 

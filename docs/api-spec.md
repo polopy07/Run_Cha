@@ -83,6 +83,7 @@ Firebase Auth 로그인/회원가입 후 발급받은 ID Token을 서버에 전�
 | email | string | 사용자 이메일 |
 | nickname | string | 사용자 닉네임 |
 | points | number | 보유 포인트 |
+| statPoints | number | 보유 스탯 포인트 |
 | totalDistance | number | 누적 러닝 거리 |
 
 #### 닉네임 초기값 정책
@@ -112,6 +113,7 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | email | string | 사용자 이메일 |
 | nickname | string | 사용자 닉네임 |
 | points | number | 보유 포인트 |
+| statPoints | number | 보유 스탯 포인트 |
 | totalDistance | number | 누적 러닝 거리 |
 
 ### PATCH `/users/me/nickname`
@@ -132,6 +134,7 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | email | string | 사용자 이메일 |
 | nickname | string | 변경된 사용자 닉네임 |
 | points | number | 보유 포인트 |
+| statPoints | number | 보유 스탯 포인트 |
 | totalDistance | number | 누적 러닝 거리 |
 
 ---
@@ -248,11 +251,12 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | 필드 | 타입 | 설명 |
 |---|---|---|
 | id | number | 영토 ID |
+| userId | number | 소유 사용자 ID. 현재 로그인 사용자 ID와 비교해 내 영토/다른 사용자 영토를 구분할 때 사용 |
 | coordinates | `{ lat: number, lng: number }[]` | 영토 좌표 데이터 |
 | areaSqm | number | 영토 면적 |
 | occupationRate | number | 점령률 |
 
-목록 응답은 지도 렌더링에 필요한 경량 필드만 포함한다. 보유자 닉네임과 배치 캐릭터 정보는 N+1 쿼리를 피하기 위해 상세 API에서 조회한다.
+목록 응답은 지도 렌더링에 필요한 경량 필드만 포함한다. `userId`는 JOIN 없이 영토 테이블에서 바로 내려줄 수 있는 값이며, 지도에서 내 영토와 다른 사용자 영토의 색상을 구분하거나 클릭 후 분기할 때 사용한다. 보유자 닉네임과 배치 캐릭터 정보는 N+1 쿼리를 피하기 위해 상세 API에서 조회한다.
 
 ### GET `/territories/:id`
 
@@ -284,7 +288,7 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | speedLv | number | 속도 레벨 |
 | pointLv | number | 포인트 배율 레벨 |
 
-비로그인 사용자도 접근 가능하며, 로그인 사용자인 경우에만 `isMine`을 현재 사용자 기준으로 계산한다.
+비로그인 사용자도 접근 가능하며, 로그인 사용자인 경우에만 `isMine`을 현재 사용자 기준으로 계산한다. 상세 응답에서는 소유자 ID를 별도 `userId` 필드가 아닌 `owner.id`로 참조한다.
 
 영토 이름은 `territories.name` 컬럼 마이그레이션 이후 상세 응답에 추가한다.
 
@@ -294,19 +298,20 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 
 캐릭터 배치 화면에서 사용자가 배치할 영토를 선택할 때 사용한다.
 
-현재 응답은 내 영토 관리의 텍스트 목록과 배치 진입에 필요한 경량 필드만 포함한다. 지도 위 위치 표시가 필요해지면 전체 좌표보다 가벼운 `centerLat`, `centerLng`를 응답에 추가한다.
+현재 응답은 내 영토 관리 화면에서 목록과 지도 위치를 표시할 수 있도록 `coordinates`를 포함한다. 보유자 닉네임, 배치 캐릭터 등 상세 정보가 필요한 경우 `GET /territories/:id`를 추가 호출한다.
 
 #### Response
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
 | id | number | 영토 ID |
+| userId | number | 소유 사용자 ID |
+| coordinates | `{ lat: number, lng: number }[]` | 영토 좌표 데이터 |
 | areaSqm | number | 영토 면적 |
 | occupationRate | number | 점령률 |
-| userId | number | 소유 사용자 ID |
 | lastActiveAt | string (ISO 8601) | 마지막 활동 시각 |
 
-내 영토 관리 화면에서 사용자가 보유한 영토 목록을 확인하고, 캐릭터 배치/회수 화면으로 진입할 때 사용한다. 상세 정보가 필요한 경우 `GET /territories/:id`를 추가 호출한다.
+내 영토 관리 화면에서 사용자가 보유한 영토 목록을 확인하고, 지도 표시와 캐릭터 배치/회수 화면 진입에 사용한다.
 
 ### PATCH `/territories/:id/name`
 
@@ -546,7 +551,7 @@ const success = occupationRateAfter < territory.occupation_rate;
 
 한 번에 분해할 수 있는 캐릭터 수는 최대 10개로 제한한다.
 
-> 스탯 포인트 저장 위치는 아직 DB에 반영되어 있지 않으므로 `users.stat_points` 컬럼 등 저장 방식 확정 후 마이그레이션이 필요하다.
+분해로 획득한 스탯 포인트는 `users.stat_points`에 누적 저장한다.
 
 #### Request Body
 
@@ -637,4 +642,4 @@ const success = occupationRateAfter < territory.occupation_rate;
 7. 영토 이름 저장 컬럼 및 `PATCH /territories/:id/name` 구현 방식
 8. `GET /territories/:id` 상세 응답의 보유자/배치 캐릭터 JOIN 최적화 방식
 9. 캐릭터 레벨/경험치/이미지 필드의 DB 저장 방식
-10. 캐릭터 분해 스탯 포인트 저장 위치와 사용 API
+10. 캐릭터 분해로 획득한 스탯 포인트 사용처

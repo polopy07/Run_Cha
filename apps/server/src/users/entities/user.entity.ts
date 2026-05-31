@@ -25,6 +25,9 @@ export class User {
   @Column({ default: 0 })
   points: number;
 
+  @Column({ default: 0 })
+  stat_points: number;
+
   @Column({ type: 'float', default: 0 })
   total_distance: number;
 
