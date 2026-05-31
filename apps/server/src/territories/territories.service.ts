@@ -23,6 +23,7 @@ export class TerritoriesService {
     const territories = await this.territoryRepo.find({
       where: { user_id: userId },
       order: { id: 'ASC' },
+      relations: ['user'],
       select: {
         id: true,
         user_id: true,
@@ -31,6 +32,7 @@ export class TerritoriesService {
         area_sqm: true,
         occupation_rate: true,
         last_active_at: true,
+        user: { id: true, nickname: true },
       },
     });
 
@@ -42,6 +44,7 @@ export class TerritoriesService {
 
     const territories = await this.territoryRepo
       .createQueryBuilder('t')
+      .leftJoinAndSelect('t.user', 'u')
       .where('t.center_lat BETWEEN :minLat AND :maxLat', { minLat, maxLat })
       .andWhere('t.center_lng BETWEEN :minLng AND :maxLng', { minLng, maxLng })
       .getMany();
@@ -147,6 +150,7 @@ export class TerritoriesService {
       id: territory.id,
       userId: territory.user_id,
       name: territory.name,
+      ownerNickname: territory.user?.nickname ?? null,
       coordinates: territory.coordinates,
       areaSqm: territory.area_sqm,
       occupationRate: territory.occupation_rate,
@@ -156,7 +160,6 @@ export class TerritoriesService {
   private toOwnedTerritoryResponse(territory: Territory) {
     return {
       ...this.toPublicTerritoryResponse(territory),
-      userId: territory.user_id,
       lastActiveAt: territory.last_active_at,
     };
   }
