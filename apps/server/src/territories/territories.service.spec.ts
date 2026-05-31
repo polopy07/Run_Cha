@@ -22,6 +22,7 @@ function makeTerritory(lat: number, lng: number): Territory {
   return {
     id: 1,
     user_id: 1,
+    name: null,
     coordinates: [{ lat, lng }],
     area_sqm: 1000,
     occupation_rate: 100,
@@ -36,6 +37,7 @@ describe('TerritoriesService', () => {
   let service: TerritoriesService;
 
   const mockQb = {
+    leftJoinAndSelect: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     getMany: jest.fn().mockResolvedValue([]),
@@ -86,19 +88,24 @@ describe('TerritoriesService', () => {
       expect(mockRepo.find).toHaveBeenCalledWith({
         where: { user_id: 1 },
         order: { id: 'ASC' },
+        relations: ['user'],
         select: {
           id: true,
           user_id: true,
+          name: true,
           coordinates: true,
           area_sqm: true,
           occupation_rate: true,
           last_active_at: true,
+          user: { id: true, nickname: true },
         },
       });
       expect(result).toEqual([
         {
           id: territory.id,
           userId: territory.user_id,
+          name: territory.name,
+          ownerNickname: territory.user.nickname,
           coordinates: territory.coordinates,
           areaSqm: territory.area_sqm,
           occupationRate: territory.occupation_rate,
@@ -113,6 +120,12 @@ describe('TerritoriesService', () => {
   });
 
   describe('findInBounds', () => {
+    it('joins user with leftJoinAndSelect to populate ownerNickname', async () => {
+      await service.findInBounds(BOUNDS);
+
+      expect(mockQb.leftJoinAndSelect).toHaveBeenCalledWith('t.user', 'u');
+    });
+
     it('uses center_lat BETWEEN condition for DB filtering', async () => {
       await service.findInBounds(BOUNDS);
 
@@ -131,7 +144,7 @@ describe('TerritoriesService', () => {
       );
     });
 
-    it('maps found territories to response format', async () => {
+    it('maps ownerNickname from joined user relation', async () => {
       const territory = makeTerritory(37.5, 127.0);
       mockQb.getMany.mockResolvedValue([territory]);
 
@@ -141,11 +154,25 @@ describe('TerritoriesService', () => {
         {
           id: territory.id,
           userId: territory.user_id,
+          name: territory.name,
+          ownerNickname: territory.user.nickname,
           coordinates: territory.coordinates,
           areaSqm: territory.area_sqm,
           occupationRate: territory.occupation_rate,
         },
       ]);
+    });
+
+    it('returns ownerNickname as null when user relation is not loaded', async () => {
+      const territory = {
+        ...makeTerritory(37.5, 127.0),
+        user: null as unknown as User,
+      };
+      mockQb.getMany.mockResolvedValue([territory]);
+
+      const result = await service.findInBounds(BOUNDS);
+
+      expect(result[0].ownerNickname).toBeNull();
     });
 
     it('returns an empty array when no territories are found', async () => {
@@ -184,6 +211,7 @@ describe('TerritoriesService', () => {
         select: {
           id: true,
           user_id: true,
+          name: true,
           coordinates: true,
           area_sqm: true,
           occupation_rate: true,
@@ -198,6 +226,7 @@ describe('TerritoriesService', () => {
       });
       expect(result).toEqual({
         id: territory.id,
+        name: territory.name,
         coordinates: territory.coordinates,
         areaSqm: territory.area_sqm,
         occupationRate: territory.occupation_rate,
@@ -256,6 +285,7 @@ describe('TerritoriesService', () => {
 
       expect(mockRepo.create).toHaveBeenCalledWith({
         user_id: 1,
+        name: null,
         coordinates: coords,
         area_sqm: 5000,
         occupation_rate: 100,

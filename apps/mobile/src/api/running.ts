@@ -5,6 +5,7 @@ type FinishRunningPayload = {
   path: Coordinate[];
   distance_km: number;
   started_at: string;
+  territory_name?: string;
 };
 
 export type RunningLogSummary = {
@@ -48,6 +49,9 @@ export async function finishRunning(payload: FinishRunningPayload) {
       path: payload.path.map((c) => ({ lat: c.latitude, lng: c.longitude })),
       distance_km: payload.distance_km,
       started_at: payload.started_at,
+      ...(payload.territory_name !== undefined && {
+        territory_name: payload.territory_name,
+      }),
     }),
   });
 }

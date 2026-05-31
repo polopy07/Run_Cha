@@ -12,8 +12,8 @@ export type User = {
   email: string;
   nickname: string;
   points: number;
+  statPoints: number;
   totalDistance: number;
-  pityCount: number;
 };
 
 type LoginResponse = User & { accessToken: string };

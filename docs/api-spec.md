@@ -324,11 +324,14 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 
 | 필드 | 타입 | 필수 | 설명 |
 |---|---|---|---|
-| name | string | O | 변경할 영토 이름. 1자 이상 100자 이하 |
+| name | string \| null | O | 변경할 영토 이름 (1자 이상 100자 이하, 앞뒤 공백 trim 처리). `null`로 요청 시 이름 삭제 |
 
 #### Response
 
-`GET /territories/:id`와 동일한 영토 상세 형식으로 응답한다.
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| id | number | 영토 ID |
+| name | string \| null | 변경된 영토 이름 |
 
 ### POST `/territories/:id/attack`
 

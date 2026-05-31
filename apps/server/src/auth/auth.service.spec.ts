@@ -61,7 +61,6 @@ describe('AuthService', () => {
       nickname: 'test',
       points: 0,
       totalDistance: 0,
-      pityCount: 0,
     };
     mockVerifyIdToken.mockResolvedValue({
       uid: 'firebase-uid',
