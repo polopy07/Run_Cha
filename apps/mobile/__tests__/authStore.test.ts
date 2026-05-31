@@ -5,8 +5,8 @@ const mockLoginResponse = {
   email: 'test@test.com',
   nickname: 'tester',
   points: 100,
+  statPoints: 3,
   totalDistance: 5.5,
-  pityCount: 3,
   accessToken: 'jwt-token-123',
 };
 
@@ -15,8 +15,8 @@ const mockUserResponse = {
   email: 'test@test.com',
   nickname: 'tester',
   points: 100,
+  statPoints: 3,
   totalDistance: 5.5,
-  pityCount: 3,
 };
 
 beforeEach(() => {

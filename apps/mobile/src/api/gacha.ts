@@ -7,7 +7,6 @@ type DrawGachaResponse = {
     grade: 'common' | 'rare' | 'epic' | 'legendary';
     type: 'attack' | 'defense' | 'buff';
     isNew: boolean;
-    isGuaranteed: boolean;
   }[];
   remainingPoints: number;
 };

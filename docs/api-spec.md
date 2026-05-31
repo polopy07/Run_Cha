@@ -83,6 +83,7 @@ Firebase Auth 로그인/회원가입 후 발급받은 ID Token을 서버에 전�
 | email | string | 사용자 이메일 |
 | nickname | string | 사용자 닉네임 |
 | points | number | 보유 포인트 |
+| statPoints | number | 보유 스탯 포인트 |
 | totalDistance | number | 누적 러닝 거리 |
 
 #### 닉네임 초기값 정책
@@ -112,6 +113,7 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | email | string | 사용자 이메일 |
 | nickname | string | 사용자 닉네임 |
 | points | number | 보유 포인트 |
+| statPoints | number | 보유 스탯 포인트 |
 | totalDistance | number | 누적 러닝 거리 |
 
 ### PATCH `/users/me/nickname`
@@ -132,6 +134,7 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | email | string | 사용자 이메일 |
 | nickname | string | 변경된 사용자 닉네임 |
 | points | number | 보유 포인트 |
+| statPoints | number | 보유 스탯 포인트 |
 | totalDistance | number | 누적 러닝 거리 |
 
 ---
@@ -548,7 +551,7 @@ const success = occupationRateAfter < territory.occupation_rate;
 
 한 번에 분해할 수 있는 캐릭터 수는 최대 10개로 제한한다.
 
-> 스탯 포인트 저장 위치는 아직 DB에 반영되어 있지 않으므로 `users.stat_points` 컬럼 등 저장 방식 확정 후 마이그레이션이 필요하다.
+분해로 획득한 스탯 포인트는 `users.stat_points`에 누적 저장한다.
 
 #### Request Body
 
@@ -639,4 +642,4 @@ const success = occupationRateAfter < territory.occupation_rate;
 7. 영토 이름 저장 컬럼 및 `PATCH /territories/:id/name` 구현 방식
 8. `GET /territories/:id` 상세 응답의 보유자/배치 캐릭터 JOIN 최적화 방식
 9. 캐릭터 레벨/경험치/이미지 필드의 DB 저장 방식
-10. 캐릭터 분해 스탯 포인트 저장 위치와 사용 API
+10. 캐릭터 분해로 획득한 스탯 포인트 사용처
