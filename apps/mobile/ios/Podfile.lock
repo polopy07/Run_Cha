@@ -1,5 +1,6 @@
 PODS:
   - FBLazyVector (0.85.3)
+  - Google-Maps-iOS-SDK (1.9.2)
   - hermes-engine (250829098.0.10):
     - hermes-engine/Pre-built (= 250829098.0.10)
   - hermes-engine/Pre-built (250829098.0.10)
@@ -1402,8 +1403,6 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - react-native-background-actions (4.1.0):
-    - React-Core
   - react-native-maps (1.27.2):
     - react-native-maps/Maps (= 1.27.2)
   - react-native-maps/Generated (1.27.2):
@@ -2001,6 +2000,7 @@ PODS:
 
 DEPENDENCIES:
   - FBLazyVector (from `../node_modules/react-native/Libraries/FBLazyVector`)
+  - Google-Maps-iOS-SDK
   - hermes-engine (from `../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)
   - RCTDeprecation (from `../node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation`)
   - RCTRequired (from `../node_modules/react-native/Libraries/Required`)
@@ -2040,7 +2040,6 @@ DEPENDENCIES:
   - React-Mapbuffer (from `../node_modules/react-native/ReactCommon`)
   - React-microtasksnativemodule (from `../node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)
   - React-mutationobservernativemodule (from `../node_modules/react-native/ReactCommon/react/nativemodule/mutationobserver`)
-  - react-native-background-actions (from `../node_modules/react-native-background-actions`)
   - react-native-maps (from `../node_modules/react-native-maps`)
   - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
   - React-NativeModulesApple (from `../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)
@@ -2081,6 +2080,10 @@ DEPENDENCIES:
   - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
   - RNScreens (from `../node_modules/react-native-screens`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
+
+SPEC REPOS:
+  trunk:
+    - Google-Maps-iOS-SDK
 
 EXTERNAL SOURCES:
   FBLazyVector:
@@ -2162,8 +2165,6 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon/react/nativemodule/microtasks"
   React-mutationobservernativemodule:
     :path: "../node_modules/react-native/ReactCommon/react/nativemodule/mutationobserver"
-  react-native-background-actions:
-    :path: "../node_modules/react-native-background-actions"
   react-native-maps:
     :path: "../node_modules/react-native-maps"
   react-native-safe-area-context:
@@ -2247,6 +2248,7 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   FBLazyVector: 24e62c765683b8d89006a88a2c8f5cf019f0074d
+  Google-Maps-iOS-SDK: 7f89cc1edb3ca239a410e5bc83cd1e060db3a289
   hermes-engine: c76ead1707a931e77ae6beeccf191dc6cea95897
   RCTDeprecation: a4c521821fab57cbb125b36effe84d897d0dfa12
   RCTRequired: 9f3a7e5645d4bc3f551593de7550bb66ab6e42bc
@@ -2285,7 +2287,6 @@ SPEC CHECKSUMS:
   React-Mapbuffer: 33e3bcefb14c2ce5ba867d908ff16cced1f9b487
   React-microtasksnativemodule: 3a42e75434099fd10030e36fe9f3b27e3811afd5
   React-mutationobservernativemodule: a7f3dc483d3e0e0fade0ea00e2cc95e2e462e023
-  react-native-background-actions: 35a1e298faed0957d36469eb21d634f0b6243bcb
   react-native-maps: 2397e883cee68dc2dd42d5265cea528357998de9
   react-native-safe-area-context: ba7283e541a5f57c6b27a7e33f2c40b8977888c0
   React-NativeModulesApple: deba264b03bd79c6bd61014fa30e40321b5e443a
@@ -2327,6 +2328,6 @@ SPEC CHECKSUMS:
   RNScreens: c58f17578c73435d8c00998cac0d89ad8105263c
   Yoga: e240fec777ff1f21ef42ccebbb44b6d262125855
 
-PODFILE CHECKSUM: 83b3710e749885bb1f3438843c31d93756940026
+PODFILE CHECKSUM: 0ec0e6e3c0a5e940ea0a7ff52e54597d40e95602
 
 COCOAPODS: 1.16.2
