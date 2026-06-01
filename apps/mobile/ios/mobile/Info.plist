@@ -28,18 +28,19 @@
 	<true/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-	  <!-- Do not change NSAllowsArbitraryLoads to true, or you will risk app rejection! -->
 		<key>NSAllowsArbitraryLoads</key>
 		<false/>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>러닝 중 GPS를 기록합니다</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>러닝 중 백그라운드에서도 GPS를 기록합니다</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>러닝 중 백그라운드에서도 GPS를 기록합니다</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>러닝 중 GPS를 기록합니다</string>
+	<key>RCTNewArchEnabled</key>
+	<true/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
