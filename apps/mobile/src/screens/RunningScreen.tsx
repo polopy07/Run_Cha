@@ -3,7 +3,7 @@ import {
   View, Text, TouchableOpacity,
   Alert, ActivityIndicator, Platform, StatusBar,
 } from 'react-native';
-import MapView, { Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Polyline, PROVIDER_GOOGLE, PROVIDER_DEFAULT } from 'react-native-maps';
 import useRunningStore from '../store/runningStore';
 import useAuthStore from '../store/authStore';
 import { finishRunning as finishRunningAPI } from '../api/running';
@@ -204,7 +204,7 @@ export function RunningScreen() {
           <View style={{ width: '100%', height: 180, borderRadius: radius.md, overflow: 'hidden', marginBottom: 24 }}>
             <MapView
               style={{ flex: 1 }}
-              provider={PROVIDER_GOOGLE}
+              provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
               customMapStyle={isDark ? darkMapStyle : []}
               initialRegion={{
                 latitude: polylineCoords[0].latitude, longitude: polylineCoords[0].longitude,

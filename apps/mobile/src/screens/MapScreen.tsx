@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Alert } from 'react-native';
-import MapView, { Polygon, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
+import { Platform, View, Text, TouchableOpacity, Alert } from 'react-native';
+import MapView, { Polygon, PROVIDER_GOOGLE, PROVIDER_DEFAULT, type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -97,7 +97,7 @@ export function MapScreen() {
       <MapView
         ref={mapRef}
         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-        provider={PROVIDER_GOOGLE}
+        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
         initialRegion={INITIAL_REGION}
         customMapStyle={isDark ? darkMapStyle : []}
         onRegionChangeComplete={(r) => {
