@@ -4,18 +4,9 @@ import { Socket } from 'socket.io';
 import { distanceKm, EventsGateway } from './events.gateway';
 import { UsersService } from '../users/users.service';
 
-// 서울 기준 좌표 — 0.015도 경도 차 ≈ 1.3km (2km 이내)
 const BASE = { lat: 37.5665, lng: 126.978 };
-const NEAR = { lat: 37.5665, lng: 126.993 };   // ~1.3km
-const FAR  = { lat: 37.5665, lng: 127.028 };   // ~4.4km
-
-function makeSocket(id: string, token?: string): Socket {
-  return {
-    id,
-    handshake: { auth: token ? { token } : {} },
-    disconnect: jest.fn(),
-  } as unknown as Socket;
-}
+const NEAR = { lat: 37.5665, lng: 126.993 };
+const FAR = { lat: 37.5665, lng: 127.028 };
 
 type OnlineUser = {
   userId: number;
@@ -26,12 +17,29 @@ type OnlineUser = {
   hasLocation: boolean;
 };
 
+interface GatewayInternal {
+  onlineUsers: Map<string, OnlineUser>;
+  server: { to: jest.Mock };
+}
+
+function internal(gateway: EventsGateway): GatewayInternal {
+  return gateway as unknown as GatewayInternal;
+}
+
+function makeSocket(id: string, token?: string): Socket {
+  return {
+    id,
+    handshake: { auth: token ? { token } : {} },
+    disconnect: jest.fn(),
+  } as unknown as Socket;
+}
+
 function addUser(
   gateway: EventsGateway,
   socketId: string,
   overrides: Partial<OnlineUser> = {},
 ) {
-  (gateway as any).onlineUsers.set(socketId, {
+  internal(gateway).onlineUsers.set(socketId, {
     userId: 1,
     nickname: 'test',
     lat: 0,
@@ -71,7 +79,12 @@ describe('EventsGateway', () => {
   const userInfo = {
     id: 1,
     nickname: 'runner',
-    character: { name: '공격형1', type: 'attack', grade: 'common', imageUrl: 'attack_common' },
+    character: {
+      name: '공격형1',
+      type: 'attack',
+      grade: 'common',
+      imageUrl: 'attack_common',
+    },
   };
 
   beforeEach(async () => {
@@ -88,33 +101,37 @@ describe('EventsGateway', () => {
     }).compile();
 
     gateway = module.get<EventsGateway>(EventsGateway);
-    (gateway as any).server = { to: mockTo };
+    internal(gateway).server = { to: mockTo };
   });
 
   describe('handleConnection', () => {
     it('토큰이 없으면 disconnect를 호출한다', async () => {
       const client = makeSocket('s1');
       await gateway.handleConnection(client);
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(client.disconnect).toHaveBeenCalled();
-      expect((gateway as any).onlineUsers.size).toBe(0);
+      expect(internal(gateway).onlineUsers.size).toBe(0);
     });
 
     it('유효하지 않은 토큰이면 disconnect를 호출한다', async () => {
       mockJwtService.verifyAsync.mockRejectedValue(new Error('invalid'));
       const client = makeSocket('s1', 'bad-token');
       await gateway.handleConnection(client);
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(client.disconnect).toHaveBeenCalled();
-      expect((gateway as any).onlineUsers.size).toBe(0);
+      expect(internal(gateway).onlineUsers.size).toBe(0);
     });
 
     it('유효한 토큰이면 onlineUsers에 저장한다', async () => {
       mockJwtService.verifyAsync.mockResolvedValue({ sub: 1 });
-      mockUsersService.findByIdWithRepresentativeCharacter.mockResolvedValue(userInfo);
+      mockUsersService.findByIdWithRepresentativeCharacter.mockResolvedValue(
+        userInfo,
+      );
 
       const client = makeSocket('s1', 'valid-token');
       await gateway.handleConnection(client);
 
-      const stored = (gateway as any).onlineUsers.get('s1');
+      const stored = internal(gateway).onlineUsers.get('s1');
       expect(stored).toMatchObject({
         userId: 1,
         nickname: 'runner',
@@ -128,13 +145,15 @@ describe('EventsGateway', () => {
     it('대표 캐릭터 미설정 유저는 character: null로 저장한다', async () => {
       mockJwtService.verifyAsync.mockResolvedValue({ sub: 2 });
       mockUsersService.findByIdWithRepresentativeCharacter.mockResolvedValue({
-        id: 2, nickname: 'nochar', character: null,
+        id: 2,
+        nickname: 'nochar',
+        character: null,
       });
 
       const client = makeSocket('s2', 'valid-token');
       await gateway.handleConnection(client);
 
-      expect((gateway as any).onlineUsers.get('s2').character).toBeNull();
+      expect(internal(gateway).onlineUsers.get('s2')?.character).toBeNull();
     });
   });
 
@@ -144,11 +163,11 @@ describe('EventsGateway', () => {
       expect(mockTo).not.toHaveBeenCalled();
     });
 
-    it('위치 없는 유저는 user:offline을 발행하지 않는다', async () => {
+    it('위치 없는 유저는 user:offline을 발행하지 않는다', () => {
       addUser(gateway, 's1', { hasLocation: false });
       gateway.handleDisconnect(makeSocket('s1'));
       expect(mockTo).not.toHaveBeenCalled();
-      expect((gateway as any).onlineUsers.has('s1')).toBe(false);
+      expect(internal(gateway).onlineUsers.has('s1')).toBe(false);
     });
 
     it('위치 있는 유저가 끊기면 근처 유저에게 user:offline을 발행한다', () => {
@@ -159,12 +178,12 @@ describe('EventsGateway', () => {
 
       expect(mockTo).toHaveBeenCalledWith('s2');
       expect(mockEmit).toHaveBeenCalledWith('user:offline', { userId: 1 });
-      expect((gateway as any).onlineUsers.has('s1')).toBe(false);
+      expect(internal(gateway).onlineUsers.has('s1')).toBe(false);
     });
 
     it('2km 초과 유저에게는 user:offline을 발행하지 않는다', () => {
       addUser(gateway, 's1', { userId: 1, ...BASE, hasLocation: true });
-      addUser(gateway, 's2', { userId: 2, ...FAR,  hasLocation: true });
+      addUser(gateway, 's2', { userId: 2, ...FAR, hasLocation: true });
 
       gateway.handleDisconnect(makeSocket('s1'));
 
@@ -175,19 +194,26 @@ describe('EventsGateway', () => {
   describe('handleLocationUpdate', () => {
     it('data가 null이면 무시한다', async () => {
       mockJwtService.verifyAsync.mockResolvedValue({ sub: 1 });
-      mockUsersService.findByIdWithRepresentativeCharacter.mockResolvedValue(userInfo);
+      mockUsersService.findByIdWithRepresentativeCharacter.mockResolvedValue(
+        userInfo,
+      );
       const client = makeSocket('s1', 'token');
       await gateway.handleConnection(client);
 
-      gateway.handleLocationUpdate(client, null as any);
+      gateway.handleLocationUpdate(
+        client,
+        null as unknown as { lat: number; lng: number },
+      );
 
       expect(mockTo).not.toHaveBeenCalled();
-      expect((gateway as any).onlineUsers.get('s1').hasLocation).toBe(false);
+      expect(internal(gateway).onlineUsers.get('s1')?.hasLocation).toBe(false);
     });
 
     it('lat/lng이 숫자가 아니면 무시한다', async () => {
       mockJwtService.verifyAsync.mockResolvedValue({ sub: 1 });
-      mockUsersService.findByIdWithRepresentativeCharacter.mockResolvedValue(userInfo);
+      mockUsersService.findByIdWithRepresentativeCharacter.mockResolvedValue(
+        userInfo,
+      );
       const client = makeSocket('s1', 'token');
       await gateway.handleConnection(client);
 
@@ -198,25 +224,31 @@ describe('EventsGateway', () => {
 
     it('첫 location:update는 근처 유저에게 user:online을 발행한다', async () => {
       mockJwtService.verifyAsync.mockResolvedValue({ sub: 1 });
-      mockUsersService.findByIdWithRepresentativeCharacter.mockResolvedValue(userInfo);
+      mockUsersService.findByIdWithRepresentativeCharacter.mockResolvedValue(
+        userInfo,
+      );
       const client = makeSocket('s1', 'token');
       await gateway.handleConnection(client);
-
       addUser(gateway, 's2', { userId: 2, ...NEAR, hasLocation: true });
 
       gateway.handleLocationUpdate(client, BASE);
 
       expect(mockTo).toHaveBeenCalledWith('s2');
-      expect(mockEmit).toHaveBeenCalledWith('user:online', expect.objectContaining({
-        userId: 1,
-        lat: BASE.lat,
-        lng: BASE.lng,
-      }));
+      expect(mockEmit).toHaveBeenCalledWith(
+        'user:online',
+        expect.objectContaining({
+          userId: 1,
+          lat: BASE.lat,
+          lng: BASE.lng,
+        }),
+      );
     });
 
     it('두 번째 이후 location:update는 location:broadcast를 발행한다', async () => {
       mockJwtService.verifyAsync.mockResolvedValue({ sub: 1 });
-      mockUsersService.findByIdWithRepresentativeCharacter.mockResolvedValue(userInfo);
+      mockUsersService.findByIdWithRepresentativeCharacter.mockResolvedValue(
+        userInfo,
+      );
       const client = makeSocket('s1', 'token');
       await gateway.handleConnection(client);
       addUser(gateway, 's2', { userId: 2, ...NEAR, hasLocation: true });
@@ -228,17 +260,19 @@ describe('EventsGateway', () => {
 
       gateway.handleLocationUpdate(client, NEAR);
 
-      expect(mockEmit).toHaveBeenCalledWith('location:broadcast', expect.objectContaining({
-        userId: 1,
-      }));
+      expect(mockEmit).toHaveBeenCalledWith(
+        'location:broadcast',
+        expect.objectContaining({ userId: 1 }),
+      );
     });
 
     it('2km 초과 유저에게는 발행하지 않는다', async () => {
       mockJwtService.verifyAsync.mockResolvedValue({ sub: 1 });
-      mockUsersService.findByIdWithRepresentativeCharacter.mockResolvedValue(userInfo);
+      mockUsersService.findByIdWithRepresentativeCharacter.mockResolvedValue(
+        userInfo,
+      );
       const client = makeSocket('s1', 'token');
       await gateway.handleConnection(client);
-
       addUser(gateway, 's2', { userId: 2, ...FAR, hasLocation: true });
 
       gateway.handleLocationUpdate(client, BASE);
@@ -248,10 +282,11 @@ describe('EventsGateway', () => {
 
     it('위치 없는 유저에게는 발행하지 않는다', async () => {
       mockJwtService.verifyAsync.mockResolvedValue({ sub: 1 });
-      mockUsersService.findByIdWithRepresentativeCharacter.mockResolvedValue(userInfo);
+      mockUsersService.findByIdWithRepresentativeCharacter.mockResolvedValue(
+        userInfo,
+      );
       const client = makeSocket('s1', 'token');
       await gateway.handleConnection(client);
-
       addUser(gateway, 's2', { userId: 2, ...NEAR, hasLocation: false });
 
       gateway.handleLocationUpdate(client, BASE);

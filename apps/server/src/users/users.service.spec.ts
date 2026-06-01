@@ -39,6 +39,7 @@ describe('UsersService', () => {
     transaction: jest.fn((callback: (manager: MockManager) => unknown) =>
       callback(manager),
     ),
+    query: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -262,8 +263,7 @@ describe('UsersService', () => {
 
   describe('findByIdWithRepresentativeCharacter', () => {
     it('대표 캐릭터가 있으면 character 정보를 포함해 반환한다', async () => {
-      dataSource.transaction = jest.fn();
-      (dataSource as any).query = jest.fn().mockResolvedValue([
+      dataSource.query.mockResolvedValue([
         {
           id: 1,
           nickname: 'runner',
@@ -289,8 +289,15 @@ describe('UsersService', () => {
     });
 
     it('대표 캐릭터 미설정 유저는 character: null을 반환한다', async () => {
-      (dataSource as any).query = jest.fn().mockResolvedValue([
-        { id: 2, nickname: 'nochar', c_name: null, c_type: null, c_grade: null, c_image_url: null },
+      dataSource.query.mockResolvedValue([
+        {
+          id: 2,
+          nickname: 'nochar',
+          c_name: null,
+          c_type: null,
+          c_grade: null,
+          c_image_url: null,
+        },
       ]);
 
       const result = await service.findByIdWithRepresentativeCharacter(2);
@@ -299,7 +306,7 @@ describe('UsersService', () => {
     });
 
     it('존재하지 않는 유저 ID는 NotFoundException을 던진다', async () => {
-      (dataSource as any).query = jest.fn().mockResolvedValue([]);
+      dataSource.query.mockResolvedValue([]);
 
       await expect(
         service.findByIdWithRepresentativeCharacter(999),
