@@ -47,6 +47,7 @@ export class UsersService {
     if (existingUserByEmail) {
       return this.dataSource.transaction(async (manager) => {
         const usersRepository = manager.getRepository(User);
+        const previousFirebaseUid = existingUserByEmail.firebase_uid;
         const user = await usersRepository.findOne({
           where: { email },
           lock: { mode: 'pessimistic_write' },
@@ -54,6 +55,10 @@ export class UsersService {
 
         if (!user) {
           throw new NotFoundException('User not found.');
+        }
+
+        if (user.firebase_uid !== previousFirebaseUid) {
+          return user;
         }
 
         user.firebase_uid = firebaseUid;
