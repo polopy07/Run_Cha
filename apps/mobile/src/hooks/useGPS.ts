@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { PermissionsAndroid, Platform } from 'react-native';
+import { Alert, PermissionsAndroid, Platform } from 'react-native';
 import {
   startBackgroundTracking,
   stopBackgroundTracking,
@@ -19,10 +19,15 @@ export function useGPS() {
   const [isTracking, setIsTracking] = useState(false);
 
   useEffect(() => {
-    if (Platform.OS === 'android') {
-      PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
-    }
-    // iOS는 MapView의 showsUserLocation={true}가 자동으로 권한 요청
+    if (Platform.OS !== 'android') return;
+    void (async () => {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+      );
+      if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+        Alert.alert('위치 권한 필요', 'GPS 사용을 위해 위치 권한을 허용해주세요.');
+      }
+    })();
   }, []);
 
   const handleLocationChange = useCallback(

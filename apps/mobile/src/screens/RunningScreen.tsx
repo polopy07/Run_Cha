@@ -48,14 +48,14 @@ export function RunningScreen() {
 
   useEffect(() => {
     const last = getLastLocation();
-    if (last) {
-      setTimeout(() => {
-        mapRef.current?.animateToRegion(
-          { latitude: last.latitude, longitude: last.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 },
-          500,
-        );
-      }, 300);
-    }
+    if (!last) return;
+    const id = setTimeout(() => {
+      mapRef.current?.animateToRegion(
+        { latitude: last.latitude, longitude: last.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 },
+        500,
+      );
+    }, 300);
+    return () => clearTimeout(id);
   }, []);
 
   useEffect(() => {
@@ -217,7 +217,7 @@ export function RunningScreen() {
             <MapView
               style={{ flex: 1 }}
               provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
-              customMapStyle={Platform.OS === 'android' && isDark ? darkMapStyle : []}
+              customMapStyle={Platform.OS === 'android' && isDark ? darkMapStyle : undefined}
               initialRegion={{
                 latitude: polylineCoords[0].latitude, longitude: polylineCoords[0].longitude,
                 latitudeDelta: 0.01, longitudeDelta: 0.01,
@@ -252,7 +252,7 @@ export function RunningScreen() {
             ? { latitude: last.latitude, longitude: last.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 }
             : DEFAULT_REGION;
         })()}
-        customMapStyle={isDark ? darkMapStyle : []}
+        customMapStyle={Platform.OS === 'android' && isDark ? darkMapStyle : undefined}
         showsUserLocation showsMyLocationButton={false}
         followsUserLocation={Platform.OS === 'ios'}
         onUserLocationChange={handleUserLocationChange}
