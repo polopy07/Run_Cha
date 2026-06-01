@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, View, Text, TouchableOpacity, Alert } from 'react-native';
 import MapView, { Polygon, PROVIDER_GOOGLE, PROVIDER_DEFAULT, type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useTheme } from '../contexts/ThemeContext';
 import { radius, mapCardShadow } from '../constants/theme';
@@ -70,9 +70,11 @@ export function MapScreen() {
     } catch {}
   }, []);
 
-  useEffect(() => {
-    fetchTerritories(INITIAL_REGION);
-  }, [fetchTerritories]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchTerritories(regionRef.current);
+    }, [fetchTerritories]),
+  );
 
   const zoomIn = () => {
     const r = regionRef.current;
