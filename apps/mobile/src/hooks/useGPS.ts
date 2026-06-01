@@ -1,4 +1,5 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { PermissionsAndroid, Platform } from 'react-native';
 import {
   startBackgroundTracking,
   stopBackgroundTracking,
@@ -12,6 +13,13 @@ export type LatLng = {
 export function useGPS() {
   const [currentLocation, setCurrentLocation] = useState<LatLng | null>(null);
   const [isTracking, setIsTracking] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
+    }
+    // iOS는 MapView의 showsUserLocation={true}가 자동으로 권한 요청
+  }, []);
 
   const handleLocationChange = useCallback(
     (e: { nativeEvent: { coordinate?: LatLng } }) => {
