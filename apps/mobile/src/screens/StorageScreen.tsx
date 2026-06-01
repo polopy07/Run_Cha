@@ -36,6 +36,7 @@ const TYPE_FULL: Record<Character['type'], string> = {
   buff: '버프',
 };
 
+// Keep in sync with apps/server/src/characters/dto/dismantle-characters.dto.ts.
 const DISMANTLE_MAX_COUNT = 29;
 
 const DISMANTLE_REWARD_BY_GRADE: Record<Character['grade'], number> = {

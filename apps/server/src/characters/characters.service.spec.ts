@@ -35,6 +35,7 @@ type MockUserCharactersQueryBuilder = {
   andWhere: jest.Mock<MockUserCharactersQueryBuilder>;
   setLock: jest.Mock<MockUserCharactersQueryBuilder>;
   getMany: jest.Mock<Promise<UserCharacter[]>>;
+  getCount: jest.Mock<Promise<number>>;
 };
 
 const createMockQueryBuilder = (): MockUserCharactersQueryBuilder => {
@@ -45,6 +46,7 @@ const createMockQueryBuilder = (): MockUserCharactersQueryBuilder => {
   queryBuilder.andWhere = jest.fn(() => queryBuilder);
   queryBuilder.setLock = jest.fn(() => queryBuilder);
   queryBuilder.getMany = jest.fn<Promise<UserCharacter[]>, []>();
+  queryBuilder.getCount = jest.fn<Promise<number>, []>();
 
   return queryBuilder;
 };
@@ -298,9 +300,8 @@ describe('CharactersService', () => {
     ]);
     userCharactersRepository.delete.mockResolvedValue({ affected: 2 });
     usersRepository.save.mockResolvedValue(user);
-    userCharactersRepository.count
-      .mockResolvedValueOnce(6)
-      .mockResolvedValueOnce(4);
+    userCharactersQueryBuilder.getCount.mockResolvedValue(6);
+    userCharactersRepository.count.mockResolvedValueOnce(4);
 
     await expect(service.dismantle(1, [10, 11])).resolves.toEqual({
       dismantledCount: 2,
@@ -315,6 +316,9 @@ describe('CharactersService', () => {
     expect(userCharactersQueryBuilder.setLock).toHaveBeenCalledWith(
       'pessimistic_write',
     );
+    expect(userCharactersQueryBuilder.setLock).toHaveBeenCalledWith(
+      'pessimistic_read',
+    );
     expect(userCharactersRepository.delete).toHaveBeenCalledWith(
       expect.objectContaining({ user_id: 1 }),
     );
@@ -328,9 +332,8 @@ describe('CharactersService', () => {
     ]);
     userCharactersRepository.delete.mockResolvedValue({ affected: 1 });
     usersRepository.save.mockResolvedValue(user);
-    userCharactersRepository.count
-      .mockResolvedValueOnce(4)
-      .mockResolvedValueOnce(3);
+    userCharactersQueryBuilder.getCount.mockResolvedValue(4);
+    userCharactersRepository.count.mockResolvedValueOnce(3);
 
     await expect(service.dismantle(1, [10])).resolves.toEqual({
       dismantledCount: 1,
@@ -364,7 +367,7 @@ describe('CharactersService', () => {
     userCharactersQueryBuilder.getMany.mockResolvedValue([
       { ...userCharacter },
     ]);
-    userCharactersRepository.count.mockResolvedValue(1);
+    userCharactersQueryBuilder.getCount.mockResolvedValue(1);
 
     await expect(service.dismantle(1, [10])).rejects.toThrow(
       'At least one character must remain after dismantling.',

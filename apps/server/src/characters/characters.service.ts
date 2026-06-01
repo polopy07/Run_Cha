@@ -230,9 +230,11 @@ export class CharactersService {
         );
       }
 
-      const ownedCharacterCount = await userCharactersRepository.count({
-        where: { user_id: userId },
-      });
+      const ownedCharacterCount = await userCharactersRepository
+        .createQueryBuilder('ownedCharacter')
+        .where('ownedCharacter.user_id = :userId', { userId })
+        .setLock('pessimistic_read')
+        .getCount();
 
       if (ownedCharacterCount - userCharacters.length < 1) {
         throw new BadRequestException(

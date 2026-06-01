@@ -45,8 +45,20 @@ export class UsersService {
     });
 
     if (existingUserByEmail) {
-      existingUserByEmail.firebase_uid = firebaseUid;
-      return this.usersRepository.save(existingUserByEmail);
+      return this.dataSource.transaction(async (manager) => {
+        const usersRepository = manager.getRepository(User);
+        const user = await usersRepository.findOne({
+          where: { email },
+          lock: { mode: 'pessimistic_write' },
+        });
+
+        if (!user) {
+          throw new NotFoundException('User not found.');
+        }
+
+        user.firebase_uid = firebaseUid;
+        return usersRepository.save(user);
+      });
     }
 
     return this.dataSource.transaction(async (manager) => {

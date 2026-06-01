@@ -17,7 +17,8 @@ const DEV_JWT_SECRET = 'run-territory-local-dev-secret';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
         const configuredSecret = config.get<string>('JWT_SECRET');
-        const isProduction = config.get<string>('NODE_ENV') === 'production';
+        const nodeEnv = config.get<string>('NODE_ENV') ?? 'development';
+        const isProduction = nodeEnv === 'production';
 
         if (!configuredSecret && isProduction) {
           throw new Error(
@@ -27,7 +28,7 @@ const DEV_JWT_SECRET = 'run-territory-local-dev-secret';
 
         if (!configuredSecret) {
           Logger.warn(
-            'JWT_SECRET is not set. Using local development fallback secret.',
+            `JWT_SECRET is not set. Using local development fallback secret. NODE_ENV=${nodeEnv}; set NODE_ENV=production in deployed environments.`,
             AuthModule.name,
           );
         }

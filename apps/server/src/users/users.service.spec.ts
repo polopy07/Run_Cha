@@ -89,6 +89,7 @@ describe('UsersService', () => {
     };
     usersRepository.findOne
       .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(user)
       .mockResolvedValueOnce(user);
     usersRepository.save.mockResolvedValue({
       ...user,
@@ -108,11 +109,15 @@ describe('UsersService', () => {
     expect(usersRepository.findOne).toHaveBeenNthCalledWith(2, {
       where: { email: 'test@example.com' },
     });
+    expect(usersRepository.findOne).toHaveBeenNthCalledWith(3, {
+      where: { email: 'test@example.com' },
+      lock: { mode: 'pessimistic_write' },
+    });
     expect(usersRepository.save).toHaveBeenCalledWith({
       ...user,
       firebase_uid: 'new-firebase-uid',
     });
-    expect(dataSource.transaction).not.toHaveBeenCalled();
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
   });
 
   it('기존 사용자가 없으면 이메일 앞부분을 기본 닉네임으로 생성한다', async () => {
