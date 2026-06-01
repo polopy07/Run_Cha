@@ -254,6 +254,7 @@ export function MapScreen() {
       <TerritoryDetailSheet
         visible={detailVisible}
         territoryId={selectedTerritoryId}
+        territory={territories.find(t => t.id === selectedTerritoryId) ?? null}
         onClose={() => { setDetailVisible(false); setSelectedTerritoryId(null); }}
         onAttack={(id) => {
           setDetailVisible(false);

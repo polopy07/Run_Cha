@@ -13,6 +13,7 @@ import {
 import {
   getTerritoryDetail,
   updateTerritoryName,
+  type Territory,
   type TerritoryDetail,
   type TerritoryDeployedCharacter,
 } from '../api/territory';
@@ -22,6 +23,7 @@ import { radius, GRADE_LABEL } from '../constants/theme';
 type Props = {
   visible: boolean;
   territoryId: number | null;
+  territory?: Territory | null;
   onClose: () => void;
   onAttack?: (territoryId: number) => void;
 };
@@ -84,13 +86,17 @@ function StatBadge({ label, value, colors }: { label: string; value: number; col
   );
 }
 
-export function TerritoryDetailSheet({ visible, territoryId, onClose, onAttack }: Props) {
+export function TerritoryDetailSheet({ visible, territoryId, territory, onClose, onAttack }: Props) {
   const { colors } = useTheme();
   const [detail, setDetail] = useState<TerritoryDetail | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loadingDetail, setLoadingDetail] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
   const [savingName, setSavingName] = useState(false);
+
+  const displayName = detail?.name ?? territory?.name ?? (territoryId ? `영토 #${territoryId}` : '');
+  const displayArea = detail?.areaSqm ?? territory?.areaSqm ?? 0;
+  const displayRate = detail?.occupationRate ?? territory?.occupationRate ?? 0;
 
   useEffect(() => {
     if (!visible || territoryId == null) {
@@ -98,11 +104,11 @@ export function TerritoryDetailSheet({ visible, territoryId, onClose, onAttack }
       setEditingName(false);
       return;
     }
-    setLoading(true);
+    setLoadingDetail(true);
     getTerritoryDetail(territoryId)
       .then(setDetail)
-      .catch(() => Alert.alert('오류', '영토 정보를 불러올 수 없습니다.'))
-      .finally(() => setLoading(false));
+      .catch(() => {})
+      .finally(() => setLoadingDetail(false));
   }, [visible, territoryId]);
 
   const handleSaveName = async () => {
@@ -136,13 +142,7 @@ export function TerritoryDetailSheet({ visible, territoryId, onClose, onAttack }
       }}>
         <View style={{ width: 40, height: 4, backgroundColor: colors.divider, borderRadius: 2, alignSelf: 'center', marginBottom: 16 }} />
 
-        {loading && (
-          <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-            <ActivityIndicator color={colors.primary} size="large" />
-          </View>
-        )}
-
-        {!loading && detail && (
+        {(territory || detail) && (
           <ScrollView showsVerticalScrollIndicator={false}>
             {/* 영토 이름 */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
@@ -177,9 +177,9 @@ export function TerritoryDetailSheet({ visible, territoryId, onClose, onAttack }
               ) : (
                 <>
                   <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700', flex: 1 }}>
-                    {detail.name ?? `영토 #${detail.id}`}
+                    {displayName}
                   </Text>
-                  {detail.isMine && (
+                  {detail?.isMine && (
                     <TouchableOpacity onPress={() => { setNameInput(detail.name ?? ''); setEditingName(true); }}>
                       <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '600' }}>이름 수정</Text>
                     </TouchableOpacity>
@@ -190,19 +190,17 @@ export function TerritoryDetailSheet({ visible, territoryId, onClose, onAttack }
 
             {/* 보유자 */}
             <Text style={{ color: colors.textSecondary, fontSize: 13, marginBottom: 16 }}>
-              {detail.isMine ? '내 영토' : `보유자: ${detail.owner.nickname}`}
+              {detail ? (detail.isMine ? '내 영토' : `보유자: ${detail.owner.nickname}`) : '불러오는 중...'}
             </Text>
 
             {/* 면적 / 점령률 */}
-            <View style={{
-              flexDirection: 'row', gap: 12, marginBottom: 16,
-            }}>
+            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
               <View style={{
                 flex: 1, backgroundColor: colors.surface, borderRadius: radius.md,
                 padding: 14, alignItems: 'center',
               }}>
                 <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: '600', marginBottom: 4 }}>면적</Text>
-                <Text style={{ color: colors.text, fontSize: 16, fontWeight: '800' }}>{formatArea(detail.areaSqm)}</Text>
+                <Text style={{ color: colors.text, fontSize: 16, fontWeight: '800' }}>{formatArea(displayArea)}</Text>
               </View>
               <View style={{
                 flex: 1, backgroundColor: colors.surface, borderRadius: radius.md,
@@ -210,59 +208,61 @@ export function TerritoryDetailSheet({ visible, territoryId, onClose, onAttack }
               }}>
                 <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: '600', marginBottom: 4 }}>점령률</Text>
                 <Text style={{
-                  color: detail.occupationRate > 50 ? colors.primary : colors.danger,
+                  color: displayRate > 50 ? colors.primary : colors.danger,
                   fontSize: 16, fontWeight: '800',
                 }}>
-                  {detail.occupationRate}%
+                  {displayRate}%
                 </Text>
               </View>
             </View>
 
             {/* 배치 캐릭터 */}
-            <Text style={{ color: colors.textSecondary, fontSize: 13, fontWeight: '600', marginBottom: 8 }}>
-              배치된 캐릭터 {detail.deployedCharacters.length > 0 ? `(${detail.deployedCharacters.length})` : ''}
-            </Text>
-
-            {detail.deployedCharacters.length === 0 ? (
-              <View style={{
-                backgroundColor: colors.surface, borderRadius: radius.md,
-                padding: 20, alignItems: 'center', marginBottom: 16,
-              }}>
-                <Text style={{ color: colors.textMuted, fontSize: 13 }}>배치된 캐릭터가 없습니다</Text>
+            {loadingDetail ? (
+              <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+                <ActivityIndicator color={colors.primary} />
               </View>
-            ) : (
-              <View style={{ marginBottom: 16 }}>
-                {detail.deployedCharacters.map(c => (
-                  <CharacterCard key={c.id} char={c} colors={colors} />
-                ))}
-              </View>
-            )}
+            ) : detail ? (
+              <>
+                <Text style={{ color: colors.textSecondary, fontSize: 13, fontWeight: '600', marginBottom: 8 }}>
+                  배치된 캐릭터 {detail.deployedCharacters.length > 0 ? `(${detail.deployedCharacters.length})` : ''}
+                </Text>
 
-            {/* 액션 버튼 */}
-            {!detail.isMine && onAttack && (
-              <TouchableOpacity
-                onPress={() => onAttack(detail.id)}
-                activeOpacity={0.85}
-                style={{
-                  backgroundColor: colors.danger,
-                  borderRadius: radius.lg,
-                  paddingVertical: 14,
-                  alignItems: 'center',
-                  marginBottom: 8,
-                }}
-              >
-                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '800' }}>침략하기</Text>
-              </TouchableOpacity>
-            )}
+                {detail.deployedCharacters.length === 0 ? (
+                  <View style={{
+                    backgroundColor: colors.surface, borderRadius: radius.md,
+                    padding: 20, alignItems: 'center', marginBottom: 16,
+                  }}>
+                    <Text style={{ color: colors.textMuted, fontSize: 13 }}>배치된 캐릭터가 없습니다</Text>
+                  </View>
+                ) : (
+                  <View style={{ marginBottom: 16 }}>
+                    {detail.deployedCharacters.map(c => (
+                      <CharacterCard key={c.id} char={c} colors={colors} />
+                    ))}
+                  </View>
+                )}
+
+                {!detail.isMine && onAttack && (
+                  <TouchableOpacity
+                    onPress={() => onAttack(detail.id)}
+                    activeOpacity={0.85}
+                    style={{
+                      backgroundColor: colors.danger, borderRadius: radius.lg,
+                      paddingVertical: 14, alignItems: 'center', marginBottom: 8,
+                    }}
+                  >
+                    <Text style={{ color: '#fff', fontSize: 16, fontWeight: '800' }}>침략하기</Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            ) : null}
 
             <TouchableOpacity
               onPress={onClose}
               activeOpacity={0.85}
               style={{
-                backgroundColor: colors.surface,
-                borderRadius: radius.lg,
-                paddingVertical: 14,
-                alignItems: 'center',
+                backgroundColor: colors.surface, borderRadius: radius.lg,
+                paddingVertical: 14, alignItems: 'center',
               }}
             >
               <Text style={{ color: colors.textSecondary, fontSize: 15, fontWeight: '700' }}>닫기</Text>
