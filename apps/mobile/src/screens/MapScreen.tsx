@@ -47,6 +47,7 @@ export function MapScreen() {
   const mapRef = useRef<MapView>(null);
   const regionRef = useRef(INITIAL_REGION);
   const userLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const initialMoveDone = useRef(false);
   const user = useAuthStore(s => s.user);
   const [territories, setTerritories] = useState<Territory[]>([]);
   const [selectedTerritoryId, setSelectedTerritoryId] = useState<number | null>(null);
@@ -113,7 +114,14 @@ export function MapScreen() {
         }}
         onUserLocationChange={(e) => {
           const c = e.nativeEvent.coordinate;
-          if (c) userLocationRef.current = { latitude: c.latitude, longitude: c.longitude };
+          if (!c) return;
+          userLocationRef.current = { latitude: c.latitude, longitude: c.longitude };
+          if (!initialMoveDone.current) {
+            initialMoveDone.current = true;
+            const region = { latitude: c.latitude, longitude: c.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 };
+            mapRef.current?.animateToRegion(region, 500);
+            fetchTerritories(region);
+          }
         }}
         showsUserLocation
         showsMyLocationButton={false}
