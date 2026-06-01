@@ -118,6 +118,57 @@ export class UsersService {
     return user;
   }
 
+  async findByIdWithRepresentativeCharacter(id: number): Promise<{
+    id: number;
+    nickname: string;
+    character: {
+      name: string;
+      type: string;
+      grade: string;
+      imageUrl: string | null;
+    } | null;
+  }> {
+    const rows = await this.dataSource.query<
+      Array<{
+        id: number;
+        nickname: string;
+        c_name: string | null;
+        c_type: string | null;
+        c_grade: string | null;
+        c_image_url: string | null;
+      }>
+    >(
+      `SELECT u.id, u.nickname,
+              c.name  AS c_name,
+              c.type  AS c_type,
+              c.grade AS c_grade,
+              c.image_url AS c_image_url
+       FROM users u
+       LEFT JOIN user_characters uc ON uc.id = u.representative_character_id
+       LEFT JOIN characters c ON c.id = uc.character_id
+       WHERE u.id = ?`,
+      [id],
+    );
+
+    if (!rows.length) {
+      throw new NotFoundException('사용자를 찾을 수 없습니다.');
+    }
+
+    const row = rows[0];
+    return {
+      id: row.id,
+      nickname: row.nickname,
+      character: row.c_name
+        ? {
+            name: row.c_name,
+            type: row.c_type!,
+            grade: row.c_grade!,
+            imageUrl: row.c_image_url,
+          }
+        : null,
+    };
+  }
+
   async updateNickname(id: number, nickname: string) {
     const user = await this.findById(id);
     const trimmedNickname = nickname.trim();
