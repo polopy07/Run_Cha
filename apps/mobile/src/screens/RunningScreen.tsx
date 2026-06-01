@@ -3,14 +3,31 @@ import {
   View, Text, TouchableOpacity,
   Alert, ActivityIndicator, Platform, StatusBar,
 } from 'react-native';
-import MapView, { Polyline, PROVIDER_GOOGLE, PROVIDER_DEFAULT } from 'react-native-maps';
+import MapView, { Polygon, Polyline, PROVIDER_GOOGLE, PROVIDER_DEFAULT, type Region } from 'react-native-maps';
 import useRunningStore from '../store/runningStore';
-import useAuthStore from '../store/authStore';
 import { finishRunning as finishRunningAPI } from '../api/running';
 import { useTheme } from '../contexts/ThemeContext';
 import { radius, mapCardShadow } from '../constants/theme';
 import { darkMapStyle } from '../constants/mapStyle';
 import { useGPS, getLastLocation } from '../hooks/useGPS';
+import { getTerritories, type Territory } from '../api/territory';
+import useAuthStore from '../store/authStore';
+
+function hslToHex(h: number, s: number, l: number): string {
+  s /= 100; l /= 100;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    return Math.round(255 * color).toString(16).padStart(2, '0');
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+function getUserColor(userId: number | undefined): string {
+  if (userId == null) return '#888888';
+  return hslToHex((userId * 137.508) % 360, 70, 55);
+}
 
 const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 
@@ -45,6 +62,20 @@ export function RunningScreen() {
   } = useRunningStore();
 
   const fetchMe = useAuthStore(s => s.fetchMe);
+  const user = useAuthStore(s => s.user);
+  const [territories, setTerritories] = useState<Territory[]>([]);
+
+  const fetchNearbyTerritories = useCallback(async (region: Region) => {
+    try {
+      const data = await getTerritories({
+        minLat: region.latitude - region.latitudeDelta / 2,
+        maxLat: region.latitude + region.latitudeDelta / 2,
+        minLng: region.longitude - region.longitudeDelta / 2,
+        maxLng: region.longitude + region.longitudeDelta / 2,
+      });
+      setTerritories(data);
+    } catch {}
+  }, []);
 
   useEffect(() => {
     const last = getLastLocation();
@@ -256,7 +287,21 @@ export function RunningScreen() {
         showsUserLocation showsMyLocationButton={false}
         followsUserLocation={Platform.OS === 'ios'}
         onUserLocationChange={handleUserLocationChange}
+        onRegionChangeComplete={(r) => fetchNearbyTerritories(r)}
       >
+        {territories.map((t) => {
+          const isMine = t.userId === user?.id;
+          const color = isMine ? colors.primary : getUserColor(t.userId);
+          return (
+            <Polygon
+              key={t.id}
+              coordinates={t.coordinates.map(c => ({ latitude: c.lat, longitude: c.lng }))}
+              fillColor={color + '30'}
+              strokeColor={color + '80'}
+              strokeWidth={isMine ? 2 : 1}
+            />
+          );
+        })}
         {polylineCoords.length > 1 && (
           <Polyline coordinates={polylineCoords} strokeColor={colors.primary} strokeWidth={5} />
         )}
