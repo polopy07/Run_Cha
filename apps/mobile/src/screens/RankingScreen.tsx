@@ -23,20 +23,27 @@ export function RankingScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>('area');
-  const [data, setData] = useState<RankEntry[]>([]);
+  const [areaData, setAreaData] = useState<RankEntry[]>([]);
+  const [distData, setDistData] = useState<RankEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const fetch = useCallback(async (loader = true) => {
+  const fetchAll = useCallback(async (loader = true) => {
     if (loader) setIsLoading(true);
     try {
-      const res = tab === 'area' ? await getAreaRanking() : await getDistanceRanking();
-      setData((res as { rankings: RankEntry[] }).rankings ?? []);
-    } catch { setData([]); } finally { setIsLoading(false); setIsRefreshing(false); }
-  }, [tab]);
+      const [areaRes, distRes] = await Promise.all([getAreaRanking(), getDistanceRanking()]);
+      setAreaData((areaRes as { rankings: RankEntry[] }).rankings ?? []);
+      setDistData((distRes as { rankings: RankEntry[] }).rankings ?? []);
+    } catch {
+      setAreaData([]);
+      setDistData([]);
+    } finally { setIsLoading(false); setIsRefreshing(false); }
+  }, []);
 
-  useEffect(() => { fetch(); }, [fetch]);
-  const onRefresh = () => { setIsRefreshing(true); fetch(false); };
+  useEffect(() => { fetchAll(); }, [fetchAll]);
+  const onRefresh = () => { setIsRefreshing(true); fetchAll(false); };
+
+  const data = tab === 'area' ? areaData : distData;
 
   const renderItem = ({ item }: { item: RankEntry }) => {
     const isTop = item.rank <= 3;
