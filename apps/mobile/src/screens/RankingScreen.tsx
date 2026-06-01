@@ -31,7 +31,7 @@ export function RankingScreen() {
     if (loader) setIsLoading(true);
     try {
       const res = tab === 'area' ? await getAreaRanking() : await getDistanceRanking();
-      setData(res as RankEntry[]);
+      setData((res as { rankings: RankEntry[] }).rankings ?? []);
     } catch { setData([]); } finally { setIsLoading(false); setIsRefreshing(false); }
   }, [tab]);
 
