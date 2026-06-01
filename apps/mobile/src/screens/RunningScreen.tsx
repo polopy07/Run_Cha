@@ -3,14 +3,14 @@ import {
   View, Text, TouchableOpacity,
   Alert, ActivityIndicator, Platform, StatusBar,
 } from 'react-native';
-import MapView, { Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Polyline, PROVIDER_GOOGLE, PROVIDER_DEFAULT } from 'react-native-maps';
 import useRunningStore from '../store/runningStore';
 import useAuthStore from '../store/authStore';
 import { finishRunning as finishRunningAPI } from '../api/running';
 import { useTheme } from '../contexts/ThemeContext';
 import { radius, mapCardShadow } from '../constants/theme';
 import { darkMapStyle } from '../constants/mapStyle';
-import { useGPS } from '../hooks/useGPS';
+import { useGPS, getLastLocation } from '../hooks/useGPS';
 
 const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 
@@ -45,6 +45,18 @@ export function RunningScreen() {
   } = useRunningStore();
 
   const fetchMe = useAuthStore(s => s.fetchMe);
+
+  useEffect(() => {
+    const last = getLastLocation();
+    if (!last) return;
+    const id = setTimeout(() => {
+      mapRef.current?.animateToRegion(
+        { latitude: last.latitude, longitude: last.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 },
+        500,
+      );
+    }, 300);
+    return () => clearTimeout(id);
+  }, []);
 
   useEffect(() => {
     if (phase !== 'running') return;
@@ -84,7 +96,7 @@ export function RunningScreen() {
   );
 
   const handleStart = async () => {
-    if (!gps.currentLocation) {
+    if (!gps.currentLocation && Platform.OS === 'android') {
       Alert.alert('위치 오류', '현재 위치를 확인할 수 없습니다.\n위치 권한을 허용해주세요.');
       return;
     }
@@ -204,8 +216,8 @@ export function RunningScreen() {
           <View style={{ width: '100%', height: 180, borderRadius: radius.md, overflow: 'hidden', marginBottom: 24 }}>
             <MapView
               style={{ flex: 1 }}
-              provider={PROVIDER_GOOGLE}
-              customMapStyle={isDark ? darkMapStyle : []}
+              provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
+              customMapStyle={Platform.OS === 'android' && isDark ? darkMapStyle : undefined}
               initialRegion={{
                 latitude: polylineCoords[0].latitude, longitude: polylineCoords[0].longitude,
                 latitudeDelta: 0.01, longitudeDelta: 0.01,
@@ -233,10 +245,16 @@ export function RunningScreen() {
       <MapView
         ref={mapRef}
         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-        provider={PROVIDER_GOOGLE}
-        initialRegion={DEFAULT_REGION}
-        customMapStyle={isDark ? darkMapStyle : []}
+        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
+        initialRegion={(() => {
+          const last = getLastLocation();
+          return last
+            ? { latitude: last.latitude, longitude: last.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 }
+            : DEFAULT_REGION;
+        })()}
+        customMapStyle={Platform.OS === 'android' && isDark ? darkMapStyle : undefined}
         showsUserLocation showsMyLocationButton={false}
+        followsUserLocation={Platform.OS === 'ios'}
         onUserLocationChange={handleUserLocationChange}
       >
         {polylineCoords.length > 1 && (
