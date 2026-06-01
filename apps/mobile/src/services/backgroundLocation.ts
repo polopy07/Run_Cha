@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import BackgroundService from 'react-native-background-actions';
 
 const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
@@ -14,10 +15,9 @@ const options = {
   taskName: 'RunTerritory',
   taskTitle: 'Run Territory',
   taskDesc: '러닝 중 GPS를 기록하고 있습니다',
-  taskIcon: {
-    name: 'ic_launcher',
-    type: 'mipmap',
-  },
+  ...(Platform.OS === 'android' && {
+    taskIcon: { name: 'ic_launcher', type: 'mipmap' },
+  }),
   color: '#3EEBBE',
   linkingURI: undefined,
   parameters: { delay: 3000 },
