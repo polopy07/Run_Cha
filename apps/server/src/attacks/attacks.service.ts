@@ -14,6 +14,7 @@ import { CharacterType } from '../characters/entities/character.entity';
 import { UserCharacter } from '../characters/entities/user-character.entity';
 import { RunningLog } from '../running/entities/running-log.entity';
 import { Territory } from '../territories/entities/territory.entity';
+import { EventsGateway } from '../socket/events.gateway';
 
 const MIN_ATTACK_OVERLAP_RATE = 30;
 const DAILY_ATTACK_LIMIT = 5;
@@ -45,6 +46,7 @@ export class AttacksService {
     private readonly runningLogsRepository: Repository<RunningLog>,
     @InjectRepository(UserCharacter)
     private readonly userCharactersRepository: Repository<UserCharacter>,
+    private readonly eventsGateway: EventsGateway,
   ) {}
 
   async attack(
@@ -142,6 +144,10 @@ export class AttacksService {
         await this.releaseDailyAttackLock(manager, lockKey);
       }
     });
+
+    if (outcome.success) {
+      this.eventsGateway.broadcastTerritoryUpdate();
+    }
 
     return {
       success: outcome.success,

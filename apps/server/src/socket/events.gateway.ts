@@ -140,6 +140,14 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.broadcastToNearby(client.id, user, event, this.toPayload(user));
   }
 
+  broadcastRankingUpdate() {
+    this.server?.emit('ranking:update');
+  }
+
+  broadcastTerritoryUpdate() {
+    this.server?.emit('territory:update');
+  }
+
   private broadcastToNearby(
     senderSocketId: string,
     sender: OnlineUser,

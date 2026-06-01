@@ -7,11 +7,13 @@ import { RunningLog } from '../running/entities/running-log.entity';
 import { Territory } from '../territories/entities/territory.entity';
 import { UsersModule } from '../users/users.module';
 import { UserCharacter } from '../characters/entities/user-character.entity';
+import { SocketModule } from '../socket/socket.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([AttackLog, RunningLog, Territory, UserCharacter]),
     UsersModule,
+    SocketModule,
   ],
   controllers: [AttacksController],
   providers: [AttacksService],
