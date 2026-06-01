@@ -19,6 +19,7 @@ type OnlineUser = {
 
 interface GatewayInternal {
   onlineUsers: Map<string, OnlineUser>;
+  userSockets: Map<number, Set<string>>;
   server: { to: jest.Mock };
 }
 
@@ -39,7 +40,7 @@ function addUser(
   socketId: string,
   overrides: Partial<OnlineUser> = {},
 ) {
-  internal(gateway).onlineUsers.set(socketId, {
+  const user: OnlineUser = {
     userId: 1,
     nickname: 'test',
     lat: 0,
@@ -47,7 +48,12 @@ function addUser(
     character: null,
     hasLocation: false,
     ...overrides,
-  });
+  };
+  internal(gateway).onlineUsers.set(socketId, user);
+
+  const sockets = internal(gateway).userSockets.get(user.userId) ?? new Set<string>();
+  sockets.add(socketId);
+  internal(gateway).userSockets.set(user.userId, sockets);
 }
 
 describe('distanceKm', () => {

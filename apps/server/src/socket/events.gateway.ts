@@ -51,6 +51,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly server: Server;
 
   private readonly onlineUsers = new Map<string, OnlineUser>();
+  private readonly userSockets = new Map<number, Set<string>>();
 
   constructor(
     private readonly jwtService: JwtService,
@@ -68,10 +69,9 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       const payload =
         await this.jwtService.verifyAsync<AuthTokenPayload>(token);
-      const user =
-        await this.usersService.findByIdWithRepresentativeCharacter(
-          payload.sub,
-        );
+      const user = await this.usersService.findByIdWithRepresentativeCharacter(
+        payload.sub,
+      );
 
       this.onlineUsers.set(client.id, {
         userId: user.id,
@@ -81,7 +81,12 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         character: user.character,
         hasLocation: false,
       });
-    } catch {
+
+      const sockets = this.userSockets.get(user.id) ?? new Set<string>();
+      sockets.add(client.id);
+      this.userSockets.set(user.id, sockets);
+    } catch (err) {
+      console.warn('[EventsGateway] handleConnection failed:', err);
       client.disconnect();
     }
   }
@@ -90,13 +95,22 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const user = this.onlineUsers.get(client.id);
     if (!user) return;
 
-    if (user.hasLocation) {
+    this.onlineUsers.delete(client.id);
+
+    const sockets = this.userSockets.get(user.userId);
+    if (sockets) {
+      sockets.delete(client.id);
+      if (sockets.size === 0) {
+        this.userSockets.delete(user.userId);
+      }
+    }
+
+    // 마지막 소켓이 끊길 때만 user:offline 발행
+    if (user.hasLocation && (sockets?.size ?? 0) === 0) {
       this.broadcastToNearby(client.id, user, 'user:offline', {
         userId: user.userId,
       });
     }
-
-    this.onlineUsers.delete(client.id);
   }
 
   @SubscribeMessage('location:update')
@@ -132,10 +146,17 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     event: string,
     payload: unknown,
   ) {
+    const emittedUserIds = new Set<number>();
     for (const [socketId, user] of this.onlineUsers) {
-      if (socketId === senderSocketId || !user.hasLocation) continue;
+      if (socketId === senderSocketId) continue;
+      if (user.userId === sender.userId) continue;
+      if (!user.hasLocation) continue;
+      if (emittedUserIds.has(user.userId)) continue;
       if (distanceKm(sender.lat, sender.lng, user.lat, user.lng) <= 2) {
-        this.server.to(socketId).emit(event, payload);
+        for (const sid of this.userSockets.get(user.userId) ?? []) {
+          this.server.to(sid).emit(event, payload);
+        }
+        emittedUserIds.add(user.userId);
       }
     }
   }

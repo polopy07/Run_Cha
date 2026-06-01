@@ -128,42 +128,25 @@ export class UsersService {
       imageUrl: string | null;
     } | null;
   }> {
-    const rows = await this.dataSource.query<
-      Array<{
-        id: number;
-        nickname: string;
-        c_name: string | null;
-        c_type: string | null;
-        c_grade: string | null;
-        c_image_url: string | null;
-      }>
-    >(
-      `SELECT u.id, u.nickname,
-              c.name  AS c_name,
-              c.type  AS c_type,
-              c.grade AS c_grade,
-              c.image_url AS c_image_url
-       FROM users u
-       LEFT JOIN user_characters uc ON uc.id = u.representative_character_id
-       LEFT JOIN characters c ON c.id = uc.character_id
-       WHERE u.id = ?`,
-      [id],
-    );
+    const user = await this.usersRepository.findOne({
+      where: { id },
+      relations: ['representative_character', 'representative_character.character'],
+    });
 
-    if (!rows.length) {
+    if (!user) {
       throw new NotFoundException('사용자를 찾을 수 없습니다.');
     }
 
-    const row = rows[0];
+    const uc = user.representative_character;
     return {
-      id: row.id,
-      nickname: row.nickname,
-      character: row.c_name
+      id: user.id,
+      nickname: user.nickname,
+      character: uc?.character
         ? {
-            name: row.c_name,
-            type: row.c_type!,
-            grade: row.c_grade!,
-            imageUrl: row.c_image_url,
+            name: uc.character.name,
+            type: uc.character.type,
+            grade: uc.character.grade,
+            imageUrl: uc.character.image_url,
           }
         : null,
     };

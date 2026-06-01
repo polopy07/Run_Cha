@@ -263,19 +263,25 @@ describe('UsersService', () => {
 
   describe('findByIdWithRepresentativeCharacter', () => {
     it('대표 캐릭터가 있으면 character 정보를 포함해 반환한다', async () => {
-      dataSource.query.mockResolvedValue([
-        {
-          id: 1,
-          nickname: 'runner',
-          c_name: '공격형1',
-          c_type: 'attack',
-          c_grade: 'common',
-          c_image_url: 'attack_common',
+      usersRepository.findOne.mockResolvedValue({
+        id: 1,
+        nickname: 'runner',
+        representative_character: {
+          character: {
+            name: '공격형1',
+            type: 'attack',
+            grade: 'common',
+            image_url: 'attack_common',
+          },
         },
-      ]);
+      });
 
       const result = await service.findByIdWithRepresentativeCharacter(1);
 
+      expect(usersRepository.findOne).toHaveBeenCalledWith({
+        where: { id: 1 },
+        relations: ['representative_character', 'representative_character.character'],
+      });
       expect(result).toEqual({
         id: 1,
         nickname: 'runner',
@@ -289,16 +295,11 @@ describe('UsersService', () => {
     });
 
     it('대표 캐릭터 미설정 유저는 character: null을 반환한다', async () => {
-      dataSource.query.mockResolvedValue([
-        {
-          id: 2,
-          nickname: 'nochar',
-          c_name: null,
-          c_type: null,
-          c_grade: null,
-          c_image_url: null,
-        },
-      ]);
+      usersRepository.findOne.mockResolvedValue({
+        id: 2,
+        nickname: 'nochar',
+        representative_character: null,
+      });
 
       const result = await service.findByIdWithRepresentativeCharacter(2);
 
@@ -306,7 +307,7 @@ describe('UsersService', () => {
     });
 
     it('존재하지 않는 유저 ID는 NotFoundException을 던진다', async () => {
-      dataSource.query.mockResolvedValue([]);
+      usersRepository.findOne.mockResolvedValue(null);
 
       await expect(
         service.findByIdWithRepresentativeCharacter(999),
