@@ -10,7 +10,7 @@ import { finishRunning as finishRunningAPI } from '../api/running';
 import { useTheme } from '../contexts/ThemeContext';
 import { radius, mapCardShadow } from '../constants/theme';
 import { darkMapStyle } from '../constants/mapStyle';
-import { useGPS } from '../hooks/useGPS';
+import { useGPS, getLastLocation } from '../hooks/useGPS';
 
 const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 
@@ -45,6 +45,18 @@ export function RunningScreen() {
   } = useRunningStore();
 
   const fetchMe = useAuthStore(s => s.fetchMe);
+
+  useEffect(() => {
+    const last = getLastLocation();
+    if (last) {
+      setTimeout(() => {
+        mapRef.current?.animateToRegion(
+          { latitude: last.latitude, longitude: last.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 },
+          500,
+        );
+      }, 300);
+    }
+  }, []);
 
   useEffect(() => {
     if (phase !== 'running') return;
@@ -234,7 +246,12 @@ export function RunningScreen() {
         ref={mapRef}
         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
-        initialRegion={DEFAULT_REGION}
+        initialRegion={(() => {
+          const last = getLastLocation();
+          return last
+            ? { latitude: last.latitude, longitude: last.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 }
+            : DEFAULT_REGION;
+        })()}
         customMapStyle={isDark ? darkMapStyle : []}
         showsUserLocation showsMyLocationButton={false}
         followsUserLocation={Platform.OS === 'ios'}

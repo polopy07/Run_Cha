@@ -10,8 +10,12 @@ export type LatLng = {
   longitude: number;
 };
 
+// 화면 간 마지막 위치 공유 (각 useGPS() 인스턴스가 독립적 state를 가져서)
+let _lastLocation: LatLng | null = null;
+export const getLastLocation = () => _lastLocation;
+
 export function useGPS() {
-  const [currentLocation, setCurrentLocation] = useState<LatLng | null>(null);
+  const [currentLocation, setCurrentLocation] = useState<LatLng | null>(_lastLocation);
   const [isTracking, setIsTracking] = useState(false);
 
   useEffect(() => {
@@ -25,6 +29,7 @@ export function useGPS() {
     (e: { nativeEvent: { coordinate?: LatLng } }) => {
       const coord = e.nativeEvent.coordinate;
       if (!coord) return;
+      _lastLocation = coord;
       setCurrentLocation(coord);
     },
     [],
