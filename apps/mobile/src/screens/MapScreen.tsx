@@ -9,6 +9,8 @@ import { radius, mapCardShadow } from '../constants/theme';
 import { darkMapStyle } from '../constants/mapStyle';
 import useAuthStore from '../store/authStore';
 import { getTerritories, type Territory } from '../api/territory';
+import { TerritoryDetailSheet } from '../components/TerritoryDetailSheet';
+import { AttackTerritoryPanel } from '../components/attack/AttackTerritoryPanel';
 
 function hslToHex(h: number, s: number, l: number): string {
   s /= 100;
@@ -47,6 +49,10 @@ export function MapScreen() {
   const userLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const user = useAuthStore(s => s.user);
   const [territories, setTerritories] = useState<Territory[]>([]);
+  const [selectedTerritoryId, setSelectedTerritoryId] = useState<number | null>(null);
+  const [detailVisible, setDetailVisible] = useState(false);
+  const [attackTerritoryId, setAttackTerritoryId] = useState<number | null>(null);
+  const [attackVisible, setAttackVisible] = useState(false);
 
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -122,6 +128,11 @@ export function MapScreen() {
               fillColor={color + '40'}
               strokeColor={color}
               strokeWidth={isMine ? 3 : 2}
+              tappable
+              onPress={() => {
+                setSelectedTerritoryId(t.id);
+                setDetailVisible(true);
+              }}
             />
           );
         })}
@@ -197,6 +208,28 @@ export function MapScreen() {
           <Text style={{ color: colors.bg, fontSize: 16, fontWeight: '800' }}>러닝 시작</Text>
         </TouchableOpacity>
       </View>
+
+      <TerritoryDetailSheet
+        visible={detailVisible}
+        territoryId={selectedTerritoryId}
+        onClose={() => { setDetailVisible(false); setSelectedTerritoryId(null); }}
+        onAttack={(id) => {
+          setDetailVisible(false);
+          setAttackTerritoryId(id);
+          setAttackVisible(true);
+        }}
+      />
+
+      <AttackTerritoryPanel
+        visible={attackVisible}
+        territoryId={attackTerritoryId}
+        onClose={() => { setAttackVisible(false); setAttackTerritoryId(null); }}
+        onCompleted={() => {
+          setAttackVisible(false);
+          setAttackTerritoryId(null);
+          fetchTerritories(regionRef.current);
+        }}
+      />
     </View>
   );
 }
