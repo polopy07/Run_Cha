@@ -99,7 +99,7 @@ export function MapScreen() {
         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
         initialRegion={INITIAL_REGION}
-        customMapStyle={Platform.OS === 'android' && isDark ? darkMapStyle : []}
+        customMapStyle={Platform.OS === 'android' && isDark ? darkMapStyle : undefined}
         onRegionChangeComplete={(r) => {
           regionRef.current = r;
           if (fetchTimer.current) clearTimeout(fetchTimer.current);
