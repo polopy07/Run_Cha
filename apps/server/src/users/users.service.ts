@@ -32,12 +32,38 @@ export class UsersService {
     email: string,
     displayName?: string,
   ) {
-    const existingUser = await this.usersRepository.findOne({
+    const existingUserByUid = await this.usersRepository.findOne({
       where: { firebase_uid: firebaseUid },
     });
 
-    if (existingUser) {
-      return existingUser;
+    if (existingUserByUid) {
+      return existingUserByUid;
+    }
+
+    const existingUserByEmail = await this.usersRepository.findOne({
+      where: { email },
+    });
+
+    if (existingUserByEmail) {
+      return this.dataSource.transaction(async (manager) => {
+        const usersRepository = manager.getRepository(User);
+        const previousFirebaseUid = existingUserByEmail.firebase_uid;
+        const user = await usersRepository.findOne({
+          where: { email },
+          lock: { mode: 'pessimistic_write' },
+        });
+
+        if (!user) {
+          throw new NotFoundException('User not found.');
+        }
+
+        if (user.firebase_uid !== previousFirebaseUid) {
+          return user;
+        }
+
+        user.firebase_uid = firebaseUid;
+        return usersRepository.save(user);
+      });
     }
 
     return this.dataSource.transaction(async (manager) => {

@@ -2,36 +2,42 @@ import * as admin from 'firebase-admin';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
+function getServiceAccountFromEnv(): admin.ServiceAccount | null {
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+
+  const hasAnyEnv = projectId || clientEmail || privateKey;
+  const hasAllEnv = projectId && clientEmail && privateKey;
+
+  if (hasAnyEnv && !hasAllEnv) {
+    throw new Error(
+      'Firebase Admin env vars are incomplete. Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY together.',
+    );
+  }
+
+  if (!hasAllEnv) {
+    return null;
+  }
+
+  return {
+    projectId,
+    clientEmail,
+    privateKey: privateKey.replace(/\\n/g, '\n'),
+  };
+}
+
 function initializeFirebaseAdmin() {
   if (admin.apps.length) {
     return admin;
   }
 
-  const projectId = process.env.FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
-
-  const hasAnyEnvVar = projectId || clientEmail || privateKey;
-  if (hasAnyEnvVar) {
-    const missing = [
-      !projectId && 'FIREBASE_PROJECT_ID',
-      !clientEmail && 'FIREBASE_CLIENT_EMAIL',
-      !privateKey && 'FIREBASE_PRIVATE_KEY',
-    ].filter(Boolean);
-
-    if (missing.length > 0) {
-      throw new Error(
-        `Firebase 환경변수가 일부 누락되었습니다: ${missing.join(', ')}`,
-      );
-    }
-
+  const envServiceAccount = getServiceAccountFromEnv();
+  if (envServiceAccount) {
     admin.initializeApp({
-      credential: admin.credential.cert({
-        projectId: projectId!,
-        clientEmail: clientEmail!,
-        privateKey: privateKey!,
-      }),
+      credential: admin.credential.cert(envServiceAccount),
     });
+
     console.log('[Firebase] initialized via env vars');
     return admin;
   }
