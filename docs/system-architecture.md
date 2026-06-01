@@ -288,6 +288,8 @@ const earnedPoints = isClosedLoop ? basePoints : Math.floor(basePoints * 1.3);
 
 캐릭터 최대 보유 개수는 30개이며, 보유 페이지에서는 등급별/능력 타입별 정렬과 캐릭터 상세 화면 진입을 제공한다.
 
+분해는 한 번에 최대 29개까지 가능하며, 분해 후에도 최소 1개의 캐릭터는 보유해야 한다. 분해로 획득한 스탯 포인트는 `users.stat_points`에 누적 저장한다.
+
 ### 3.7 영토 침략 흐름
 
 ```text
@@ -328,7 +330,7 @@ const success = occupationRateAfter < territory.occupation_rate;
 
 ```text
 1. 앱이 지도 바운딩 박스 기준으로 GET /territories 호출
-2. 지도는 경량 목록 응답으로 영토 polygon, 면적, 소유자 ID 등 기본 정보를 표시
+2. 지도는 경량 목록 응답으로 영토 polygon, 면적, 소유자 ID, 보유자 이름 등 기본 정보를 표시
 3. 사용자가 점령된 영토를 선택
 4. 앱이 영토 상세 화면을 열고 필요 시 GET /territories/:id 호출
 5. 상세 화면은 보유자 이름, 배치 캐릭터 스탯 등 상세 정보를 표시
@@ -337,7 +339,7 @@ const success = occupationRateAfter < territory.occupation_rate;
 
 지도 화면은 영토 목록의 소유자 식별값으로 내 영토와 다른 사용자 영토의 색상 및 클릭 분기를 처리한다. 목록/상세 응답 필드 기준은 `api-spec.md`의 영토 API 명세를 따른다.
 
-메뉴의 내 영토 관리 화면은 `GET /territories/me`를 사용해 현재 사용자의 보유 영토 목록을 조회하고, 지도 표시와 영토 이름 수정, 캐릭터 배치/회수 흐름으로 연결한다. 영토 이름 기능은 `territories.name` 컬럼 마이그레이션 이후 활성화한다.
+메뉴의 내 영토 관리 화면은 `GET /territories/me`를 사용해 현재 사용자의 보유 영토 목록을 조회하고, 지도 표시와 영토 이름 수정, 캐릭터 배치/회수 흐름으로 연결한다.
 
 ---
 
