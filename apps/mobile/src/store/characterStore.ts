@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { apiFetch } from '../api/client';
+import { getCharacters } from '../api/character';
 
 export type Character = {
   id: number;
@@ -21,6 +21,7 @@ type CharacterState = {
 
   fetchCharacters: () => Promise<void>;
   addCharacter: (character: Character) => void;
+  updateCharacter: (character: Character) => void;
 };
 
 const useCharacterStore = create<CharacterState>((set, get) => ({
@@ -30,8 +31,10 @@ const useCharacterStore = create<CharacterState>((set, get) => ({
   fetchCharacters: async () => {
     set({ isLoading: true });
     try {
-      const data = await apiFetch<Character[]>('/characters/me');
+      const data = await getCharacters();
       set({ characters: data });
+    } catch (error) {
+      throw error;
     } finally {
       set({ isLoading: false });
     }
@@ -39,6 +42,14 @@ const useCharacterStore = create<CharacterState>((set, get) => ({
 
   addCharacter: (character) => {
     set({ characters: [...get().characters, character] });
+  },
+
+  updateCharacter: (character) => {
+    set({
+      characters: get().characters.map((current) =>
+        current.id === character.id ? character : current,
+      ),
+    });
   },
 }));
 

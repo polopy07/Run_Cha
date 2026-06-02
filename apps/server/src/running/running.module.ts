@@ -4,9 +4,10 @@ import { RunningLog } from './entities/running-log.entity';
 import { User } from '../users/entities/user.entity';
 import { RunningController } from './running.controller';
 import { RunningService } from './running.service';
+import { UsersModule } from '../users/users.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([RunningLog, User])],
+  imports: [TypeOrmModule.forFeature([RunningLog, User]), UsersModule],
   controllers: [RunningController],
   providers: [RunningService],
 })

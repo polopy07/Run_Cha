@@ -18,6 +18,9 @@ export class Territory {
   @Column()
   user_id: number;
 
+  @Column({ type: 'varchar', length: 100, nullable: true, default: null })
+  name: string | null;
+
   @Column({ type: 'json' })
   coordinates: { lat: number; lng: number }[];
 

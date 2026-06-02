@@ -1,4 +1,4 @@
-# RUN TERRITORY API 명세서 초안
+﻿# RUN TERRITORY API 명세서 초안
 
 ## 1. 문서 목적
 
@@ -25,6 +25,12 @@ Authorization: Bearer {token}
 ```
 
 Firebase ID Token은 `POST /auth/login`에서만 사용한다. 서버는 Firebase ID Token을 검증한 뒤 서버 JWT를 발급하며, 이후 보호 API는 서버 JWT를 사용한다.
+
+엔드포인트 목록의 인증 표기는 다음 기준을 사용한다.
+
+- `O`: 인증 필요
+- `X`: 인증 불필요
+- `△`: 인증 선택. `OptionalJwtAuthGuard` 기준으로 비로그인 요청도 가능하지만, 로그인 요청이면 사용자 기준 추가 필드를 계산한다.
 
 ### 공통 에러 응답
 
@@ -77,8 +83,8 @@ Firebase Auth 로그인/회원가입 후 발급받은 ID Token을 서버에 전�
 | email | string | 사용자 이메일 |
 | nickname | string | 사용자 닉네임 |
 | points | number | 보유 포인트 |
+| statPoints | number | 보유 스탯 포인트 |
 | totalDistance | number | 누적 러닝 거리 |
-| pityCount | number | 가챠 천장 카운트 |
 
 #### 닉네임 초기값 정책
 
@@ -107,8 +113,8 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | email | string | 사용자 이메일 |
 | nickname | string | 사용자 닉네임 |
 | points | number | 보유 포인트 |
+| statPoints | number | 보유 스탯 포인트 |
 | totalDistance | number | 누적 러닝 거리 |
-| pityCount | number | 가챠 천장 카운트 |
 
 ### PATCH `/users/me/nickname`
 
@@ -128,8 +134,8 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | email | string | 사용자 이메일 |
 | nickname | string | 변경된 사용자 닉네임 |
 | points | number | 보유 포인트 |
+| statPoints | number | 보유 스탯 포인트 |
 | totalDistance | number | 누적 러닝 거리 |
-| pityCount | number | 가챠 천장 카운트 |
 
 ---
 
@@ -139,8 +145,11 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 |---|---|---|---|
 | POST | `/running/start` | O | 러닝 시작 기록. 필요 여부 결정 필요 |
 | POST | `/running/finish` | O | 러닝 종료, 경로 저장, 면적/포인트 계산, 영토 생성 처리 |
+| GET | `/running/logs` | O | 현재 로그인 사용자의 러닝 기록 목록 조회 |
 | GET | `/territories` | X | 현재 지도 범위 내 영토 목록 조회 |
+| GET | `/territories/:id` | △ | 영토 상세 조회. 로그인 시 `isMine` 판별 |
 | GET | `/territories/me` | O | 현재 로그인 사용자의 보유 영토 목록 조회 |
+| PATCH | `/territories/:id/name` | O | 내 영토 이름 변경 |
 | POST | `/territories/:id/attack` | O | 특정 영토 침략 처리 |
 
 ### POST `/running/start`
@@ -204,6 +213,26 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 
 > 현재 서버 DTO에 `distance_km`가 필수값으로 남아 있다면, 문서 기준에 맞춰 별도 서버 작업에서 optional 처리해야 한다.
 
+### GET `/running/logs`
+
+현재 로그인 사용자의 러닝 기록 목록을 조회한다.
+
+침략 실행 화면에서 사용자가 침략에 사용할 러닝 기록을 선택할 때 사용한다.
+
+현재 구현은 별도 페이지네이션 없이 최신 20개 기록을 반환한다. 러닝 기록 전체 조회나 이전 기록 더보기 기능이 필요해지면 `cursor` 또는 `lastId` 기반 페이지네이션을 추가한다.
+
+#### Response
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| id | number | 러닝 로그 ID |
+| distanceKm | number | 러닝 거리(km) |
+| earnedPoints | number | 획득 포인트 |
+| avgPace | number | 평균 페이스 |
+| areaSqm | number | 생성 또는 계산된 면적 |
+| startedAt | string (ISO 8601) | 러닝 시작 시각 |
+| endedAt | string (ISO 8601) \| null | 러닝 종료 시각 |
+
 ### GET `/territories`
 
 현재 지도 범위 내 영토 목록을 조회한다.
@@ -222,9 +251,47 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | 필드 | 타입 | 설명 |
 |---|---|---|
 | id | number | 영토 ID |
+| name | string \| null | 영토 이름. 사용자가 지정하지 않은 경우 `null` |
+| userId | number | 소유 사용자 ID. 현재 로그인 사용자 ID와 비교해 내 영토/다른 사용자 영토를 구분할 때 사용 |
+| ownerNickname | string \| null | 보유자 닉네임. 지도 위 간단한 라벨 표시에 사용 |
 | coordinates | `{ lat: number, lng: number }[]` | 영토 좌표 데이터 |
 | areaSqm | number | 영토 면적 |
 | occupationRate | number | 점령률 |
+
+목록 응답은 지도 렌더링에 필요한 경량 필드만 포함한다. `userId`는 JOIN 없이 영토 테이블에서 바로 내려줄 수 있는 값이며, 지도에서 내 영토와 다른 사용자 영토의 색상을 구분하거나 클릭 후 분기할 때 사용한다. `ownerNickname`은 지도 위 보유자 이름 표시에 사용한다. 배치 캐릭터 상세 정보는 N+1 쿼리를 피하기 위해 상세 API에서 조회한다.
+
+### GET `/territories/:id`
+
+점령된 영토를 선택했을 때 영토 상세 정보를 조회한다.
+
+#### Response
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| id | number | 영토 ID |
+| name | string \| null | 영토 이름. 사용자가 지정하지 않은 경우 `null` |
+| coordinates | `{ lat: number, lng: number }[]` | 영토 좌표 데이터 |
+| areaSqm | number | 영토 면적 |
+| occupationRate | number | 점령률 |
+| owner | `{ id: number, nickname: string }` | 보유자 정보 |
+| isMine | boolean | 현재 로그인 사용자의 영토인지 여부 |
+| deployedCharacters | TerritoryDeployedCharacterDetail[] | 배치 캐릭터 상세 |
+
+#### TerritoryDeployedCharacterDetail
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| id | number | 유저 캐릭터 ID |
+| characterId | number | 캐릭터 원본 ID |
+| name | string | 캐릭터 이름 |
+| type | string | 캐릭터 타입. `defense`, `buff` |
+| grade | string | 캐릭터 등급 |
+| attackLv | number | 공격 레벨 |
+| defenseLv | number | 방어 레벨 |
+| speedLv | number | 속도 레벨 |
+| pointLv | number | 포인트 배율 레벨 |
+
+비로그인 사용자도 접근 가능하며, 로그인 사용자인 경우에만 `isMine`을 현재 사용자 기준으로 계산한다. 상세 응답에서는 소유자 ID를 별도 `userId` 필드가 아닌 `owner.id`로 참조한다.
 
 ### GET `/territories/me`
 
@@ -232,20 +299,45 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 
 캐릭터 배치 화면에서 사용자가 배치할 영토를 선택할 때 사용한다.
 
-#### Response
+현재 응답은 내 영토 관리 화면에서 목록과 지도 위치를 표시할 수 있도록 `coordinates`를 포함한다. 보유자 닉네임, 배치 캐릭터 등 상세 정보가 필요한 경우 `GET /territories/:id`를 추가 호출한다.
 
-`GET /territories`의 개별 영토 객체에 아래 필드를 추가한 배열로 응답한다.
+#### Response
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
+| id | number | 영토 ID |
+| name | string \| null | 영토 이름. 사용자가 지정하지 않은 경우 `null` |
 | userId | number | 소유 사용자 ID |
+| ownerNickname | string \| null | 보유자 닉네임 |
+| coordinates | `{ lat: number, lng: number }[]` | 영토 좌표 데이터 |
+| areaSqm | number | 영토 면적 |
+| occupationRate | number | 점령률 |
 | lastActiveAt | string (ISO 8601) | 마지막 활동 시각 |
+
+내 영토 관리 화면에서 사용자가 보유한 영토 목록을 확인하고, 지도 표시와 캐릭터 배치/회수 화면 진입에 사용한다.
+
+### PATCH `/territories/:id/name`
+
+현재 로그인 사용자가 보유한 영토의 이름을 변경한다.
+
+#### Request Body
+
+| 필드 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| name | string \| null | O | 변경할 영토 이름 (1자 이상 100자 이하, 앞뒤 공백 trim 처리). `null`로 요청 시 이름 삭제 |
+
+#### Response
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| id | number | 영토 ID |
+| name | string \| null | 변경된 영토 이름 |
 
 ### POST `/territories/:id/attack`
 
 특정 영토에 대한 침략 요청을 처리한다.
 
-> 침략 API는 구현 중인 기능이다. 최종 동작 기준은 회의 결정에 따라 "겹친 영역의 실제 소유권 이전"을 목표로 한다.
+> 아래 내용은 침략 API 구현 기준으로 사용한다.
 
 #### 침략 가능 조건
 
@@ -282,6 +374,22 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | nextAttackAvailableAt | string \| null | 다음 침략 가능 시각. 현재 쿨타임 미구현 상태에서는 항상 `null` |
 | remainingDailyAttacks | number | 당일 남은 침략 횟수 |
 | message | string | 처리 결과 메시지 |
+
+#### Error Cases
+
+| Status | 조건 | 메시지 |
+|---|---|---|
+| 400 | 자기 영토를 침략한 경우 | `자신의 영토는 침략할 수 없습니다.` |
+| 400 | 공격 캐릭터가 공격형이 아닌 경우 | `공격형 캐릭터만 침략에 사용할 수 있습니다.` |
+| 400 | 당일 침략 횟수 5회를 모두 사용한 경우 | `오늘의 침략 가능 횟수를 모두 사용했습니다.` |
+| 400 | 러닝 경로와 대상 영토 겹침 비율이 30% 미만인 경우 | `대상 영토의 30% 이상을 직접 러닝해야 합니다.` |
+| 400 | 침략 판정에 사용할 폐곡선 좌표가 3개 미만인 경우 | `폐곡선 좌표가 부족합니다.` |
+| 401 | 인증 토큰이 없거나 유효하지 않은 경우 | 공통 인증 오류 메시지 |
+| 404 | 대상 영토가 없는 경우 | `영토를 찾을 수 없습니다.` |
+| 404 | 현재 사용자의 러닝 로그가 아닌 경우 또는 러닝 로그가 없는 경우 | `러닝 기록을 찾을 수 없습니다.` |
+| 404 | 현재 사용자의 보유 캐릭터가 아닌 경우 또는 캐릭터가 없는 경우 | `보유 캐릭터를 찾을 수 없습니다.` |
+
+> `neutralAreaSqm`은 대상 점령 영토 밖의 새 면적 처리 정책이 별도 구현되기 전까지 `0`으로 반환한다.
 
 #### 침략 계산 기준
 
@@ -323,6 +431,7 @@ const attackerAcquiredPolygon = success ? contestedPolygon : null;
 | GET | `/characters/me` | O | 현재 사용자의 보유 캐릭터 목록 조회 |
 | PATCH | `/characters/:id/upgrade` | O | 캐릭터 스탯 강화 처리 |
 | PATCH | `/characters/:id/deploy` | O | 수비형/버프형 캐릭터를 사용자 영토에 배치 또는 회수 |
+| POST | `/characters/dismantle` | O | 보유 캐릭터 분해 및 스탯 포인트 획득 |
 
 ### POST `/gacha/draw`
 
@@ -350,7 +459,6 @@ const attackerAcquiredPolygon = success ? contestedPolygon : null;
 | grade | string | 등급. `common`, `rare`, `epic`, `legendary` |
 | type | string | 종류. `attack`, `defense`, `buff` |
 | isNew | boolean | 신규 캐릭터 여부 |
-| isGuaranteed | boolean | 천장 보장 여부 |
 
 ### GET `/characters/me`
 
@@ -371,6 +479,16 @@ const attackerAcquiredPolygon = success ? contestedPolygon : null;
 | pointLv | number | 포인트 배율 레벨 |
 | isDeployed | boolean | 배치 여부 |
 | deployedTerritoryId | number \| null | 배치된 영토 ID. `null`이면 미배치 |
+
+캐릭터 최대 보유 개수는 30개다. 보유 페이지의 등급별/능력 타입별 정렬은 클라이언트에서 이 응답을 기준으로 처리한다.
+
+캐릭터 상세 화면에서는 현재 응답에 포함된 스탯 레벨을 우선 표시한다. 이미지, 캐릭터 전체 레벨, 경험치는 후속 DB/API 확장 이후 아래 필드를 추가한다.
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| level | number | 캐릭터 전체 레벨 |
+| experience | number | 현재 경험치 |
+| imageUrl | string \| null | 캐릭터 이미지 URL |
 
 ### PATCH `/characters/:id/upgrade`
 
@@ -433,9 +551,53 @@ const attackerAcquiredPolygon = success ? contestedPolygon : null;
 
 - 가챠 비용: 1회 100 포인트, 10회 900 포인트
 - 가챠 확률: common 60%, rare 30%, epic 9%, legendary 1%
-- 천장: 100회차 legendary 보장
+- 천장 보장 시스템은 사용하지 않는다.
 - 강화 비용: `Math.min(Math.floor(100 * 1.5 ** currentLevel), 5000)`
 - 위 수치는 현재 구현 기준이며, 밸런스 검토 후 조정될 수 있다.
+
+### POST `/characters/dismantle`
+
+선택한 보유 캐릭터를 분해하고 등급에 따른 스탯 포인트를 획득한다.
+
+캐릭터 보유 페이지의 분해 모드에서 사용자가 원하는 캐릭터들을 선택한 뒤 호출한다.
+
+한 번에 분해할 수 있는 캐릭터 수는 최대 29개로 제한한다.
+
+분해 후에도 사용자는 최소 1개 이상의 캐릭터를 보유해야 한다.
+
+분해로 획득한 스탯 포인트는 `users.stat_points`에 누적 저장한다.
+
+#### Request Body
+
+| 필드 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| userCharacterIds | number[] | O | 분해할 유저 캐릭터 ID 목록 |
+
+#### Response
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| dismantledCount | number | 분해된 캐릭터 수 |
+| earnedStatPoints | number | 획득한 스탯 포인트 총합 |
+| statPoints | number | 분해 후 사용자의 보유 스탯 포인트 |
+| remainingCharacterCount | number | 분해 후 보유 캐릭터 수 |
+
+#### 분해 보상 기준
+
+| 등급 | 획득 스탯 포인트 |
+|---|---:|
+| common | 1 |
+| rare | 2 |
+| epic | 3 |
+| legendary | 4 |
+
+#### 예외
+
+- 보유하지 않은 캐릭터 분해 요청 시 404
+- 배치 중인 캐릭터 분해 요청 시 400
+- 빈 목록으로 요청 시 400
+- 한 번에 29개를 초과해 분해 요청 시 400
+- 분해 후 보유 캐릭터가 0개가 되는 요청 시 400
 
 ---
 
@@ -492,3 +654,6 @@ const attackerAcquiredPolygon = success ? contestedPolygon : null;
 4. 버프형 캐릭터의 침략 계산 반영 공식
 5. 수비형/버프형 캐릭터의 자연 감소 계산 반영 방식
 6. 공통 에러 메시지 세부 코드 정의
+7. `GET /territories/:id` 상세 응답의 보유자/배치 캐릭터 JOIN 최적화 방식
+8. 캐릭터 레벨/경험치/이미지 필드의 DB 저장 방식
+9. 캐릭터 분해로 획득한 스탯 포인트 사용처

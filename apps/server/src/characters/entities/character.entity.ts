@@ -40,6 +40,9 @@ export class Character {
   @Column({ type: 'float', default: 1.0 })
   base_point_rate: number;
 
+  @Column({ type: 'varchar', length: 500, nullable: true, default: null })
+  image_url: string | null;
+
   @OneToMany(() => UserCharacter, (uc) => uc.character)
   user_characters: UserCharacter[];
 }

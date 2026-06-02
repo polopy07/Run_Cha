@@ -37,8 +37,10 @@ React Native App
 기술:
 
 - React Native
-- 현재 프로젝트는 Expo 기반
-- 추후 백그라운드 GPS 요구사항에 따라 React Native CLI 전환 가능성 있음
+- 현재 프로젝트는 React Native CLI 기반이다.
+- GPS 수집은 러닝 화면 포그라운드 실행과 백그라운드 전환 상황을 모두 고려한다.
+- 백그라운드 GPS는 `react-native-background-actions` 기반으로 처리한다.
+- `expo-location` 기반 백그라운드 GPS는 사용하지 않는다.
 
 주요 폴더:
 
@@ -61,6 +63,7 @@ apps/mobile/src/utils
 - 러닝 기록 저장
 - 폐곡선 판단 및 면적 계산
 - 포인트 계산
+- 영토 시간당 포인트 수익 지급
 - 영토 생성/조회/침략 처리
 - 캐릭터 및 가챠 처리
 - 랭킹 데이터 제공
@@ -195,9 +198,10 @@ Firebase ID Token은 로그인 검증 단계에서만 사용하고, 이후 보�
 8. 서버가 포인트 계산
 9. 서버가 running_log 저장
 10. 폐곡선이면 territories 저장
-11. 서버가 대표 캐릭터에 경험치 지급
-12. 서버가 소량의 가챠 재화 또는 포인트 지급
-13. 서버가 러닝 결과 응답
+11. 이후 시간당 포인트 수익 배치에서 영토 면적과 점령률을 기준으로 포인트 지급
+12. 서버가 대표 캐릭터에 경험치 지급
+13. 서버가 소량의 가챠 재화 또는 포인트 지급
+14. 서버가 러닝 결과 응답
 ```
 
 ### 3.3 포인트 계산 흐름
@@ -216,13 +220,15 @@ const earnedPoints = isClosedLoop ? basePoints : Math.floor(basePoints * 1.3);
 - `distanceKm`는 서버가 `path` 좌표로 계산한다.
 - `distanceMultiplier`는 장거리 러닝 보정값이며 현재 구현 기준 `Math.min(1.1 ** distanceKm, 3.0)`을 사용한다.
 - 폐곡선이 아닌 러닝은 영토를 생성하지 않고 즉시 보상에 1.3배를 적용한다.
+- 폐곡선으로 생성된 영토는 매시간 포인트 수익을 만든다.
+- 시간당 수익은 `Math.floor(SUM(area_sqm * occupation_rate / 100) / 1000)`로 사용자별 지급한다.
 
 ### 3.4 가챠 흐름
 
 ```text
 1. 앱이 POST /gacha/draw 호출
 2. 서버가 사용자 포인트 확인
-3. 서버가 뽑기 횟수와 천장 조건 확인
+3. 서버가 뽑기 횟수와 포인트를 확인
 4. 서버가 캐릭터 결과 생성
 5. 서버가 user_characters 및 gacha_log 저장
 6. 서버가 results와 remainingPoints 응답
@@ -232,7 +238,7 @@ const earnedPoints = isClosedLoop ? basePoints : Math.floor(basePoints * 1.3);
 
 - 가챠 비용은 1회 100 포인트, 10회 900 포인트다.
 - 가챠 확률은 common 60%, rare 30%, epic 9%, legendary 1%다.
-- 천장은 100회차 legendary 보장으로 처리한다.
+- 천장 보장 시스템은 사용하지 않는다.
 - 캐릭터 강화 비용은 `Math.min(Math.floor(100 * 1.5 ** currentLevel), 5000)`을 사용한다.
 
 ### 3.5 캐릭터 배치 흐름
@@ -240,8 +246,8 @@ const earnedPoints = isClosedLoop ? basePoints : Math.floor(basePoints * 1.3);
 ```text
 1. 앱이 GET /characters/me로 보유 캐릭터 목록 조회
 2. 사용자가 수비형 또는 버프형 캐릭터를 선택
-3. 앱이 GET /territories/me로 사용자 보유 영토 목록 조회
-4. 앱이 배치할 사용자 영토를 선택
+3. 사용자가 홈 지도에서 내 영토를 선택하거나 메뉴의 내 영토 관리 화면에서 배치할 영토를 선택
+4. 필요 시 앱이 GET /territories/me로 사용자 보유 영토 목록 조회
 5. 앱이 PATCH /characters/:id/deploy 호출
 6. 서버가 캐릭터 소유자와 영토 소유자가 같은지 검증
 7. 서버가 해당 영토에 이미 배치된 캐릭터가 없는지 검증
@@ -259,7 +265,32 @@ const earnedPoints = isClosedLoop ? basePoints : Math.floor(basePoints * 1.3);
 - 수비형 캐릭터는 침략 방어력 계산에 사용한다.
 - 버프형 캐릭터의 침략 계산 반영 방식과 자연 감소 스케줄러 연동 공식은 후속 밸런싱에서 확정한다.
 
-### 3.6 영토 침략 흐름
+### 3.6 캐릭터 분해 흐름
+
+```text
+1. 앱이 GET /characters/me로 보유 캐릭터 목록 조회
+2. 사용자가 캐릭터 보유 페이지에서 분해 모드 진입
+3. 사용자가 분해할 캐릭터를 하나 이상 선택
+4. 앱이 캐릭터 분해 API 호출
+5. 서버가 보유 여부, 배치 여부, 분해 가능 여부를 검증
+6. 서버가 선택한 캐릭터를 제거하고 등급 기준 스탯 포인트를 지급
+7. 서버가 갱신된 보유 캐릭터 목록 또는 획득 스탯 포인트 결과를 응답
+```
+
+분해 보상 기준:
+
+| 등급 | 획득 스탯 포인트 |
+|---|---:|
+| common | 1 |
+| rare | 2 |
+| epic | 3 |
+| legendary | 4 |
+
+캐릭터 최대 보유 개수는 30개이며, 보유 페이지에서는 등급별/능력 타입별 정렬과 캐릭터 상세 화면 진입을 제공한다.
+
+분해는 한 번에 최대 29개까지 가능하며, 분해 후에도 최소 1개의 캐릭터는 보유해야 한다. 분해로 획득한 스탯 포인트는 `users.stat_points`에 누적 저장한다.
+
+### 3.7 영토 침략 흐름
 
 ```text
 1. 사용자가 다른 사용자의 점령 영토 근처 또는 내부를 러닝
@@ -301,6 +332,21 @@ const attackerAcquiredPolygon = success ? contestedPolygon : null;
 최종 침략 구현은 점령률 수치만 변경하지 않고 영토 `coordinates`와 `area_sqm`을 함께 갱신해야 한다. 점령률만 감소하면 지도에서 영토 크기 변화가 보이지 않아 회의에서 결정한 침략 체감 방식과 맞지 않는다.
 
 하루 침략 제한은 5회이며 `attack_logs`의 공격자/날짜 기준 카운트로 계산한다. 현재 쿨타임 미구현 상태에서는 `nextAttackAvailableAt`을 항상 `null`로 반환한다. 침략 쿨타임과 새 영토의 약 5분 침략 보호 시간 저장 방식은 후속 구현에서 확정한다.
+
+### 3.8 영토 조회 및 관리 흐름
+
+```text
+1. 앱이 지도 바운딩 박스 기준으로 GET /territories 호출
+2. 지도는 경량 목록 응답으로 영토 polygon, 면적, 소유자 ID, 보유자 이름 등 기본 정보를 표시
+3. 사용자가 점령된 영토를 선택
+4. 앱이 영토 상세 화면을 열고 필요 시 GET /territories/:id 호출
+5. 상세 화면은 보유자 이름, 배치 캐릭터 스탯 등 상세 정보를 표시
+6. 현재 사용자의 영토라면 이름 수정과 캐릭터 배치/회수 진입을 제공
+```
+
+지도 화면은 영토 목록의 소유자 식별값으로 내 영토와 다른 사용자 영토의 색상 및 클릭 분기를 처리한다. 목록/상세 응답 필드 기준은 `api-spec.md`의 영토 API 명세를 따른다.
+
+메뉴의 내 영토 관리 화면은 `GET /territories/me`를 사용해 현재 사용자의 보유 영토 목록을 조회하고, 지도 표시와 영토 이름 수정, 캐릭터 배치/회수 흐름으로 연결한다.
 
 ---
 

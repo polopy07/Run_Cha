@@ -3,7 +3,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { CharactersService } from './characters.service';
-import { CharacterGrade, CharacterType } from './entities/character.entity';
+import {
+  CharacterGrade,
+  CharacterType,
+} from './entities/character.entity';
 import { UserCharacter } from './entities/user-character.entity';
 import { User } from '../users/entities/user.entity';
 import { Territory } from '../territories/entities/territory.entity';
@@ -11,7 +14,10 @@ import { Territory } from '../territories/entities/territory.entity';
 const mockUserCharactersRepository = () => ({
   find: jest.fn(),
   findOne: jest.fn(),
+  delete: jest.fn(),
+  count: jest.fn(),
   save: jest.fn(),
+  createQueryBuilder: jest.fn(),
 });
 
 const mockUsersRepository = () => ({
@@ -23,12 +29,35 @@ type MockManager = {
   getRepository: jest.Mock;
 };
 
+type MockUserCharactersQueryBuilder = {
+  leftJoinAndSelect: jest.Mock<MockUserCharactersQueryBuilder>;
+  where: jest.Mock<MockUserCharactersQueryBuilder>;
+  andWhere: jest.Mock<MockUserCharactersQueryBuilder>;
+  setLock: jest.Mock<MockUserCharactersQueryBuilder>;
+  getMany: jest.Mock<Promise<UserCharacter[]>>;
+  getCount: jest.Mock<Promise<number>>;
+};
+
+const createMockQueryBuilder = (): MockUserCharactersQueryBuilder => {
+  const queryBuilder = {} as MockUserCharactersQueryBuilder;
+
+  queryBuilder.leftJoinAndSelect = jest.fn(() => queryBuilder);
+  queryBuilder.where = jest.fn(() => queryBuilder);
+  queryBuilder.andWhere = jest.fn(() => queryBuilder);
+  queryBuilder.setLock = jest.fn(() => queryBuilder);
+  queryBuilder.getMany = jest.fn<Promise<UserCharacter[]>, []>();
+  queryBuilder.getCount = jest.fn<Promise<number>, []>();
+
+  return queryBuilder;
+};
+
 describe('CharactersService', () => {
   let service: CharactersService;
   let userCharactersRepository: ReturnType<typeof mockUserCharactersRepository>;
   let usersRepository: ReturnType<typeof mockUsersRepository>;
   let territoriesRepository: ReturnType<typeof mockUsersRepository>;
   let dataSource: { transaction: jest.Mock };
+  let userCharactersQueryBuilder: ReturnType<typeof createMockQueryBuilder>;
 
   const userCharacter = {
     id: 10,
@@ -81,6 +110,10 @@ describe('CharactersService', () => {
     userCharactersRepository = module.get(getRepositoryToken(UserCharacter));
     usersRepository = module.get(getRepositoryToken(User));
     territoriesRepository = module.get(getRepositoryToken(Territory));
+    userCharactersQueryBuilder = createMockQueryBuilder();
+    userCharactersRepository.createQueryBuilder.mockReturnValue(
+      userCharactersQueryBuilder,
+    );
   });
 
   it('returns current user characters', async () => {
@@ -248,6 +281,122 @@ describe('CharactersService', () => {
     await expect(service.deploy(1, 10, 999)).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+
+  it('dismantles owned characters and grants stat points by grade', async () => {
+    const user = { id: 1, stat_points: 5 } as User;
+    const rareCharacter = {
+      ...userCharacter,
+      id: 11,
+      character: {
+        ...userCharacter.character,
+        grade: CharacterGrade.RARE,
+      },
+    };
+    usersRepository.findOne.mockResolvedValue(user);
+    userCharactersQueryBuilder.getMany.mockResolvedValue([
+      { ...userCharacter },
+      rareCharacter,
+    ]);
+    userCharactersRepository.delete.mockResolvedValue({ affected: 2 });
+    usersRepository.save.mockResolvedValue(user);
+    userCharactersQueryBuilder.getCount.mockResolvedValue(6);
+    userCharactersRepository.count.mockResolvedValueOnce(4);
+
+    await expect(service.dismantle(1, [10, 11])).resolves.toEqual({
+      dismantledCount: 2,
+      earnedStatPoints: 3,
+      statPoints: 8,
+      remainingCharacterCount: 4,
+    });
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    expect(usersRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ stat_points: 8 }),
+    );
+    expect(userCharactersQueryBuilder.setLock).toHaveBeenCalledWith(
+      'pessimistic_write',
+    );
+    expect(userCharactersQueryBuilder.setLock).toHaveBeenCalledWith(
+      'pessimistic_read',
+    );
+    expect(userCharactersRepository.delete).toHaveBeenCalledWith(
+      expect.objectContaining({ user_id: 1 }),
+    );
+  });
+
+  it('treats missing character relation as zero stat points when dismantling', async () => {
+    const user = { id: 1, stat_points: 5 } as User;
+    usersRepository.findOne.mockResolvedValue(user);
+    userCharactersQueryBuilder.getMany.mockResolvedValue([
+      { ...userCharacter, character: null } as unknown as UserCharacter,
+    ]);
+    userCharactersRepository.delete.mockResolvedValue({ affected: 1 });
+    usersRepository.save.mockResolvedValue(user);
+    userCharactersQueryBuilder.getCount.mockResolvedValue(4);
+    userCharactersRepository.count.mockResolvedValueOnce(3);
+
+    await expect(service.dismantle(1, [10])).resolves.toEqual({
+      dismantledCount: 1,
+      earnedStatPoints: 0,
+      statPoints: 5,
+      remainingCharacterCount: 3,
+    });
+    expect(usersRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ stat_points: 5 }),
+    );
+  });
+
+  it('rejects dismantle when no character ids are requested', async () => {
+    await expect(service.dismantle(1, [])).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects dismantle when more than 29 characters are requested', async () => {
+    const ids = Array.from({ length: 30 }, (_, index) => index + 1);
+
+    await expect(service.dismantle(1, ids)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects dismantle when no character would remain', async () => {
+    usersRepository.findOne.mockResolvedValue({ id: 1, stat_points: 0 });
+    userCharactersQueryBuilder.getMany.mockResolvedValue([
+      { ...userCharacter },
+    ]);
+    userCharactersQueryBuilder.getCount.mockResolvedValue(1);
+
+    await expect(service.dismantle(1, [10])).rejects.toThrow(
+      'At least one character must remain after dismantling.',
+    );
+    expect(userCharactersRepository.delete).not.toHaveBeenCalled();
+  });
+
+  it('rejects dismantle for deployed characters', async () => {
+    usersRepository.findOne.mockResolvedValue({ id: 1, stat_points: 0 });
+    userCharactersQueryBuilder.getMany.mockResolvedValue([
+      { ...userCharacter, deployed_territory_id: 7 },
+    ]);
+
+    await expect(service.dismantle(1, [10])).rejects.toThrow(
+      'Deployed characters cannot be dismantled: 10',
+    );
+    expect(userCharactersRepository.delete).not.toHaveBeenCalled();
+  });
+
+  it('reports missing owned character ids when dismantle target is not found', async () => {
+    usersRepository.findOne.mockResolvedValue({ id: 1, stat_points: 0 });
+    userCharactersQueryBuilder.getMany.mockResolvedValue([
+      { ...userCharacter },
+    ]);
+
+    await expect(service.dismantle(1, [10, 11])).rejects.toThrow(
+      'Owned character not found: 11',
+    );
+    expect(userCharactersRepository.delete).not.toHaveBeenCalled();
   });
 
   it('rejects upgrade for missing user character', async () => {

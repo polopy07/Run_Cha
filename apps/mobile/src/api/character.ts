@@ -1,9 +1,17 @@
 import { apiFetch } from './client';
+import type { Character } from '../store/characterStore';
 
 export type UpgradeStat = 'attack' | 'defense' | 'speed' | 'point';
 
+export type DismantleCharactersResponse = {
+  dismantledCount: number;
+  earnedStatPoints: number;
+  statPoints: number;
+  remainingCharacterCount: number;
+};
+
 export async function getCharacters() {
-  return apiFetch('/characters/me');
+  return apiFetch<Character[]>('/characters/me');
 }
 
 export async function upgradeCharacter(characterId: number, stat: UpgradeStat) {
@@ -17,8 +25,15 @@ export async function deployCharacter(
   characterId: number,
   territoryId: number | null,
 ) {
-  return apiFetch(`/characters/${characterId}/deploy`, {
+  return apiFetch<Character>(`/characters/${characterId}/deploy`, {
     method: 'PATCH',
     body: JSON.stringify({ territory_id: territoryId }),
+  });
+}
+
+export async function dismantleCharacters(userCharacterIds: number[]) {
+  return apiFetch<DismantleCharactersResponse>('/characters/dismantle', {
+    method: 'POST',
+    body: JSON.stringify({ userCharacterIds }),
   });
 }

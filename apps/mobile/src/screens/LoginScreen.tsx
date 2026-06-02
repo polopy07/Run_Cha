@@ -1,17 +1,15 @@
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  ActivityIndicator,
+  View, Text, TextInput, TouchableOpacity,
+  Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import useAuthStore from '../store/authStore';
+import { useTheme } from '../contexts/ThemeContext';
+import { radius } from '../constants/theme';
 
 export function LoginScreen() {
   const { login, signup } = useAuthStore();
+  const { colors } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
@@ -22,120 +20,100 @@ export function LoginScreen() {
       Alert.alert('입력 오류', '이메일과 비밀번호를 모두 입력해주세요.');
       return;
     }
-
     setLoading(true);
     try {
-      if (isSignUp) {
-        await signup(email, password);
-      } else {
-        await login(email, password);
-      }
+      if (isSignUp) await signup(email, password);
+      else await login(email, password);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '다시 시도해주세요.';
-      Alert.alert(
-        isSignUp ? '회원가입 실패' : '로그인 실패',
-        message,
-      );
+      Alert.alert(isSignUp ? '회원가입 실패' : '로그인 실패', message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Run Territory</Text>
-      <Text style={styles.subtitle}>
-        {isSignUp ? '회원가입' : '로그인'}
-      </Text>
-
-      <TextInput
-        style={styles.input}
-        placeholder="이메일"
-        placeholderTextColor="#888"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="비밀번호"
-        placeholderTextColor="#888"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-
-      <TouchableOpacity
-        style={styles.button}
-        onPress={handleSubmit}
-        disabled={loading}>
-        {loading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>
-            {isSignUp ? '회원가입' : '로그인'}
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: colors.bg }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 28 }}>
+        <View style={{ alignItems: 'center', marginBottom: 40 }}>
+          <View style={{
+            width: 64, height: 64, borderRadius: 20,
+            backgroundColor: colors.primary,
+            justifyContent: 'center', alignItems: 'center', marginBottom: 16,
+          }}>
+            <Text style={{ fontSize: 28, fontWeight: '900', color: colors.bg }}>R</Text>
+          </View>
+          <Text style={{ fontSize: 28, fontWeight: '800', color: colors.text, letterSpacing: -0.5 }}>
+            Run Territory
           </Text>
-        )}
-      </TouchableOpacity>
+          <Text style={{ fontSize: 14, color: colors.textSecondary, marginTop: 6 }}>
+            달려서 땅을 점령하세요
+          </Text>
+        </View>
 
-      <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)}>
-        <Text style={styles.switchText}>
-          {isSignUp
-            ? '이미 계정이 있으신가요? 로그인'
-            : '계정이 없으신가요? 회원가입'}
-        </Text>
-      </TouchableOpacity>
-    </View>
+        <View style={{ gap: 16 }}>
+          <View style={{ gap: 6 }}>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textSecondary, marginLeft: 4 }}>이메일</Text>
+            <TextInput
+              style={{
+                backgroundColor: colors.surface, color: colors.text,
+                borderRadius: radius.md, paddingHorizontal: 16, paddingVertical: 14,
+                fontSize: 15, borderWidth: 1, borderColor: colors.divider,
+              }}
+              placeholder="email@example.com"
+              placeholderTextColor={colors.textMuted}
+              value={email} onChangeText={setEmail}
+              keyboardType="email-address" autoCapitalize="none"
+            />
+          </View>
+
+          <View style={{ gap: 6 }}>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textSecondary, marginLeft: 4 }}>비밀번호</Text>
+            <TextInput
+              style={{
+                backgroundColor: colors.surface, color: colors.text,
+                borderRadius: radius.md, paddingHorizontal: 16, paddingVertical: 14,
+                fontSize: 15, borderWidth: 1, borderColor: colors.divider,
+              }}
+              placeholder="비밀번호를 입력하세요"
+              placeholderTextColor={colors.textMuted}
+              value={password} onChangeText={setPassword} secureTextEntry
+            />
+          </View>
+
+          <TouchableOpacity
+            style={{
+              backgroundColor: colors.primary, borderRadius: radius.md,
+              paddingVertical: 16, alignItems: 'center', marginTop: 8,
+              opacity: loading ? 0.6 : 1,
+            }}
+            onPress={handleSubmit} disabled={loading} activeOpacity={0.8}
+          >
+            {loading ? (
+              <ActivityIndicator color={colors.bg} />
+            ) : (
+              <Text style={{ color: colors.bg, fontSize: 16, fontWeight: '800' }}>
+                {isSignUp ? '회원가입' : '로그인'}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity
+          onPress={() => setIsSignUp(!isSignUp)}
+          style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 24 }}
+        >
+          <Text style={{ fontSize: 14, color: colors.textMuted }}>
+            {isSignUp ? '이미 계정이 있으신가요?' : '계정이 없으신가요?'}
+          </Text>
+          <Text style={{ fontSize: 14, color: colors.primary, fontWeight: '600' }}>
+            {isSignUp ? '로그인' : '회원가입'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-    backgroundColor: '#12121F',
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#2ECC71',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 18,
-    color: '#fff',
-    textAlign: 'center',
-    marginBottom: 32,
-  },
-  input: {
-    backgroundColor: '#1E1E2E',
-    color: '#fff',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  button: {
-    backgroundColor: '#2ECC71',
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 16,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  switchText: {
-    color: '#4A90D9',
-    textAlign: 'center',
-    fontSize: 14,
-  },
-});

@@ -2,6 +2,8 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
+  ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
@@ -25,11 +27,14 @@ export class User {
   @Column({ default: 0 })
   points: number;
 
+  @Column({ default: 0 })
+  stat_points: number;
+
   @Column({ type: 'float', default: 0 })
   total_distance: number;
 
-  @Column({ default: 0 })
-  pity_count: number;
+  @Column({ type: 'int', nullable: true, default: null })
+  representative_character_id: number | null;
 
   @CreateDateColumn()
   created_at: Date;
@@ -37,6 +42,10 @@ export class User {
   @OneToMany(() => Territory, (territory) => territory.user)
   territories: Territory[];
 
-  @OneToMany(() => UserCharacter, (userCharacter) => userCharacter.user)
+  @OneToMany(() => UserCharacter, (uc) => uc.user)
   user_characters: UserCharacter[];
+
+  @ManyToOne(() => UserCharacter, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'representative_character_id' })
+  representative_character: UserCharacter | null;
 }

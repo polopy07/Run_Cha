@@ -5,6 +5,7 @@ import {
   Param,
   ParseIntPipe,
   Patch,
+  Post,
   UseGuards,
 } from '@nestjs/common';
 import { CharactersService } from './characters.service';
@@ -13,6 +14,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
 import { UpgradeCharacterDto } from './dto/upgrade-character.dto';
 import { DeployCharacterDto } from './dto/deploy-character.dto';
+import { DismantleCharactersDto } from './dto/dismantle-characters.dto';
 
 @Controller('characters')
 export class CharactersController {
@@ -22,6 +24,12 @@ export class CharactersController {
   @Get('me')
   findMine(@CurrentUser() user: User) {
     return this.charactersService.findMine(user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('dismantle')
+  dismantle(@CurrentUser() user: User, @Body() dto: DismantleCharactersDto) {
+    return this.charactersService.dismantle(user.id, dto.userCharacterIds);
   }
 
   @UseGuards(JwtAuthGuard)

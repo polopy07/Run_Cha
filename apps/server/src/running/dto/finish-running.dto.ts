@@ -1,23 +1,30 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMinSize,
   IsArray,
   IsDateString,
+  IsLatitude,
+  IsLongitude,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsPositive,
+  IsString,
+  MaxLength,
   ValidateNested,
 } from 'class-validator';
 
 class CoordDto {
-  @IsNumber()
+  @IsLatitude()
   lat: number;
 
-  @IsNumber()
+  @IsLongitude()
   lng: number;
 }
 
 export class FinishRunningDto {
   @IsArray()
+  @ArrayMinSize(2)
   @ValidateNested({ each: true })
   @Type(() => CoordDto)
   path: CoordDto[];
@@ -29,4 +36,13 @@ export class FinishRunningDto {
 
   @IsDateString()
   started_at: string;
+
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  territory_name?: string;
 }

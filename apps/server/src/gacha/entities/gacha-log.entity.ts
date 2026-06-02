@@ -20,12 +20,6 @@ export class GachaLog {
   @Column()
   result_character_id: number;
 
-  @Column({ default: false })
-  is_guaranteed: boolean;
-
-  @Column({ default: 0 })
-  pity_count: number;
-
   @CreateDateColumn()
   created_at: Date;
 

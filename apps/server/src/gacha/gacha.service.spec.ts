@@ -2,7 +2,7 @@ import {
   BadRequestException,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import {
   Character,
   CharacterGrade,
@@ -35,25 +35,25 @@ describe('GachaService', () => {
   const characters = [
     {
       id: 1,
-      name: '공격형1',
+      name: 'Attack Common',
       grade: CharacterGrade.COMMON,
       type: CharacterType.ATTACK,
     },
     {
       id: 2,
-      name: '수비형2',
+      name: 'Defense Rare',
       grade: CharacterGrade.RARE,
       type: CharacterType.DEFENSE,
     },
     {
       id: 3,
-      name: '버프형3',
+      name: 'Buff Epic',
       grade: CharacterGrade.EPIC,
       type: CharacterType.BUFF,
     },
     {
       id: 4,
-      name: '공격형4',
+      name: 'Attack Legendary',
       grade: CharacterGrade.LEGENDARY,
       type: CharacterType.ATTACK,
     },
@@ -81,7 +81,7 @@ describe('GachaService', () => {
     };
 
     service = new GachaService(
-      charactersRepository,
+      charactersRepository as unknown as Repository<Character>,
       dataSource as unknown as DataSource,
     );
 
@@ -90,22 +90,22 @@ describe('GachaService', () => {
   });
 
   afterEach(() => {
+    jest.useRealTimers();
     jest.restoreAllMocks();
   });
 
-  it('1회 뽑기 비용을 차감하고 결과를 반환한다', async () => {
-    const user = { id: 1, points: 500, pity_count: 0 } as User;
+  it('deducts draw cost and returns a 1-draw result', async () => {
+    const user = { id: 1, points: 500 } as User;
     usersRepository.findOne.mockResolvedValue(user);
 
     await expect(service.draw(1, 1)).resolves.toEqual({
       results: [
         {
           characterId: 1,
-          name: '공격형1',
+          name: 'Attack Common',
           grade: CharacterGrade.COMMON,
           type: CharacterType.ATTACK,
           isNew: true,
-          isGuaranteed: false,
         },
       ],
       remainingPoints: 400,
@@ -118,61 +118,130 @@ describe('GachaService', () => {
       },
     ]);
     expect(gachaLogsRepository.insert).toHaveBeenCalledWith([
-      expect.objectContaining({
+      {
         user_id: 1,
         result_character_id: 1,
-        is_guaranteed: false,
-        pity_count: 0,
-      }),
+      },
     ]);
     expect(usersRepository.save).toHaveBeenCalledWith(
-      expect.objectContaining({ points: 400, pity_count: 1 }),
+      expect.objectContaining({ points: 400 }),
     );
+    const characterIdMatcher: unknown = expect.any(Object);
+    expect(userCharactersRepository.find).toHaveBeenCalledWith({
+      where: { user_id: 1, character_id: characterIdMatcher },
+      select: { character_id: true },
+    });
+    expect(charactersRepository.find).toHaveBeenCalledWith({
+      select: {
+        id: true,
+        name: true,
+        grade: true,
+        type: true,
+      },
+    });
   });
 
-  it('10회 뽑기는 캐릭터와 로그를 배열 insert로 저장한다', async () => {
-    const user = { id: 1, points: 1000, pity_count: 0 } as User;
+  it('reuses the cached character master pool by grade', async () => {
+    usersRepository.findOne
+      .mockResolvedValueOnce({ id: 1, points: 500 })
+      .mockResolvedValueOnce({ id: 1, points: 500 });
+
+    await service.draw(1, 1);
+    await service.draw(1, 1);
+
+    expect(charactersRepository.find).toHaveBeenCalledTimes(1);
+  });
+
+  it('reloads the character master pool after cache TTL expires', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+    usersRepository.findOne
+      .mockResolvedValueOnce({ id: 1, points: 500 })
+      .mockResolvedValueOnce({ id: 1, points: 500 });
+
+    await service.draw(1, 1);
+    jest.advanceTimersByTime(5 * 60 * 1000 + 1);
+    await service.draw(1, 1);
+
+    expect(charactersRepository.find).toHaveBeenCalledTimes(2);
+  });
+
+  it('uses the stale character cache when refresh fails after TTL expires', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+    usersRepository.findOne
+      .mockResolvedValueOnce({ id: 1, points: 500 })
+      .mockResolvedValueOnce({ id: 1, points: 500 });
+
+    await service.draw(1, 1);
+    jest.advanceTimersByTime(5 * 60 * 1000 + 1);
+    charactersRepository.find.mockRejectedValueOnce(new Error('db down'));
+
+    await expect(service.draw(1, 1)).resolves.toEqual(
+      expect.objectContaining({
+        results: [
+          expect.objectContaining({
+            characterId: 1,
+            grade: CharacterGrade.COMMON,
+          }),
+        ],
+      }),
+    );
+    expect(charactersRepository.find).toHaveBeenCalledTimes(2);
+  });
+
+  it('batch inserts user characters and gacha logs for 10 draws', async () => {
+    const user = { id: 1, points: 1000 } as User;
     usersRepository.findOne.mockResolvedValue(user);
 
     const result = await service.draw(1, 10);
 
     expect(result.remainingPoints).toBe(100);
     expect(result.results).toHaveLength(10);
+    expect(result.results[0]).toEqual(expect.objectContaining({ isNew: true }));
+    expect(result.results[1]).toEqual(
+      expect.objectContaining({ isNew: false }),
+    );
     expect(userCharactersRepository.insert).toHaveBeenCalledTimes(1);
     expect(gachaLogsRepository.insert).toHaveBeenCalledTimes(1);
     expect(userCharactersRepository.insert.mock.calls[0][0]).toHaveLength(10);
     expect(gachaLogsRepository.insert.mock.calls[0][0]).toHaveLength(10);
     expect(gachaLogsRepository.insert.mock.calls[0][0]).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ pity_count: 0 }),
-        expect.objectContaining({ pity_count: 9 }),
-      ]),
+      Array.from({ length: 10 }, () => ({
+        user_id: 1,
+        result_character_id: 1,
+      })),
     );
   });
 
-  it('천장 조건이면 전설 캐릭터를 확정 지급하고 pityCount를 초기화한다', async () => {
-    const user = { id: 1, points: 500, pity_count: 99 } as User;
+  it('uses random grade selection without legacy pity guarantee override', async () => {
+    const user = { id: 1, points: 500 } as User;
     usersRepository.findOne.mockResolvedValue(user);
+    (Math.random as jest.Mock).mockReturnValueOnce(0.2).mockReturnValueOnce(0);
 
     const result = await service.draw(1, 1);
 
     expect(result.results[0]).toEqual(
       expect.objectContaining({
-        characterId: 4,
-        grade: CharacterGrade.LEGENDARY,
-        isGuaranteed: true,
+        characterId: 1,
+        grade: CharacterGrade.COMMON,
       }),
     );
     expect(usersRepository.save).toHaveBeenCalledWith(
-      expect.objectContaining({ pity_count: 0 }),
+      expect.objectContaining({ points: 400 }),
     );
+    expect(gachaLogsRepository.insert).toHaveBeenCalledWith([
+      {
+        user_id: 1,
+        result_character_id: 1,
+      },
+    ]);
   });
 
-  it('포인트가 부족하면 뽑기를 수행하지 않는다', async () => {
+  it('does not draw when points are insufficient', async () => {
     usersRepository.findOne.mockResolvedValue({
       id: 1,
       points: 50,
-      pity_count: 0,
     });
 
     await expect(service.draw(1, 1)).rejects.toBeInstanceOf(
@@ -182,8 +251,21 @@ describe('GachaService', () => {
     expect(gachaLogsRepository.insert).not.toHaveBeenCalled();
   });
 
-  it('뽑기 가능한 캐릭터가 없으면 서버 설정 오류로 처리한다', async () => {
+  it('throws a server setup error when no drawable characters exist', async () => {
     charactersRepository.find.mockResolvedValue([]);
+
+    await expect(service.draw(1, 1)).rejects.toBeInstanceOf(
+      InternalServerErrorException,
+    );
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+  });
+
+  it('throws a server setup error when a grade has no drawable characters', async () => {
+    charactersRepository.find.mockResolvedValue(
+      characters.filter(
+        (character) => character.grade !== CharacterGrade.LEGENDARY,
+      ),
+    );
 
     await expect(service.draw(1, 1)).rejects.toBeInstanceOf(
       InternalServerErrorException,

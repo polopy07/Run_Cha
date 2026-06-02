@@ -21,15 +21,38 @@ const DISTANCE_BONUS_CAP = 3.0;
 
 const MIN_VALID_SPEED_KMH = 4;
 const MAX_VALID_SPEED_KMH = 20;
+const RUNNING_LOG_LIST_LIMIT = 20;
+
+type RunningLogSummary = {
+  id: number;
+  distanceKm: number;
+  earnedPoints: number;
+  avgPace: number;
+  areaSqm: number;
+  startedAt: Date;
+  endedAt: Date | null;
+};
 
 @Injectable()
 export class RunningService {
   constructor(private readonly dataSource: DataSource) {}
 
+  async findMine(userId: number): Promise<RunningLogSummary[]> {
+    const logs = await this.dataSource.getRepository(RunningLog).find({
+      where: { user_id: userId },
+      order: { started_at: 'DESC', id: 'DESC' },
+      take: RUNNING_LOG_LIST_LIMIT,
+    });
+
+    return logs.map((log) => this.toRunningLogSummary(log));
+  }
+
   async finish(userId: number, dto: FinishRunningDto) {
-    const { path } = dto;
+    const { path, territory_name } = dto;
     const endedAt = new Date();
     const startedAt = new Date(dto.started_at);
+
+    this.validatePath(path);
 
     if (startedAt > endedAt) {
       throw new BadRequestException('유효하지 않은 시작 시간입니다.');
@@ -92,20 +115,21 @@ export class RunningService {
           .setParameter('pts', earned_points)
           .execute();
 
-        const center = calcCenter(path);
-        const territory =
-          area_sqm > 0
-            ? await manager.save(
-                manager.create(Territory, {
-                  user_id: userId,
-                  coordinates: path,
-                  area_sqm,
-                  occupation_rate: 100,
-                  center_lat: center.lat,
-                  center_lng: center.lng,
-                }),
-              )
-            : null;
+        let territory: Territory | null = null;
+        if (area_sqm > 0) {
+          const center = calcCenter(path);
+          territory = await manager.save(
+            manager.create(Territory, {
+              user_id: userId,
+              name: territory_name ?? null,
+              coordinates: path,
+              area_sqm,
+              occupation_rate: 100,
+              center_lat: center.lat,
+              center_lng: center.lng,
+            }),
+          );
+        }
 
         return { savedLog, territory };
       },
@@ -117,6 +141,26 @@ export class RunningService {
       earned_points,
       area_sqm,
     };
+  }
+
+  private validatePath(path: { lat: number; lng: number }[]): void {
+    if (path.length < 2) {
+      throw new BadRequestException('path must contain at least two points');
+    }
+
+    const invalid = path.some(
+      ({ lat, lng }) =>
+        !Number.isFinite(lat) ||
+        !Number.isFinite(lng) ||
+        lat < -90 ||
+        lat > 90 ||
+        lng < -180 ||
+        lng > 180,
+    );
+
+    if (invalid) {
+      throw new BadRequestException('path contains invalid coordinates');
+    }
   }
 
   private calculateDistanceKm(path: { lat: number; lng: number }[]): number {
@@ -164,5 +208,17 @@ export class RunningService {
     if (avgPace <= 7) return PACE_MULTIPLIER.jog;
     if (avgPace <= 8) return PACE_MULTIPLIER.fast_walk;
     return 0;
+  }
+
+  private toRunningLogSummary(log: RunningLog): RunningLogSummary {
+    return {
+      id: log.id,
+      distanceKm: log.distance_km,
+      earnedPoints: log.earned_points,
+      avgPace: log.avg_pace,
+      areaSqm: log.area_sqm,
+      startedAt: log.started_at,
+      endedAt: log.ended_at,
+    };
   }
 }

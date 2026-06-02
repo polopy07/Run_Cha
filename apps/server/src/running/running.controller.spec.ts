@@ -10,6 +10,7 @@ describe('RunningController', () => {
   let controller: RunningController;
 
   const mockService = {
+    findMine: jest.fn(),
     finish: jest.fn(),
   };
 
@@ -37,18 +38,40 @@ describe('RunningController', () => {
     controller = module.get<RunningController>(RunningController);
   });
 
-  describe('finish', () => {
-    const dto: FinishRunningDto = {
-      path: [
-        { lat: 37.5, lng: 127.0 },
-        { lat: 37.501, lng: 127.0 },
-        { lat: 37.501, lng: 127.001 },
-      ],
-      distance_km: 1.5,
-      started_at: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
-    };
-    const mockUser = { id: 42 };
+  const dto: FinishRunningDto = {
+    path: [
+      { lat: 37.5, lng: 127.0 },
+      { lat: 37.501, lng: 127.0 },
+      { lat: 37.501, lng: 127.001 },
+    ],
+    distance_km: 1.5,
+    started_at: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+  };
+  const mockUser = { id: 42 };
 
+  describe('findMine', () => {
+    it('calls service with current user id', async () => {
+      const expected = [
+        {
+          id: 1,
+          distanceKm: 1.2,
+          earnedPoints: 120,
+          avgPace: 5,
+          areaSqm: 0,
+          startedAt: new Date('2026-05-27T10:00:00.000Z'),
+          endedAt: new Date('2026-05-27T10:10:00.000Z'),
+        },
+      ];
+      mockService.findMine.mockResolvedValue(expected);
+
+      const result = await controller.findMine(mockUser as User);
+
+      expect(mockService.findMine).toHaveBeenCalledWith(42);
+      expect(result).toEqual(expected);
+    });
+  });
+
+  describe('finish', () => {
     it('서비스의 finish를 userId와 dto로 호출한다', async () => {
       const expected = {
         runningLogId: 1,
