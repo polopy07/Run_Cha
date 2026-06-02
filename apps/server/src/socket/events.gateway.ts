@@ -98,15 +98,14 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.onlineUsers.delete(client.id);
 
     const sockets = this.userSockets.get(user.userId);
-    if (sockets) {
-      sockets.delete(client.id);
-      if (sockets.size === 0) {
-        this.userSockets.delete(user.userId);
-      }
+    sockets?.delete(client.id);
+    if (sockets?.size === 0) {
+      this.userSockets.delete(user.userId);
     }
 
     // 마지막 소켓이 끊길 때만 user:offline 발행
-    if (user.hasLocation && (sockets?.size ?? 0) === 0) {
+    const isLastSocket = !sockets || sockets.size === 0;
+    if (user.hasLocation && isLastSocket) {
       this.broadcastToNearby(client.id, user, 'user:offline', {
         userId: user.userId,
       });
@@ -145,17 +144,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   broadcastTerritoryUpdate(centerLat: number, centerLng: number) {
-    const emittedUserIds = new Set<number>();
-    for (const [, user] of this.onlineUsers) {
-      if (!user.hasLocation) continue;
-      if (emittedUserIds.has(user.userId)) continue;
-      if (distanceKm(centerLat, centerLng, user.lat, user.lng) <= 2) {
-        for (const sid of this.userSockets.get(user.userId) ?? []) {
-          this.server.to(sid).emit('territory:update');
-        }
-        emittedUserIds.add(user.userId);
-      }
-    }
+    this.emitToNearby(centerLat, centerLng, 'territory:update', undefined);
   }
 
   private broadcastToNearby(
@@ -164,15 +153,33 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     event: string,
     payload: unknown,
   ) {
+    this.emitToNearby(
+      sender.lat,
+      sender.lng,
+      event,
+      payload,
+      sender.userId,
+      senderSocketId,
+    );
+  }
+
+  private emitToNearby(
+    centerLat: number,
+    centerLng: number,
+    event: string,
+    payload: unknown,
+    excludeUserId?: number,
+    excludeSocketId?: string,
+  ) {
     const emittedUserIds = new Set<number>();
     for (const [socketId, user] of this.onlineUsers) {
-      if (socketId === senderSocketId) continue;
-      if (user.userId === sender.userId) continue;
+      if (excludeSocketId && socketId === excludeSocketId) continue;
+      if (excludeUserId !== undefined && user.userId === excludeUserId) continue;
       if (!user.hasLocation) continue;
       if (emittedUserIds.has(user.userId)) continue;
-      if (distanceKm(sender.lat, sender.lng, user.lat, user.lng) <= 2) {
+      if (distanceKm(centerLat, centerLng, user.lat, user.lng) <= 2) {
         for (const sid of this.userSockets.get(user.userId) ?? []) {
-          this.server.to(sid).emit(event, payload);
+          this.server?.to(sid).emit(event, payload);
         }
         emittedUserIds.add(user.userId);
       }
