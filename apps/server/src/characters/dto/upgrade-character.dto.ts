@@ -1,8 +1,8 @@
 import { IsIn } from 'class-validator';
 
-export type UpgradeStat = 'attack' | 'defense' | 'speed' | 'point';
+export type UpgradeStat = 'attack' | 'defense';
 
 export class UpgradeCharacterDto {
-  @IsIn(['attack', 'defense', 'speed', 'point'])
+  @IsIn(['attack', 'defense'])
   stat: UpgradeStat;
 }

@@ -25,8 +25,6 @@ export type TerritoryDeployedCharacter = {
   type: 'attack' | 'defense' | 'buff';
   attackLv: number;
   defenseLv: number;
-  speedLv: number;
-  pointLv: number;
 };
 
 export type TerritoryDetail = Omit<Territory, 'userId' | 'lastActiveAt'> & {

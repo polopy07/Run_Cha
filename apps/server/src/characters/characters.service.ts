@@ -31,13 +31,11 @@ const DISMANTLE_REWARD_BY_GRADE: Record<CharacterGrade, number> = {
   [CharacterGrade.LEGENDARY]: 4,
 };
 
-type StatLevelColumn = 'attack_lv' | 'defense_lv' | 'speed_lv' | 'point_lv';
+type StatLevelColumn = 'attack_lv' | 'defense_lv';
 
 const STAT_LEVEL_COLUMN: Record<UpgradeStat, StatLevelColumn> = {
   attack: 'attack_lv',
   defense: 'defense_lv',
-  speed: 'speed_lv',
-  point: 'point_lv',
 };
 
 @Injectable()
@@ -289,8 +287,6 @@ export class CharactersService {
       type: userCharacter.character.type,
       attackLv: userCharacter.attack_lv,
       defenseLv: userCharacter.defense_lv,
-      speedLv: userCharacter.speed_lv,
-      pointLv: userCharacter.point_lv,
       isDeployed: deployedTerritoryId !== null,
       deployedTerritoryId,
     };

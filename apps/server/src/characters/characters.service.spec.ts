@@ -65,8 +65,6 @@ describe('CharactersService', () => {
     character_id: 3,
     attack_lv: 1,
     defense_lv: 2,
-    speed_lv: 3,
-    point_lv: 4,
     deployed_territory_id: null,
     character: {
       id: 3,
@@ -128,8 +126,6 @@ describe('CharactersService', () => {
         type: CharacterType.DEFENSE,
         attackLv: 1,
         defenseLv: 2,
-        speedLv: 3,
-        pointLv: 4,
         isDeployed: false,
         deployedTerritoryId: null,
       },

@@ -288,8 +288,6 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | grade | string | 캐릭터 등급 |
 | attackLv | number | 공격 레벨 |
 | defenseLv | number | 방어 레벨 |
-| speedLv | number | 속도 레벨 |
-| pointLv | number | 포인트 배율 레벨 |
 
 비로그인 사용자도 접근 가능하며, 로그인 사용자인 경우에만 `isMine`을 현재 사용자 기준으로 계산한다. 상세 응답에서는 소유자 ID를 별도 `userId` 필드가 아닌 `owner.id`로 참조한다.
 
@@ -467,14 +465,12 @@ const success = occupationRateAfter < territory.occupation_rate;
 | type | string | 캐릭터 타입. `attack`, `defense`, `buff` |
 | attackLv | number | 공격 레벨 |
 | defenseLv | number | 방어 레벨 |
-| speedLv | number | 속도 레벨 |
-| pointLv | number | 포인트 배율 레벨 |
 | isDeployed | boolean | 배치 여부 |
 | deployedTerritoryId | number \| null | 배치된 영토 ID. `null`이면 미배치 |
 
 캐릭터 최대 보유 개수는 30개다. 보유 페이지의 등급별/능력 타입별 정렬은 클라이언트에서 이 응답을 기준으로 처리한다.
 
-캐릭터 상세 화면에서는 현재 응답에 포함된 스탯 레벨을 우선 표시한다. 이미지, 캐릭터 전체 레벨, 경험치는 후속 DB/API 확장 이후 아래 필드를 추가한다.
+캐릭터 상세 화면에서는 현재 응답에 포함된 공격/방어 스탯 레벨을 우선 표시한다. 이미지, 캐릭터 전체 레벨, 경험치는 후속 DB/API 확장 이후 아래 필드를 추가한다.
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
@@ -490,7 +486,7 @@ const success = occupationRateAfter < territory.occupation_rate;
 
 | 필드 | 타입 | 필수 | 설명 |
 |---|---|---|---|
-| stat | string | O | 강화할 스탯. `attack`, `defense`, `speed`, `point` |
+| stat | string | O | 강화할 스탯. `attack`, `defense` |
 
 #### Response
 
@@ -526,8 +522,6 @@ const success = occupationRateAfter < territory.occupation_rate;
 | type | string | 캐릭터 타입 |
 | attackLv | number | 공격 레벨 |
 | defenseLv | number | 방어 레벨 |
-| speedLv | number | 속도 레벨 |
-| pointLv | number | 포인트 배율 레벨 |
 | isDeployed | boolean | 배치 여부 |
 | deployedTerritoryId | number \| null | 배치된 영토 ID |
 
