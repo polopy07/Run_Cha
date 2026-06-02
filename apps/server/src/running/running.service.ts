@@ -135,14 +135,17 @@ export class RunningService {
           );
         }
 
+        this.eventsGateway.broadcastRankingUpdate();
+        if (territory) {
+          this.eventsGateway.broadcastTerritoryUpdate(
+            territory.center_lat,
+            territory.center_lng,
+          );
+        }
+
         return { savedLog, territory };
       },
     );
-
-    this.eventsGateway.broadcastRankingUpdate();
-    if (territory) {
-      this.eventsGateway.broadcastTerritoryUpdate();
-    }
 
     return {
       log: savedLog,

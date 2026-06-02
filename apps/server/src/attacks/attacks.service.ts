@@ -146,7 +146,10 @@ export class AttacksService {
     });
 
     if (outcome.success) {
-      this.eventsGateway.broadcastTerritoryUpdate();
+      this.eventsGateway.broadcastTerritoryUpdate(
+        territory.center_lat,
+        territory.center_lng,
+      );
     }
 
     return {

@@ -144,8 +144,18 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server?.emit('ranking:update');
   }
 
-  broadcastTerritoryUpdate() {
-    this.server?.emit('territory:update');
+  broadcastTerritoryUpdate(centerLat: number, centerLng: number) {
+    const emittedUserIds = new Set<number>();
+    for (const [, user] of this.onlineUsers) {
+      if (!user.hasLocation) continue;
+      if (emittedUserIds.has(user.userId)) continue;
+      if (distanceKm(centerLat, centerLng, user.lat, user.lng) <= 2) {
+        for (const sid of this.userSockets.get(user.userId) ?? []) {
+          this.server.to(sid).emit('territory:update');
+        }
+        emittedUserIds.add(user.userId);
+      }
+    }
   }
 
   private broadcastToNearby(
