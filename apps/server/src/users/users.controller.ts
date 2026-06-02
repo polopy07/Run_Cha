@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Put, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { User } from './entities/user.entity';
 import { UpdateNicknameDto } from './dto/update-nickname.dto';
+import { UpdateRepresentativeDto } from './dto/update-representative.dto';
 import { UsersService } from './users.service';
 
 @Controller('users')
@@ -16,8 +17,9 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  getMe(@CurrentUser() user: User) {
-    return this.usersService.toResponse(user);
+  async getMe(@CurrentUser() user: User) {
+    const loaded = await this.usersService.findByIdWithRepresentative(user.id);
+    return this.usersService.toResponse(loaded);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -29,6 +31,20 @@ export class UsersController {
     const updatedUser = await this.usersService.updateNickname(
       user.id,
       dto.nickname,
+    );
+
+    return this.usersService.toResponse(updatedUser);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Put('me/representative')
+  async setRepresentative(
+    @CurrentUser() user: User,
+    @Body() dto: UpdateRepresentativeDto,
+  ) {
+    const updatedUser = await this.usersService.setRepresentative(
+      user.id,
+      dto.userCharacterId,
     );
 
     return this.usersService.toResponse(updatedUser);

@@ -10,6 +10,8 @@ describe('UsersController', () => {
   const mockUsersService = {
     toResponse: jest.fn(),
     updateNickname: jest.fn(),
+    findByIdWithRepresentative: jest.fn(),
+    setRepresentative: jest.fn(),
   };
 
   const user = {
@@ -43,12 +45,28 @@ describe('UsersController', () => {
     expect(controller.health()).toEqual({ ok: true });
   });
 
-  it('getMe는 현재 유저 응답을 반환한다', () => {
+  it('getMe는 현재 유저 응답을 반환한다', async () => {
+    const loadedUser = { ...user, representative_character: null };
     const response = { id: 1, email: 'test@example.com' };
+    mockUsersService.findByIdWithRepresentative.mockResolvedValue(loadedUser);
     mockUsersService.toResponse.mockReturnValue(response);
 
-    expect(controller.getMe(user)).toBe(response);
-    expect(mockUsersService.toResponse).toHaveBeenCalledWith(user);
+    await expect(controller.getMe(user)).resolves.toBe(response);
+    expect(mockUsersService.findByIdWithRepresentative).toHaveBeenCalledWith(1);
+    expect(mockUsersService.toResponse).toHaveBeenCalledWith(loadedUser);
+  });
+
+  it('setRepresentative는 대표 캐릭터를 설정하고 응답을 반환한다', async () => {
+    const updatedUser = { ...user, representative_character_id: 10 };
+    const response = { id: 1, representativeCharacter: { id: 10 } };
+    mockUsersService.setRepresentative.mockResolvedValue(updatedUser);
+    mockUsersService.toResponse.mockReturnValue(response);
+
+    await expect(
+      controller.setRepresentative(user, { userCharacterId: 10 }),
+    ).resolves.toBe(response);
+    expect(mockUsersService.setRepresentative).toHaveBeenCalledWith(1, 10);
+    expect(mockUsersService.toResponse).toHaveBeenCalledWith(updatedUser);
   });
 
   it('updateNickname은 닉네임을 변경하고 변경된 유저 응답을 반환한다', async () => {

@@ -39,6 +39,7 @@ describe('UsersService', () => {
     transaction: jest.fn((callback: (manager: MockManager) => unknown) =>
       callback(manager),
     ),
+    getRepository: jest.fn(() => userCharactersRepository),
   };
 
   beforeEach(async () => {
@@ -268,6 +269,7 @@ describe('UsersService', () => {
       points: 100,
       stat_points: 3,
       total_distance: 3.5,
+      representative_character: null,
     } as User;
 
     expect(service.toResponse(user)).toEqual({
@@ -277,6 +279,45 @@ describe('UsersService', () => {
       points: 100,
       statPoints: 3,
       totalDistance: 3.5,
+      representativeCharacter: null,
+    });
+  });
+
+  it('대표 캐릭터가 설정되어 있으면 응답에 포함한다', () => {
+    const user = {
+      id: 1,
+      email: 'test@example.com',
+      nickname: 'test',
+      points: 100,
+      stat_points: 3,
+      total_distance: 3.5,
+      representative_character: {
+        id: 10,
+        character_id: 5,
+        character: {
+          name: 'FireKnight',
+          type: 'attack',
+          grade: 'rare',
+          image_url: null,
+        },
+      },
+    } as unknown as User;
+
+    expect(service.toResponse(user)).toEqual({
+      id: 1,
+      email: 'test@example.com',
+      nickname: 'test',
+      points: 100,
+      statPoints: 3,
+      totalDistance: 3.5,
+      representativeCharacter: {
+        id: 10,
+        characterId: 5,
+        name: 'FireKnight',
+        type: 'attack',
+        grade: 'rare',
+        imageUrl: null,
+      },
     });
   });
 });
