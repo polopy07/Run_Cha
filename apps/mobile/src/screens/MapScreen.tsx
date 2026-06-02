@@ -9,6 +9,8 @@ import { radius, mapCardShadow } from '../constants/theme';
 import { darkMapStyle } from '../constants/mapStyle';
 import useAuthStore from '../store/authStore';
 import { getTerritories, type Territory } from '../api/territory';
+import { useSocket } from '../hooks/useSocket';
+import { CharacterMarker } from '../components/CharacterMarker';
 
 function hslToHex(h: number, s: number, l: number): string {
   s /= 100;
@@ -46,6 +48,7 @@ export function MapScreen() {
   const regionRef = useRef(INITIAL_REGION);
   const userLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const user = useAuthStore(s => s.user);
+  const { nearbyUsers, emitLocation } = useSocket();
   const [territories, setTerritories] = useState<Territory[]>([]);
 
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -107,7 +110,9 @@ export function MapScreen() {
         }}
         onUserLocationChange={(e) => {
           const c = e.nativeEvent.coordinate;
-          if (c) userLocationRef.current = { latitude: c.latitude, longitude: c.longitude };
+          if (!c) return;
+          userLocationRef.current = { latitude: c.latitude, longitude: c.longitude };
+          emitLocation(c.latitude, c.longitude);
         }}
         showsUserLocation
         showsMyLocationButton={false}
@@ -125,6 +130,13 @@ export function MapScreen() {
             />
           );
         })}
+        {nearbyUsers.map((u) => (
+          <CharacterMarker
+            key={u.userId}
+            user={u}
+            isMe={u.userId === user?.id}
+          />
+        ))}
       </MapView>
 
       {/* 상단 헤더 */}

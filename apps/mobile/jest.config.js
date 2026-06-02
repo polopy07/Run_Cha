@@ -8,6 +8,7 @@ module.exports = {
     'firebase/auth': '<rootDir>/__mocks__/firebase/auth.js',
     'firebase/app': '<rootDir>/__mocks__/firebase/app.js',
     '@env': '<rootDir>/__mocks__/env.js',
+    'socket.io-client': '<rootDir>/__mocks__/socket.io-client.js',
   },
   transformIgnorePatterns: [
     'node_modules/(?!(' +
