@@ -17,6 +17,14 @@ const SQUARE = [
   { lat: 37.0, lng: 127.0 },
 ];
 
+const HALF_SQUARE = [
+  { lat: 37.0, lng: 127.0 },
+  { lat: 37.0, lng: 127.0005 },
+  { lat: 37.001, lng: 127.0005 },
+  { lat: 37.001, lng: 127.0 },
+  { lat: 37.0, lng: 127.0 },
+];
+
 function makeRepository() {
   return {
     findOne: jest.fn(),
@@ -138,13 +146,22 @@ describe('AttacksService', () => {
     expect(result.damage).toBe(25);
     expect(result.occupationRateBefore).toBe(100);
     expect(result.occupationRateAfter).toBe(75);
-    expect(result.acquiredAreaSqm).toBe(3091);
+    expect(result.acquiredAreaSqm).toBeGreaterThan(9000);
     expect(result.neutralAreaSqm).toBe(0);
     expect(result.remainingDailyAttacks).toBe(4);
     expect(result.nextAttackAvailableAt).toBeNull();
     expect(result.message).toBe('침략에 성공했습니다.');
-    expect(transactionTerritoryRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({ occupation_rate: 75 }),
+    expect(transactionTerritoryRepo.save).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ area_sqm: 0, occupation_rate: 0 }),
+    );
+    expect(transactionTerritoryRepo.save).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        user_id: 1,
+        area_sqm: expect.any(Number),
+        occupation_rate: 100,
+      }),
     );
     expect(transactionAttackLogRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -167,6 +184,46 @@ describe('AttacksService', () => {
     expect(managerQuery).toHaveBeenCalledWith(
       'SELECT RELEASE_LOCK(?)',
       expect.any(Array),
+    );
+  });
+
+  it('moves the overlapped polygon to attacker territory on partial success', async () => {
+    runningLogRepo.findOne.mockResolvedValue({
+      ...runningLog,
+      path: HALF_SQUARE,
+    });
+
+    const result = await service.attack(1, 10, {
+      runningLogId: 20,
+      attackerCharacterId: 30,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.overlapRate).toBeGreaterThan(39);
+    expect(result.overlapRate).toBeLessThan(41);
+    expect(result.acquiredAreaSqm).toBeGreaterThan(4800);
+    expect(result.acquiredAreaSqm).toBeLessThan(5100);
+    expect(transactionTerritoryRepo.save).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        user_id: 2,
+        area_sqm: expect.any(Number),
+        occupation_rate: 75,
+        coordinates: expect.any(Array),
+        center_lat: expect.any(Number),
+        center_lng: expect.any(Number),
+      }),
+    );
+    expect(transactionTerritoryRepo.save).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        user_id: 1,
+        coordinates: expect.any(Array),
+        area_sqm: expect.any(Number),
+        occupation_rate: 100,
+        center_lat: expect.any(Number),
+        center_lng: expect.any(Number),
+      }),
     );
   });
 

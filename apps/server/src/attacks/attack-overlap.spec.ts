@@ -33,6 +33,9 @@ describe('attack overlap', () => {
 
     expect(result.contestedAreaSqm).toBeCloseTo(territoryAreaSqm, 5);
     expect(result.overlapRate).toBeCloseTo(100, 5);
+    expect(result.contestedCoordinates).toHaveLength(5);
+    expect(result.defenderRemainingAreaSqm).toBe(0);
+    expect(result.defenderRemainingCoordinates).toBeNull();
   });
 
   it('calculates partial overlap based on territory area', () => {
@@ -44,6 +47,9 @@ describe('attack overlap', () => {
 
     expect(result.overlapRate).toBeGreaterThan(49);
     expect(result.overlapRate).toBeLessThan(51);
+    expect(result.contestedCoordinates).toHaveLength(5);
+    expect(result.defenderRemainingAreaSqm).toBeGreaterThan(0);
+    expect(result.defenderRemainingCoordinates).toHaveLength(5);
   });
 
   it('returns zero overlap when polygons do not intersect', () => {
@@ -51,6 +57,9 @@ describe('attack overlap', () => {
 
     expect(result.contestedAreaSqm).toBe(0);
     expect(result.overlapRate).toBe(0);
+    expect(result.contestedCoordinates).toBeNull();
+    expect(result.defenderRemainingAreaSqm).toBeCloseTo(territoryAreaSqm, 5);
+    expect(result.defenderRemainingCoordinates).toHaveLength(5);
   });
 
   it('returns zero rate when territory area is zero', () => {

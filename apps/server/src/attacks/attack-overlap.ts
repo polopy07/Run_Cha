@@ -1,4 +1,4 @@
-import { Feature, Polygon } from 'geojson';
+import { Feature, MultiPolygon, Polygon } from 'geojson';
 import * as turf from '@turf/turf';
 
 type Coordinate = { lat: number; lng: number };
@@ -6,6 +6,9 @@ type Coordinate = { lat: number; lng: number };
 export type AttackOverlapResult = {
   overlapRate: number;
   contestedAreaSqm: number;
+  contestedCoordinates: Coordinate[] | null;
+  defenderRemainingAreaSqm: number;
+  defenderRemainingCoordinates: Coordinate[] | null;
 };
 
 export function calculateAttackOverlap(
@@ -18,11 +21,33 @@ export function calculateAttackOverlap(
   const intersection = turf.intersect(
     turf.featureCollection([runningPolygon, territoryPolygon]),
   );
-  const contestedAreaSqm = intersection ? turf.area(intersection) : 0;
+  const contestedPolygon = intersection
+    ? extractLargestPolygon(intersection)
+    : null;
+  const contestedAreaSqm = contestedPolygon ? turf.area(contestedPolygon) : 0;
+  const remaining = contestedPolygon
+    ? turf.difference(turf.featureCollection([territoryPolygon, contestedPolygon]))
+    : territoryPolygon;
+  const defenderRemainingPolygon = remaining
+    ? extractLargestPolygon(remaining)
+    : null;
+  const defenderRemainingAreaSqm = defenderRemainingPolygon
+    ? turf.area(defenderRemainingPolygon)
+    : 0;
   const overlapRate =
     territoryAreaSqm > 0 ? (contestedAreaSqm / territoryAreaSqm) * 100 : 0;
 
-  return { overlapRate, contestedAreaSqm };
+  return {
+    overlapRate,
+    contestedAreaSqm,
+    contestedCoordinates: contestedPolygon
+      ? toCoordinates(contestedPolygon)
+      : null,
+    defenderRemainingAreaSqm,
+    defenderRemainingCoordinates: defenderRemainingPolygon
+      ? toCoordinates(defenderRemainingPolygon)
+      : null,
+  };
 }
 
 export function toPolygon(coordinates: Coordinate[]): Feature<Polygon> {
@@ -39,4 +64,31 @@ export function toPolygon(coordinates: Coordinate[]): Feature<Polygon> {
   }
 
   return turf.polygon([ring]);
+}
+
+function extractLargestPolygon(
+  feature: Feature<Polygon | MultiPolygon>,
+): Feature<Polygon> | null {
+  if (feature.geometry.type === 'Polygon') {
+    return turf.polygon(feature.geometry.coordinates);
+  }
+
+  let largest: Feature<Polygon> | null = null;
+  let largestArea = 0;
+
+  for (const polygonCoordinates of feature.geometry.coordinates) {
+    const polygon = turf.polygon(polygonCoordinates);
+    const area = turf.area(polygon);
+
+    if (area > largestArea) {
+      largest = polygon;
+      largestArea = area;
+    }
+  }
+
+  return largest;
+}
+
+function toCoordinates(feature: Feature<Polygon>): Coordinate[] {
+  return feature.geometry.coordinates[0].map(([lng, lat]) => ({ lat, lng }));
 }

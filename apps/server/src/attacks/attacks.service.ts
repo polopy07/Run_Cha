@@ -12,6 +12,7 @@ import { AttackLog } from './entities/attack-log.entity';
 import { AttackResult } from './enums/attack-result.enum';
 import { CharacterType } from '../characters/entities/character.entity';
 import { UserCharacter } from '../characters/entities/user-character.entity';
+import { calcCenter } from '../common/utils/geo';
 import { RunningLog } from '../running/entities/running-log.entity';
 import { Territory } from '../territories/entities/territory.entity';
 
@@ -62,10 +63,8 @@ export class AttacksService {
       throw new BadRequestException('자신의 영토는 침략할 수 없습니다.');
     }
 
-    const { overlapRate, contestedAreaSqm } = this.calculateOverlapOrThrow(
-      runningLog,
-      territory,
-    );
+    const overlap = this.calculateOverlapOrThrow(runningLog, territory);
+    const { overlapRate, contestedAreaSqm } = overlap;
 
     if (overlapRate < MIN_ATTACK_OVERLAP_RATE) {
       throw new BadRequestException(
@@ -116,7 +115,16 @@ export class AttacksService {
         }
 
         territory.occupation_rate = outcome.occupationRateAfter;
-        await territoryRepo.save(territory);
+        if (outcome.success && overlap.contestedCoordinates) {
+          await this.transferContestedTerritory(
+            territoryRepo,
+            territory,
+            userId,
+            overlap,
+          );
+        } else {
+          await territoryRepo.save(territory);
+        }
 
         await attackLogRepo.save(
           attackLogRepo.create({
@@ -150,7 +158,7 @@ export class AttacksService {
       damage: outcome.damage,
       occupationRateBefore: outcome.occupationRateBefore,
       occupationRateAfter: outcome.occupationRateAfter,
-      acquiredAreaSqm: outcome.acquiredAreaSqm,
+      acquiredAreaSqm: outcome.success ? contestedAreaSqm : 0,
       neutralAreaSqm: NEUTRAL_AREA_SQM_PENDING_POLICY,
       nextAttackAvailableAt: null,
       remainingDailyAttacks,
@@ -189,6 +197,47 @@ export class AttacksService {
 
       throw error;
     }
+  }
+
+  private async transferContestedTerritory(
+    territoryRepo: Repository<Territory>,
+    defenderTerritory: Territory,
+    attackerId: number,
+    overlap: ReturnType<typeof calculateAttackOverlap>,
+  ) {
+    if (
+      overlap.defenderRemainingCoordinates &&
+      overlap.defenderRemainingAreaSqm > 0
+    ) {
+      const defenderCenter = calcCenter(overlap.defenderRemainingCoordinates);
+      defenderTerritory.coordinates = overlap.defenderRemainingCoordinates;
+      defenderTerritory.area_sqm = overlap.defenderRemainingAreaSqm;
+      defenderTerritory.center_lat = defenderCenter.lat;
+      defenderTerritory.center_lng = defenderCenter.lng;
+    } else {
+      defenderTerritory.area_sqm = 0;
+      defenderTerritory.occupation_rate = 0;
+    }
+
+    await territoryRepo.save(defenderTerritory);
+
+    const attackerCoordinates = overlap.contestedCoordinates;
+    if (!attackerCoordinates || overlap.contestedAreaSqm <= 0) {
+      return;
+    }
+
+    const attackerCenter = calcCenter(attackerCoordinates);
+    await territoryRepo.save(
+      territoryRepo.create({
+        user_id: attackerId,
+        name: null,
+        coordinates: attackerCoordinates,
+        area_sqm: overlap.contestedAreaSqm,
+        occupation_rate: 100,
+        center_lat: attackerCenter.lat,
+        center_lng: attackerCenter.lng,
+      }),
+    );
   }
 
   private async findRunningLog(runningLogId: number, userId: number) {
