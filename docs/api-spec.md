@@ -288,8 +288,7 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | grade | string | 캐릭터 등급 |
 | attackLv | number | 공격 레벨 |
 | defenseLv | number | 방어 레벨 |
-| speedLv | number | 속도 레벨 |
-| pointLv | number | 포인트 배율 레벨 |
+| pointLv | number | 포인트 효율 레벨 |
 
 비로그인 사용자도 접근 가능하며, 로그인 사용자인 경우에만 `isMine`을 현재 사용자 기준으로 계산한다. 상세 응답에서는 소유자 ID를 별도 `userId` 필드가 아닌 `owner.id`로 참조한다.
 
@@ -349,7 +348,9 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 - 하루 침략 가능 횟수는 5회이며, `attack_logs`의 공격자/날짜 기준 카운트로 제한한다.
 - 침략 가능 조건을 만족하면 공격력과 방어력을 계산해 침략 성공 여부와 점령률 감소량을 판단한다.
 - 침략 성공 시 러닝 경로와 대상 영토가 겹친 영역을 공격자 소유 영역으로 이전한다.
-- 서버는 대상 영토 폴리곤에서 이전된 겹침 영역을 제외하고, 공격자 영토에는 해당 겹침 영역을 반영해야 한다.
+- 서버는 기존 방어자 영토 폴리곤을 잘라내지 않고, 겹침 폴리곤을 공격자 소유의 새 영토로 생성하거나 기존 공격자 영토에 병합한다.
+- 침략으로 생성된 공격자 영토는 기존 방어자 영토와 공간적으로 겹칠 수 있으며, 지도에서는 새로 획득한 영토를 우선 표시한다.
+- 침략 실패 시 겹침 후보 영역은 소유권 이전 없이 유지된다.
 - 대상 영토에 포함되지 않은 새 폐곡선 면적은 일반 러닝 보상/영토 생성 규칙에 따라 처리한다.
 
 #### Request Body
@@ -406,19 +407,18 @@ const occupationRateAfter = Math.max(0, territory.occupation_rate - Math.floor(d
 const success = occupationRateAfter < territory.occupation_rate;
 const contestedPolygon = intersect(runningPolygon, territoryPolygon);
 const acquiredAreaSqm = success && contestedPolygon ? area(contestedPolygon) : 0;
-const defenderPolygonAfter =
-  success && contestedPolygon ? difference(territoryPolygon, contestedPolygon) : territoryPolygon;
 const attackerAcquiredPolygon = success ? contestedPolygon : null;
 ```
 
 - 방어 캐릭터는 대상 영토에 배치된 수비형 캐릭터를 사용한다.
 - 배치 기준은 `user_characters.deployed_territory_id = territory.id`다.
 - 공격/방어 기본 스탯은 `UserCharacter`의 `character` relation을 통해 `characters.base_attack`, `characters.base_defense`에서 조회한다.
-- 최종 구현에서는 `turf.intersect` 등으로 겹친 영역을 산출하고, `turf.difference` 등으로 대상 영토 폴리곤에서 해당 영역을 제외해야 한다.
+- 최종 구현에서는 `turf.intersect` 등으로 겹친 영역을 산출하고, 침략 성공 시 해당 겹침 폴리곤을 공격자 소유 영토로 저장한다.
+- 기존 방어자 영토의 `coordinates`는 침략 성공만으로 잘라내지 않는다.
 - 공격자가 획득한 폴리곤은 새 영토로 저장하거나 기존 공격자 영토와 병합한다. 병합 기준은 후속 구현에서 확정한다.
-- 점령률 감소만 저장하고 `coordinates`를 변경하지 않으면 지도에서 침략 결과가 보이지 않으므로 최종 구현 기준으로 보지 않는다.
-- `speed`, `base_point_rate` 스탯은 현재 침략 공식에 사용하지 않는다. 적용 여부는 후속 밸런싱에서 확정한다.
-- 버프형 캐릭터의 침략 계산 반영 방식은 후속 밸런싱에서 확정한다.
+- 점령률 감소만 저장하고 공격자 소유 겹침 영토를 생성하지 않으면 지도에서 침략 결과가 보이지 않으므로 최종 구현 기준으로 보지 않는다.
+- 속도 스탯은 사용하지 않는다.
+- 포인트 효율 스탯은 침략 공식에 사용하지 않고, 버프형 캐릭터가 배치된 영토의 시간당 포인트 수익 증가에 사용한다.
 - 침략 결과는 `attack_logs`에 저장한다.
 
 ---
@@ -464,6 +464,8 @@ const attackerAcquiredPolygon = success ? contestedPolygon : null;
 
 현재 사용자가 보유한 캐릭터 목록을 조회한다.
 
+캐릭터 스탯은 공격, 방어, 포인트 효율 3종을 사용한다. 속도 스탯은 사용하지 않는다.
+
 #### Response
 
 | 필드 | 타입 | 설명 |
@@ -475,14 +477,13 @@ const attackerAcquiredPolygon = success ? contestedPolygon : null;
 | type | string | 캐릭터 타입. `attack`, `defense`, `buff` |
 | attackLv | number | 공격 레벨 |
 | defenseLv | number | 방어 레벨 |
-| speedLv | number | 속도 레벨 |
-| pointLv | number | 포인트 배율 레벨 |
+| pointLv | number | 포인트 효율 레벨 |
 | isDeployed | boolean | 배치 여부 |
 | deployedTerritoryId | number \| null | 배치된 영토 ID. `null`이면 미배치 |
 
 캐릭터 최대 보유 개수는 30개다. 보유 페이지의 등급별/능력 타입별 정렬은 클라이언트에서 이 응답을 기준으로 처리한다.
 
-캐릭터 상세 화면에서는 현재 응답에 포함된 스탯 레벨을 우선 표시한다. 이미지, 캐릭터 전체 레벨, 경험치는 후속 DB/API 확장 이후 아래 필드를 추가한다.
+캐릭터 상세 화면에서는 현재 응답에 포함된 공격/방어/포인트 효율 스탯 레벨을 우선 표시한다. 이미지, 캐릭터 전체 레벨, 경험치는 후속 DB/API 확장 이후 아래 필드를 추가한다.
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
@@ -498,7 +499,7 @@ const attackerAcquiredPolygon = success ? contestedPolygon : null;
 
 | 필드 | 타입 | 필수 | 설명 |
 |---|---|---|---|
-| stat | string | O | 강화할 스탯. `attack`, `defense`, `speed`, `point` |
+| stat | string | O | 강화할 스탯. `attack`, `defense`, `point` |
 
 #### Response
 
@@ -534,8 +535,7 @@ const attackerAcquiredPolygon = success ? contestedPolygon : null;
 | type | string | 캐릭터 타입 |
 | attackLv | number | 공격 레벨 |
 | defenseLv | number | 방어 레벨 |
-| speedLv | number | 속도 레벨 |
-| pointLv | number | 포인트 배율 레벨 |
+| pointLv | number | 포인트 효율 레벨 |
 | isDeployed | boolean | 배치 여부 |
 | deployedTerritoryId | number \| null | 배치된 영토 ID |
 
@@ -545,7 +545,8 @@ const attackerAcquiredPolygon = success ? contestedPolygon : null;
 - 이미 다른 캐릭터가 배치된 영토에 중복 배치 요청 시 400
 - 보유하지 않은 캐릭터 배치 요청 시 404
 - 사용자가 소유하지 않은 영토 배치 요청 시 404
-- 수비형/버프형 캐릭터 효과가 침략/자연 감소 계산에 적용되는 방식은 후속 구현에서 확정한다.
+- 수비형 캐릭터는 영토 방어 계산에 사용한다.
+- 버프형 캐릭터는 영토의 시간당 포인트 수익 증가에 사용한다. 정확한 배율 공식은 후속 구현에서 확정한다.
 
 #### 현재 구현 기준
 
@@ -651,8 +652,8 @@ const attackerAcquiredPolygon = success ? contestedPolygon : null;
 1. `/running/start` API 필요 여부
 2. 침략 쿨타임 적용 여부와 쿨타임 시간
 3. 새 영토 침략 보호 시간 저장 방식
-4. 버프형 캐릭터의 침략 계산 반영 공식
-5. 수비형/버프형 캐릭터의 자연 감소 계산 반영 방식
+4. 버프형 캐릭터의 시간당 포인트 수익 배율 공식
+5. 수비형 캐릭터의 자연 감소 계산 반영 방식
 6. 공통 에러 메시지 세부 코드 정의
 7. `GET /territories/:id` 상세 응답의 보유자/배치 캐릭터 JOIN 최적화 방식
 8. 캐릭터 레벨/경험치/이미지 필드의 DB 저장 방식

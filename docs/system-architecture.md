@@ -263,7 +263,7 @@ const earnedPoints = isClosedLoop ? basePoints : Math.floor(basePoints * 1.3);
 - 하나의 영토에는 하나의 수비형/버프형 캐릭터만 배치할 수 있다.
 - 배치 여부는 `deployed_territory_id IS NOT NULL`로 파생한다.
 - 수비형 캐릭터는 침략 방어력 계산에 사용한다.
-- 버프형 캐릭터의 침략 계산 반영 방식과 자연 감소 스케줄러 연동 공식은 후속 밸런싱에서 확정한다.
+- 버프형 캐릭터는 영토의 시간당 포인트 수익 증가에 사용한다. 정확한 배율 공식은 후속 구현에서 확정한다.
 
 ### 3.6 캐릭터 분해 흐름
 
@@ -303,7 +303,7 @@ const earnedPoints = isClosedLoop ? basePoints : Math.floor(basePoints * 1.3);
 8. 서버가 공격 캐릭터 공격력과 대상 영토 배치 수비형 캐릭터 방어력을 계산
 9. 서버가 `occupation_rate` 기준 보정 방어력을 적용해 침략 성공 여부와 점령률 감소 참고값을 계산
 10. 침략 성공 시 서버가 러닝 경로와 대상 영토의 실제 겹침 폴리곤을 계산
-11. 서버가 대상 영토 폴리곤에서 겹침 영역을 차감하고, 공격자 영토에는 겹침 영역을 새 영토로 저장하거나 기존 영토와 병합
+11. 서버가 기존 방어자 영토 폴리곤은 유지하고, 겹침 영역을 공격자 소유 새 영토로 저장하거나 기존 공격자 영토와 병합
 12. 서버가 침략 결과를 `attack_logs`에 저장
 13. 대상 영토 밖의 새 면적은 일반 러닝 영토 생성 규칙에 따라 처리
 14. 서버가 침략 결과, 다음 가능 시각, 남은 횟수를 응답
@@ -324,12 +324,12 @@ const occupationRateAfter = Math.max(0, territory.occupation_rate - Math.floor(d
 const success = occupationRateAfter < territory.occupation_rate;
 const contestedPolygon = intersect(runningPolygon, territoryPolygon);
 const acquiredAreaSqm = success && contestedPolygon ? area(contestedPolygon) : 0;
-const defenderPolygonAfter =
-  success && contestedPolygon ? difference(territoryPolygon, contestedPolygon) : territoryPolygon;
 const attackerAcquiredPolygon = success ? contestedPolygon : null;
 ```
 
-최종 침략 구현은 점령률 수치만 변경하지 않고 영토 `coordinates`와 `area_sqm`을 함께 갱신해야 한다. 점령률만 감소하면 지도에서 영토 크기 변화가 보이지 않아 회의에서 결정한 침략 체감 방식과 맞지 않는다.
+최종 침략 구현은 점령률 수치만 변경하지 않고 공격자가 획득한 겹침 폴리곤을 영토 데이터로 반영해야 한다. 점령률만 감소하면 지도에서 영토 변화가 보이지 않아 회의에서 결정한 침략 체감 방식과 맞지 않는다.
+
+침략 성공 시 기존 방어자 영토에 구멍을 내거나 폴리곤을 잘라내지 않는다. 공격자가 획득한 겹침 영역은 방어자 영토 내부 또는 위에 존재하는 공격자 소유 영토로 처리하며, 지도에서는 새로 획득한 침략 영토가 기존 방어자 영토보다 우선 표시되어야 한다.
 
 하루 침략 제한은 5회이며 `attack_logs`의 공격자/날짜 기준 카운트로 계산한다. 현재 쿨타임 미구현 상태에서는 `nextAttackAvailableAt`을 항상 `null`로 반환한다. 침략 쿨타임과 새 영토의 약 5분 침략 보호 시간 저장 방식은 후속 구현에서 확정한다.
 
@@ -358,7 +358,8 @@ const attackerAcquiredPolygon = success ? contestedPolygon : null;
 - 침략 가능 기준은 대상 영토 면적의 30% 이상을 직접 러닝으로 겹쳐야 한다.
 - 캐릭터 배치가 스케줄러에 영향을 주는 경우 배치 데이터와 자연 감소 로직을 함께 갱신한다.
 - 영토 점령률은 시간이 지나면 반드시 감소하며, 사용자가 요구량만큼 직접 러닝한 경우 일정 기간 동안 감소량을 줄이는 구조를 전제로 한다.
-- `speed`, `base_point_rate` 스탯은 현재 침략/자연 감소 로직에 사용하지 않는다. 적용 여부는 후속 밸런싱에서 확정한다.
+- 캐릭터 스탯은 공격, 방어, 포인트 효율 3종을 사용한다. 속도 스탯은 사용하지 않는다.
+- 포인트 효율 스탯은 침략/자연 감소 공식이 아니라 버프형 캐릭터가 배치된 영토의 시간당 포인트 수익 증가에 사용한다.
 - 장시간 연속 러닝은 보상 보정이 증가할 수 있으며, 짧게 끊어 달리는 보상 악용을 줄이는 방향으로 공식 확정이 필요하다.
 - `.env`, Firebase Admin 서비스 키, API Key는 저장소에 포함하지 않는다.
 - Firebase ID Token은 `/auth/login`에서만 사용하고, 이후 보호 API는 서버 JWT를 사용한다.
