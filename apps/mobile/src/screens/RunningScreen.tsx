@@ -12,22 +12,7 @@ import { darkMapStyle } from '../constants/mapStyle';
 import { useGPS, getLastLocation } from '../hooks/useGPS';
 import { getTerritories, type Territory } from '../api/territory';
 import useAuthStore from '../store/authStore';
-
-function hslToHex(h: number, s: number, l: number): string {
-  s /= 100; l /= 100;
-  const a = s * Math.min(l, 1 - l);
-  const f = (n: number) => {
-    const k = (n + h / 30) % 12;
-    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-    return Math.round(255 * color).toString(16).padStart(2, '0');
-  };
-  return `#${f(0)}${f(8)}${f(4)}`;
-}
-
-function getUserColor(userId: number | undefined): string {
-  if (userId == null) return '#888888';
-  return hslToHex((userId * 137.508) % 360, 70, 55);
-}
+import { getUserColor } from '../utils/colorUtils';
 
 const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 
@@ -80,14 +65,13 @@ export function RunningScreen() {
   useEffect(() => {
     const last = getLastLocation();
     if (!last) return;
+    const region = { latitude: last.latitude, longitude: last.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 };
+    fetchNearbyTerritories(region);
     const id = setTimeout(() => {
-      mapRef.current?.animateToRegion(
-        { latitude: last.latitude, longitude: last.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 },
-        500,
-      );
+      mapRef.current?.animateToRegion(region, 500);
     }, 300);
     return () => clearTimeout(id);
-  }, []);
+  }, [fetchNearbyTerritories]);
 
   useEffect(() => {
     if (phase !== 'running') return;

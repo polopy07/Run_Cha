@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, View, Text, TouchableOpacity, Alert } from 'react-native';
 import MapView, { Marker, Polygon, PROVIDER_GOOGLE, PROVIDER_DEFAULT, type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,35 +11,13 @@ import useAuthStore from '../store/authStore';
 import { getTerritories, type Territory } from '../api/territory';
 import { TerritoryDetailSheet } from '../components/TerritoryDetailSheet';
 import { AttackTerritoryPanel } from '../components/attack/AttackTerritoryPanel';
-
-function hslToHex(h: number, s: number, l: number): string {
-  s /= 100;
-  l /= 100;
-  const a = s * Math.min(l, 1 - l);
-  const f = (n: number) => {
-    const k = (n + h / 30) % 12;
-    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-    return Math.round(255 * color).toString(16).padStart(2, '0');
-  };
-  return `#${f(0)}${f(8)}${f(4)}`;
-}
-
-function getUserColor(userId: number | undefined): string {
-  if (userId == null) return '#888888';
-  const hue = (userId * 137.508) % 360;
-  return hslToHex(hue, 70, 55);
-}
+import { getUserColor } from '../utils/colorUtils';
+import { formatAreaCompact } from '../utils/formatUtils';
 
 function getCentroid(coords: { lat: number; lng: number }[]): { latitude: number; longitude: number } {
   const len = coords.length || 1;
   const sum = coords.reduce((acc, c) => ({ lat: acc.lat + c.lat, lng: acc.lng + c.lng }), { lat: 0, lng: 0 });
   return { latitude: sum.lat / len, longitude: sum.lng / len };
-}
-
-function formatArea(sqm: number): string {
-  if (sqm >= 1_000_000) return `${(sqm / 1_000_000).toFixed(1)}km²`;
-  if (sqm >= 10_000) return `${(sqm / 10_000).toFixed(1)}만m²`;
-  return `${Math.round(sqm).toLocaleString()}m²`;
 }
 
 type BottomTabParamList = {
@@ -68,8 +46,12 @@ export function MapScreen() {
   const [attackVisible, setAttackVisible] = useState(false);
 
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const fetchTerritories = useCallback(async (region: Region) => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     const bounds = {
       minLat: region.latitude - region.latitudeDelta / 2,
       maxLat: region.latitude + region.latitudeDelta / 2,
@@ -77,9 +59,16 @@ export function MapScreen() {
       maxLng: region.longitude + region.longitudeDelta / 2,
     };
     try {
-      const data = await getTerritories(bounds);
-      setTerritories(data);
+      const data = await getTerritories(bounds, { signal: controller.signal });
+      if (!controller.signal.aborted) setTerritories(data);
     } catch {}
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (fetchTimer.current) clearTimeout(fetchTimer.current);
+      abortRef.current?.abort();
+    };
   }, []);
 
   useFocusEffect(
@@ -171,7 +160,7 @@ export function MapScreen() {
                     {t.name ?? `#${t.id}`}
                   </Text>
                   <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 9, fontWeight: '600' }}>
-                    {formatArea(t.areaSqm)}
+                    {formatAreaCompact(t.areaSqm)}
                   </Text>
                 </View>
               </Marker>

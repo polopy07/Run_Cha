@@ -1,12 +1,14 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity,
   ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { getAreaRanking, getDistanceRanking } from '../api/ranking';
 import { useTheme } from '../contexts/ThemeContext';
 import { radius } from '../constants/theme';
+import useAuthStore from '../store/authStore';
 
 type Tab = 'area' | 'distance';
 type AreaEntry = { rank: number; userId: number; nickname: string; totalAreaSqm: number };
@@ -22,6 +24,7 @@ function fmtDist(km: number) { return `${km.toFixed(2)} km`; }
 export function RankingScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const user = useAuthStore(s => s.user);
   const [tab, setTab] = useState<Tab>('area');
   const [areaData, setAreaData] = useState<RankEntry[]>([]);
   const [distData, setDistData] = useState<RankEntry[]>([]);
@@ -40,13 +43,14 @@ export function RankingScreen() {
     } finally { setIsLoading(false); setIsRefreshing(false); }
   }, []);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useFocusEffect(useCallback(() => { fetchAll(); }, [fetchAll]));
   const onRefresh = () => { setIsRefreshing(true); fetchAll(false); };
 
   const data = tab === 'area' ? areaData : distData;
 
   const renderItem = ({ item }: { item: RankEntry }) => {
     const isTop = item.rank <= 3;
+    const isMe = item.userId === user?.id;
     const value = 'totalAreaSqm' in item ? fmtArea(item.totalAreaSqm) : fmtDist((item as DistanceEntry).totalDistanceKm);
 
     return (
@@ -54,9 +58,11 @@ export function RankingScreen() {
         flexDirection: 'row', alignItems: 'center',
         paddingVertical: 14, paddingHorizontal: 12,
         borderBottomWidth: isTop ? 0 : 1, borderBottomColor: colors.divider,
-        backgroundColor: isTop ? colors.card : 'transparent',
-        borderRadius: isTop ? radius.sm : 0,
+        backgroundColor: isMe ? colors.primary + '15' : isTop ? colors.card : 'transparent',
+        borderRadius: isTop || isMe ? radius.sm : 0,
         marginBottom: isTop ? 4 : 0,
+        borderLeftWidth: isMe ? 3 : 0,
+        borderLeftColor: isMe ? colors.primary : 'transparent',
       }}>
         <View style={{ width: 44, alignItems: 'center' }}>
           {isTop ? (

@@ -19,6 +19,7 @@ import {
 } from '../api/territory';
 import { useTheme } from '../contexts/ThemeContext';
 import { radius, GRADE_LABEL } from '../constants/theme';
+import { formatArea } from '../utils/formatUtils';
 
 type Props = {
   visible: boolean;
@@ -27,11 +28,6 @@ type Props = {
   onClose: () => void;
   onAttack?: (territoryId: number) => void;
 };
-
-function formatArea(sqm: number): string {
-  if (sqm >= 1_000_000) return `${(sqm / 1_000_000).toFixed(2)} km²`;
-  return `${Math.round(sqm).toLocaleString()} m²`;
-}
 
 function gradeColor(grade: string, colors: ReturnType<typeof useTheme>['colors']): string {
   const map: Record<string, string> = {
@@ -113,6 +109,7 @@ export function TerritoryDetailSheet({ visible, territoryId, territory, onClose,
 
   const handleSaveName = async () => {
     if (!detail || !nameInput.trim()) return;
+    if (nameInput.trim() === detail.name) { setEditingName(false); return; }
     setSavingName(true);
     try {
       const res = await updateTerritoryName(detail.id, nameInput.trim());
