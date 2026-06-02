@@ -70,6 +70,7 @@ export function StorageScreen() {
   } = useCharacterStore();
   const user = useAuthStore(state => state.user);
   const fetchMe = useAuthStore(state => state.fetchMe);
+  const setRepresentative = useAuthStore(state => state.setRepresentative);
 
   const [territories, setTerritories] = useState<Territory[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -78,6 +79,7 @@ export function StorageScreen() {
   const [isDismantleMode, setIsDismantleMode] = useState(false);
   const [selectedDismantleIds, setSelectedDismantleIds] = useState<number[]>([]);
   const [isDismantling, setIsDismantling] = useState(false);
+  const [isSettingRepresentative, setIsSettingRepresentative] = useState(false);
 
   const deployedIds = useMemo(
     () => new Set(
@@ -270,20 +272,48 @@ export function StorageScreen() {
     selectedDismantleIds.length,
   ]);
 
+  const handleRepresentative = useCallback(async (character: Character) => {
+    if (isDismantleMode || isSettingRepresentative) return;
+
+    const isCurrentRep = user?.representativeCharacter?.id === character.id;
+    const action = isCurrentRep ? '해제' : '설정';
+    const message = isCurrentRep
+      ? `${character.name}의 대표 캐릭터를 해제할까요?`
+      : `${character.name}을(를) 대표 캐릭터로 설정할까요?`;
+
+    Alert.alert(`대표 캐릭터 ${action}`, message, [
+      { text: '취소', style: 'cancel' },
+      {
+        text: action,
+        onPress: async () => {
+          setIsSettingRepresentative(true);
+          try {
+            await setRepresentative(isCurrentRep ? null : character.id);
+          } catch (error) {
+            Alert.alert('실패', getErr(error, '다시 시도해주세요.'));
+          } finally {
+            setIsSettingRepresentative(false);
+          }
+        },
+      },
+    ]);
+  }, [isDismantleMode, isSettingRepresentative, setRepresentative, user?.representativeCharacter?.id]);
+
   const renderItem = ({ item }: { item: Character }) => {
     const grade = gradeColor[item.grade] ?? colors.gradeCommon;
     const selectedForDismantle = selectedDismantleIds.includes(item.id);
     const deployed = isDeployed(item);
     const disabledForDismantle = isDismantleMode && deployed;
+    const isRep = user?.representativeCharacter?.id === item.id;
 
     return (
       <TouchableOpacity
         style={{
           width: '48%',
           backgroundColor: colors.card,
-          borderColor: selectedForDismantle ? colors.primary : colors.cardBorder,
+          borderColor: isRep ? colors.gold : selectedForDismantle ? colors.primary : colors.cardBorder,
           borderRadius: radius.md,
-          borderWidth: selectedForDismantle ? 2 : 1,
+          borderWidth: isRep ? 2 : selectedForDismantle ? 2 : 1,
           opacity: disabledForDismantle ? 0.45 : 1,
           padding: 14,
           alignItems: 'center',
@@ -293,6 +323,7 @@ export function StorageScreen() {
         activeOpacity={0.85}
         disabled={disabledForDismantle}
         onPress={() => openDeploy(item)}
+        onLongPress={() => handleRepresentative(item)}
       >
         <View
           style={{
@@ -301,9 +332,24 @@ export function StorageScreen() {
             left: 0,
             right: 0,
             height: 3,
-            backgroundColor: grade,
+            backgroundColor: isRep ? colors.gold : grade,
           }}
         />
+        {isRep && (
+          <View
+            style={{
+              position: 'absolute',
+              top: 8,
+              left: 8,
+              backgroundColor: colors.gold,
+              borderRadius: 4,
+              paddingHorizontal: 5,
+              paddingVertical: 2,
+            }}
+          >
+            <Text style={{ fontSize: 9, fontWeight: '800', color: colors.bg }}>대표</Text>
+          </View>
+        )}
         {isDismantleMode && (
           <View
             style={{
@@ -383,6 +429,7 @@ export function StorageScreen() {
           <Text style={{ fontSize: 20, fontWeight: '800', color: colors.text }}>캐릭터 보관함</Text>
           <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
             {characters.length}개 보유 · 스탯 포인트 {user?.statPoints ?? 0}
+            {!isDismantleMode ? '  ·  길게 눌러 대표 설정' : ''}
           </Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 8 }}>
