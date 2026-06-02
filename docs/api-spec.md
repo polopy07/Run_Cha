@@ -245,7 +245,7 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 
 특정 영토에 대한 침략 요청을 처리한다.
 
-> 현재 서버 미구현 API다. 아래 내용은 침략 API 구현 기준으로 사용한다.
+> 침략 API는 구현 중인 기능이다. 최종 동작 기준은 회의 결정에 따라 "겹친 영역의 실제 소유권 이전"을 목표로 한다.
 
 #### 침략 가능 조건
 
@@ -255,8 +255,9 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 - 서버는 `POST /territories/:id/attack` 처리 중 러닝 로그의 GPS 경로와 대상 영토의 겹친 면적을 계산해 침략 가능 여부를 판단한다.
 - 침략에는 현재 사용자가 보유한 공격형 캐릭터만 사용할 수 있다.
 - 하루 침략 가능 횟수는 5회이며, `attack_logs`의 공격자/날짜 기준 카운트로 제한한다.
-- 침략 가능 조건을 만족하면 공격력과 방어력을 계산해 대상 영토의 `occupation_rate`를 감소시킨다.
-- `occupation_rate`가 감소한 만큼 `acquiredAreaSqm`으로 환산한다.
+- 침략 가능 조건을 만족하면 공격력과 방어력을 계산해 침략 성공 여부와 점령률 감소량을 판단한다.
+- 침략 성공 시 러닝 경로와 대상 영토가 겹친 영역을 공격자 소유 영역으로 이전한다.
+- 서버는 대상 영토 폴리곤에서 이전된 겹침 영역을 제외하고, 공격자 영토에는 해당 겹침 영역을 반영해야 한다.
 - 대상 영토에 포함되지 않은 새 폐곡선 면적은 일반 러닝 보상/영토 생성 규칙에 따라 처리한다.
 
 #### Request Body
@@ -270,13 +271,13 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
-| success | boolean | `occupationRateAfter < occupationRateBefore`로 실제 점령률이 감소했는지 여부 |
+| success | boolean | 공격/방어 계산 결과 실제 소유권 이전이 발생했는지 여부 |
 | overlapRate | number | 대상 영토 기준 직접 러닝으로 겹친 비율 |
 | contestedAreaSqm | number | 대상 영토와 직접 러닝 경로가 겹친 면적 |
-| damage | number | 최종 점령률 감소량 |
+| damage | number | 공격/방어 계산으로 산출한 점령률 감소 참고값 |
 | occupationRateBefore | number | 침략 전 대상 영토 점령률 |
-| occupationRateAfter | number | 침략 후 대상 영토 점령률 |
-| acquiredAreaSqm | number | 점령률 감소량 기준 획득 면적. `territory.area_sqm * (territory.occupation_rate - occupationRateAfter) / 100` |
+| occupationRateAfter | number | 침략 후 대상 영토 점령률. 방어력 보정/자연 감소 관리를 위한 상태값 |
+| acquiredAreaSqm | number | 침략 성공 시 공격자 소유로 이전된 실제 겹침 폴리곤 면적 |
 | neutralAreaSqm | number | 기존 점령 영토에 포함되지 않아 일반 규칙으로 처리된 면적 |
 | nextAttackAvailableAt | string \| null | 다음 침략 가능 시각. 현재 쿨타임 미구현 상태에서는 항상 `null` |
 | remainingDailyAttacks | number | 당일 남은 침략 횟수 |
@@ -294,14 +295,21 @@ const defensePower = deployedDefenders.reduce(
 const defenseWithRate = defensePower * (territory.occupation_rate / 100);
 const damage = Math.max(0, attackPower - defenseWithRate);
 const occupationRateAfter = Math.max(0, territory.occupation_rate - Math.floor(damage));
-const acquiredAreaSqm =
-  territory.area_sqm * (territory.occupation_rate - occupationRateAfter) / 100;
 const success = occupationRateAfter < territory.occupation_rate;
+const contestedPolygon = intersect(runningPolygon, territoryPolygon);
+const acquiredAreaSqm = success && contestedPolygon ? area(contestedPolygon) : 0;
+const defenderPolygonAfter =
+  success && contestedPolygon ? difference(territoryPolygon, contestedPolygon) : territoryPolygon;
+const attackerAcquiredPolygon = success ? contestedPolygon : null;
 ```
 
 - 방어 캐릭터는 대상 영토에 배치된 수비형 캐릭터를 사용한다.
 - 배치 기준은 `user_characters.deployed_territory_id = territory.id`다.
 - 공격/방어 기본 스탯은 `UserCharacter`의 `character` relation을 통해 `characters.base_attack`, `characters.base_defense`에서 조회한다.
+- 최종 구현에서는 `turf.intersect` 등으로 겹친 영역을 산출하고, `turf.difference` 등으로 대상 영토 폴리곤에서 해당 영역을 제외해야 한다.
+- 공격자가 획득한 폴리곤은 새 영토로 저장하거나 기존 공격자 영토와 병합한다. 병합 기준은 후속 구현에서 확정한다.
+- 점령률 감소만 저장하고 `coordinates`를 변경하지 않으면 지도에서 침략 결과가 보이지 않으므로 최종 구현 기준으로 보지 않는다.
+- `speed`, `base_point_rate` 스탯은 현재 침략 공식에 사용하지 않는다. 적용 여부는 후속 밸런싱에서 확정한다.
 - 버프형 캐릭터의 침략 계산 반영 방식은 후속 밸런싱에서 확정한다.
 - 침략 결과는 `attack_logs`에 저장한다.
 
