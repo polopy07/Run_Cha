@@ -155,14 +155,19 @@ describe('AttacksService', () => {
       1,
       expect.objectContaining({ area_sqm: 0, occupation_rate: 0 }),
     );
-    expect(transactionTerritoryRepo.save).toHaveBeenNthCalledWith(
-      2,
+    const attackerTerritory =
+      transactionTerritoryRepo.save.mock.calls[1]?.[0] as unknown as {
+        user_id: number;
+        area_sqm: number;
+        occupation_rate: number;
+      };
+    expect(attackerTerritory).toEqual(
       expect.objectContaining({
         user_id: 1,
-        area_sqm: expect.any(Number),
         occupation_rate: 100,
       }),
     );
+    expect(typeof attackerTerritory.area_sqm).toBe('number');
     expect(transactionAttackLogRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({
         attacker_id: 1,
@@ -203,28 +208,45 @@ describe('AttacksService', () => {
     expect(result.overlapRate).toBeLessThan(41);
     expect(result.acquiredAreaSqm).toBeGreaterThan(4800);
     expect(result.acquiredAreaSqm).toBeLessThan(5100);
-    expect(transactionTerritoryRepo.save).toHaveBeenNthCalledWith(
-      1,
+    const defenderTerritory =
+      transactionTerritoryRepo.save.mock.calls[0]?.[0] as unknown as {
+        user_id: number;
+        area_sqm: number;
+        occupation_rate: number;
+        coordinates: unknown[];
+        center_lat: number;
+        center_lng: number;
+      };
+    expect(defenderTerritory).toEqual(
       expect.objectContaining({
         user_id: 2,
-        area_sqm: expect.any(Number),
         occupation_rate: 75,
-        coordinates: expect.any(Array),
-        center_lat: expect.any(Number),
-        center_lng: expect.any(Number),
       }),
     );
-    expect(transactionTerritoryRepo.save).toHaveBeenNthCalledWith(
-      2,
+    expect(typeof defenderTerritory.area_sqm).toBe('number');
+    expect(Array.isArray(defenderTerritory.coordinates)).toBe(true);
+    expect(typeof defenderTerritory.center_lat).toBe('number');
+    expect(typeof defenderTerritory.center_lng).toBe('number');
+
+    const acquiredTerritory =
+      transactionTerritoryRepo.save.mock.calls[1]?.[0] as unknown as {
+        user_id: number;
+        coordinates: unknown[];
+        area_sqm: number;
+        occupation_rate: number;
+        center_lat: number;
+        center_lng: number;
+      };
+    expect(acquiredTerritory).toEqual(
       expect.objectContaining({
         user_id: 1,
-        coordinates: expect.any(Array),
-        area_sqm: expect.any(Number),
         occupation_rate: 100,
-        center_lat: expect.any(Number),
-        center_lng: expect.any(Number),
       }),
     );
+    expect(Array.isArray(acquiredTerritory.coordinates)).toBe(true);
+    expect(typeof acquiredTerritory.area_sqm).toBe('number');
+    expect(typeof acquiredTerritory.center_lat).toBe('number');
+    expect(typeof acquiredTerritory.center_lng).toBe('number');
   });
 
   it('saves deployed defender character id when defender is deployed', async () => {

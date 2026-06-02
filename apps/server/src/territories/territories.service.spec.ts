@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { MoreThan } from 'typeorm';
 import { TerritoriesService } from './territories.service';
 import { Territory } from './entities/territory.entity';
 import { GetTerritoriesDto } from './dto/get-territories.dto';
@@ -88,8 +89,8 @@ describe('TerritoriesService', () => {
       expect(mockRepo.find).toHaveBeenCalledWith({
         where: {
           user_id: 1,
-          area_sqm: expect.any(Object),
-          occupation_rate: expect.any(Object),
+          area_sqm: MoreThan(0),
+          occupation_rate: MoreThan(0),
         },
         order: { id: 'ASC' },
         relations: ['user'],
