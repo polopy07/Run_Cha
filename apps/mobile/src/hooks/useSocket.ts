@@ -18,12 +18,19 @@ export type OnlineUser = {
 
 const STALE_TIMEOUT_MS = 30_000;
 
-export function useSocket() {
+type SocketOptions = {
+  onRankingUpdate?: () => void;
+  onTerritoryUpdate?: () => void;
+};
+
+export function useSocket(options?: SocketOptions) {
   const isLoggedIn = useAuthStore(s => s.isLoggedIn);
   const socketRef = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [nearbyUsers, setNearbyUsers] = useState<Map<number, OnlineUser & { lastSeen: number }>>(new Map());
   const staleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const callbacksRef = useRef(options);
+  callbacksRef.current = options;
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -75,6 +82,14 @@ export function useSocket() {
             next.delete(data.userId);
             return next;
           });
+        });
+
+        sock.on('ranking:update', () => {
+          if (mounted) callbacksRef.current?.onRankingUpdate?.();
+        });
+
+        sock.on('territory:update', () => {
+          if (mounted) callbacksRef.current?.onTerritoryUpdate?.();
         });
 
         if (sock.connected) setIsConnected(true);

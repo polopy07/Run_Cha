@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getAreaRanking, getDistanceRanking } from '../api/ranking';
 import { useTheme } from '../contexts/ThemeContext';
 import { radius } from '../constants/theme';
+import { useSocket } from '../hooks/useSocket';
 
 type Tab = 'area' | 'distance';
 type AreaEntry = { rank: number; userId: number; nickname: string; totalAreaSqm: number };
@@ -34,6 +35,10 @@ export function RankingScreen() {
       setData(res as RankEntry[]);
     } catch { setData([]); } finally { setIsLoading(false); setIsRefreshing(false); }
   }, [tab]);
+
+  useSocket({
+    onRankingUpdate: () => { void fetch(false); },
+  });
 
   useEffect(() => { fetch(); }, [fetch]);
   const onRefresh = () => { setIsRefreshing(true); fetch(false); };

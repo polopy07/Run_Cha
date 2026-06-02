@@ -48,7 +48,9 @@ export function MapScreen() {
   const regionRef = useRef(INITIAL_REGION);
   const userLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const user = useAuthStore(s => s.user);
-  const { nearbyUsers, emitLocation } = useSocket();
+  const { nearbyUsers, emitLocation } = useSocket({
+    onTerritoryUpdate: () => fetchTerritories(regionRef.current),
+  });
   const [territories, setTerritories] = useState<Territory[]>([]);
 
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
