@@ -8,6 +8,7 @@ import { CharacterType } from '../characters/entities/character.entity';
 import { UserCharacter } from '../characters/entities/user-character.entity';
 import { RunningLog } from '../running/entities/running-log.entity';
 import { Territory } from '../territories/entities/territory.entity';
+import { EventsGateway } from '../socket/events.gateway';
 
 const SQUARE = [
   { lat: 37.0, lng: 127.0 },
@@ -118,6 +119,7 @@ describe('AttacksService', () => {
           useValue: userCharacterRepo,
         },
         { provide: getRepositoryToken(AttackLog), useValue: attackLogRepo },
+        { provide: EventsGateway, useValue: { broadcastRankingUpdate: jest.fn(), broadcastTerritoryUpdate: jest.fn() } },
       ],
     }).compile();
 

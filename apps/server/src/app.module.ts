@@ -13,6 +13,7 @@ import { RankingModule } from './ranking/ranking.module';
 import { UsersModule } from './users/users.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
 import { AttacksModule } from './attacks/attacks.module';
+import { SocketModule } from './socket/socket.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { AttacksModule } from './attacks/attacks.module';
     RankingModule,
     SchedulerModule,
     AttacksModule,
+    SocketModule,
   ],
   controllers: [AppController],
   providers: [AppService],
