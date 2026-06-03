@@ -22,6 +22,7 @@ const DRAW_COST: Record<1 | 10, number> = {
 };
 
 const CHARACTER_CACHE_TTL_MS = 5 * 60 * 1000;
+const MAX_USER_CHARACTER_COUNT = 30;
 
 type GachaCharacter = Pick<Character, 'id' | 'name' | 'grade' | 'type'>;
 type CharacterPool = Record<CharacterGrade, GachaCharacter[]>;
@@ -67,6 +68,16 @@ export class GachaService {
 
       if (user.points < cost) {
         throw new BadRequestException('포인트가 부족합니다.');
+      }
+
+      const ownedCharacterCount = await userCharactersRepository.count({
+        where: { user_id: userId },
+      });
+
+      if (ownedCharacterCount + count > MAX_USER_CHARACTER_COUNT) {
+        throw new BadRequestException(
+          `캐릭터는 최대 ${MAX_USER_CHARACTER_COUNT}개까지 보유할 수 있습니다.`,
+        );
       }
 
       const drawCandidates: GachaCharacter[] = [];

@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   Modal,
   Pressable,
   RefreshControl,
@@ -20,20 +21,28 @@ import { getMyTerritories, type Territory } from '../api/territory';
 import useCharacterStore, { type Character } from '../store/characterStore';
 import useAuthStore from '../store/authStore';
 import { useTheme } from '../contexts/ThemeContext';
-import { radius, GRADE_LABEL } from '../constants/theme';
+import { radius } from '../constants/theme';
+import { getCharacterImageSource } from '../assets/characters/characterImages';
 
 type Nav = StackNavigationProp<CharacterStackParamList, 'Storage'>;
 
+const GRADE_LABEL: Record<Character['grade'], string> = {
+  common: 'COMMON',
+  rare: 'RARE',
+  epic: 'EPIC',
+  legendary: 'LEGEND',
+};
+
 const TYPE_LABEL: Record<Character['type'], string> = {
+  attack: 'Attack',
+  defense: 'Defense',
+  buff: 'Buff',
+};
+
+const TYPE_SHORT: Record<Character['type'], string> = {
   attack: 'ATK',
   defense: 'DEF',
   buff: 'BUF',
-};
-
-const TYPE_FULL: Record<Character['type'], string> = {
-  attack: '공격',
-  defense: '수비',
-  buff: '버프',
 };
 
 // Keep in sync with apps/server/src/characters/dto/dismantle-characters.dto.ts.
@@ -47,7 +56,7 @@ const DISMANTLE_REWARD_BY_GRADE: Record<Character['grade'], number> = {
 };
 
 function formatArea(sqm: number) {
-  return `${Math.round(sqm).toLocaleString()} m²`;
+  return `${Math.round(sqm).toLocaleString()} sqm`;
 }
 
 function getErr(error: unknown, fallback: string) {
@@ -75,6 +84,7 @@ export function StorageScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
   const [selected, setSelected] = useState<Character | null>(null);
+  const [detailCharacter, setDetailCharacter] = useState<Character | null>(null);
   const [isDismantleMode, setIsDismantleMode] = useState(false);
   const [selectedDismantleIds, setSelectedDismantleIds] = useState<number[]>([]);
   const [isDismantling, setIsDismantling] = useState(false);
@@ -82,19 +92,19 @@ export function StorageScreen() {
   const deployedIds = useMemo(
     () => new Set(
       characters
-        .map((character) => character.deployedTerritoryId)
+        .map(character => character.deployedTerritoryId)
         .filter((id): id is number => typeof id === 'number'),
     ),
     [characters],
   );
 
   const selectedDismantleCharacters = useMemo(
-    () => characters.filter((character) => selectedDismantleIds.includes(character.id)),
+    () => characters.filter(character => selectedDismantleIds.includes(character.id)),
     [characters, selectedDismantleIds],
   );
 
   const dismantlableCharacterCount = useMemo(
-    () => characters.filter((character) => !isDeployed(character)).length,
+    () => characters.filter(character => !isDeployed(character)).length,
     [characters],
   );
 
@@ -133,7 +143,7 @@ export function StorageScreen() {
 
   useEffect(() => {
     load().catch(error => {
-      Alert.alert('로드 실패', getErr(error, '데이터를 불러오지 못했습니다.'));
+      Alert.alert('Load failed', getErr(error, 'Unable to load character data.'));
     });
   }, [load]);
 
@@ -142,7 +152,7 @@ export function StorageScreen() {
     try {
       await load();
     } catch (error) {
-      Alert.alert('로드 실패', getErr(error, '데이터를 불러오지 못했습니다.'));
+      Alert.alert('Load failed', getErr(error, 'Unable to load character data.'));
     } finally {
       setIsRefreshing(false);
     }
@@ -155,13 +165,14 @@ export function StorageScreen() {
 
   const toggleDismantleMode = useCallback(() => {
     setSelected(null);
+    setDetailCharacter(null);
     setSelectedDismantleIds([]);
     setIsDismantleMode(current => !current);
   }, []);
 
   const toggleDismantleSelection = useCallback((character: Character) => {
     if (isDeployed(character)) {
-      Alert.alert('분해 불가', '배치 중인 캐릭터는 분해할 수 없습니다.');
+      Alert.alert('Cannot dismantle', 'Deployed characters cannot be dismantled.');
       return;
     }
 
@@ -171,12 +182,12 @@ export function StorageScreen() {
       }
 
       if (characters.length - (current.length + 1) < 1) {
-        Alert.alert('분해 불가', '캐릭터는 최소 1개 이상 보유해야 합니다.');
+        Alert.alert('Cannot dismantle', 'At least one character must remain.');
         return current;
       }
 
       if (current.length >= DISMANTLE_MAX_COUNT) {
-        Alert.alert('선택 제한', `한 번에 최대 ${DISMANTLE_MAX_COUNT}개까지 분해할 수 있습니다.`);
+        Alert.alert('Selection limit', `You can dismantle up to ${DISMANTLE_MAX_COUNT} characters at once.`);
         return current;
       }
 
@@ -184,19 +195,24 @@ export function StorageScreen() {
     });
   }, [characters.length]);
 
-  const openDeploy = useCallback((character: Character) => {
+  const openCharacterDetail = useCallback((character: Character) => {
     if (isDismantleMode) {
       toggleDismantleSelection(character);
       return;
     }
 
+    setDetailCharacter(character);
+  }, [isDismantleMode, toggleDismantleSelection]);
+
+  const openDeploy = useCallback((character: Character) => {
     if (character.type === 'attack') {
-      Alert.alert('배치 불가', '수비/버프 캐릭터만 영토에 배치할 수 있습니다.');
+      Alert.alert('Cannot deploy', 'Only defense and buff characters can be deployed.');
       return;
     }
 
+    setDetailCharacter(null);
     setSelected(character);
-  }, [isDismantleMode, toggleDismantleSelection]);
+  }, []);
 
   const submitDeploy = async (territoryId: number | null) => {
     if (!selected) return;
@@ -207,7 +223,7 @@ export function StorageScreen() {
       updateCharacter(updated);
       setSelected(null);
     } catch (error) {
-      Alert.alert('배치 실패', getErr(error, '다시 시도해주세요.'));
+      Alert.alert('Deploy failed', getErr(error, 'Please try again.'));
     } finally {
       setIsDeploying(false);
     }
@@ -222,11 +238,11 @@ export function StorageScreen() {
       resetDismantleMode();
       await Promise.all([fetchCharacters(), fetchMe()]);
       Alert.alert(
-        '분해 완료',
-        `${result.dismantledCount}개를 분해하고 스탯 포인트 ${result.earnedStatPoints}개를 획득했습니다.`,
+        'Dismantled',
+        `${result.dismantledCount} characters dismantled. +${result.earnedStatPoints} stat points.`,
       );
     } catch (error) {
-      Alert.alert('분해 실패', getErr(error, '다시 시도해주세요.'));
+      Alert.alert('Dismantle failed', getErr(error, 'Please try again.'));
     } finally {
       setIsDismantling(false);
     }
@@ -240,22 +256,22 @@ export function StorageScreen() {
 
   const confirmDismantle = useCallback(() => {
     if (selectedDismantleIds.length === 0) {
-      Alert.alert('선택 필요', '분해할 캐릭터를 선택해주세요.');
+      Alert.alert('Select characters', 'Choose characters to dismantle.');
       return;
     }
 
     if (characters.length - selectedDismantleIds.length < 1) {
-      Alert.alert('분해 불가', '캐릭터는 최소 1개 이상 보유해야 합니다.');
+      Alert.alert('Cannot dismantle', 'At least one character must remain.');
       return;
     }
 
     Alert.alert(
-      '캐릭터 분해',
-      `${selectedDismantleIds.length}개를 분해하고 스탯 포인트 ${expectedStatPoints}개를 획득합니다.`,
+      'Dismantle characters',
+      `Dismantle ${selectedDismantleIds.length} characters for ${expectedStatPoints} stat points?`,
       [
-        { text: '취소', style: 'cancel' },
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: '분해',
+          text: 'Dismantle',
           style: 'destructive',
           onPress: () => {
             executeDismantle().catch(() => undefined);
@@ -269,6 +285,10 @@ export function StorageScreen() {
     expectedStatPoints,
     selectedDismantleIds.length,
   ]);
+
+  const showUpgradePending = useCallback(() => {
+    Alert.alert('Coming soon', 'Stat upgrade UI will be connected in the next task.');
+  }, []);
 
   const renderItem = ({ item }: { item: Character }) => {
     const grade = gradeColor[item.grade] ?? colors.gradeCommon;
@@ -292,7 +312,7 @@ export function StorageScreen() {
         accessibilityState={{ disabled: disabledForDismantle, selected: selectedForDismantle }}
         activeOpacity={0.85}
         disabled={disabledForDismantle}
-        onPress={() => openDeploy(item)}
+        onPress={() => openCharacterDetail(item)}
       >
         <View
           style={{
@@ -304,6 +324,7 @@ export function StorageScreen() {
             backgroundColor: grade,
           }}
         />
+
         {isDismantleMode && (
           <View
             style={{
@@ -321,7 +342,7 @@ export function StorageScreen() {
             }}
           >
             <Text style={{ color: selectedForDismantle ? colors.bg : colors.textMuted, fontSize: 11, fontWeight: '800' }}>
-              {deployed ? '×' : selectedForDismantle ? '✓' : ''}
+              {deployed ? 'X' : selectedForDismantle ? 'V' : ''}
             </Text>
           </View>
         )}
@@ -340,28 +361,20 @@ export function StorageScreen() {
             <Text style={{ fontSize: 10, fontWeight: '700', color: grade }}>{GRADE_LABEL[item.grade]}</Text>
           </View>
           <Text style={{ fontSize: 9, color: colors.textMuted }}>
-            {deployed ? `배치중 #${item.deployedTerritoryId}` : item.type !== 'attack' ? '미배치' : '공격'}
+            {deployed ? `Deployed #${item.deployedTerritoryId}` : TYPE_SHORT[item.type]}
           </Text>
         </View>
 
-        <View
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 22,
-            justifyContent: 'center',
-            alignItems: 'center',
-            marginBottom: 8,
-            backgroundColor: `${grade}20`,
-          }}
-        >
-          <Text style={{ fontSize: 14, fontWeight: '800', color: grade }}>{TYPE_LABEL[item.type]}</Text>
-        </View>
+        <Image
+          source={getCharacterImageSource(item.grade, item.type)}
+          style={{ width: '100%', height: 88, marginBottom: 8 }}
+          resizeMode="contain"
+        />
 
         <Text style={{ fontSize: 13, fontWeight: '700', color: colors.text, marginBottom: 2 }} numberOfLines={1}>
           {item.name}
         </Text>
-        <Text style={{ fontSize: 11, color: colors.textSecondary, marginBottom: 8 }}>{TYPE_FULL[item.type]}</Text>
+        <Text style={{ fontSize: 11, color: colors.textSecondary, marginBottom: 8 }}>{TYPE_LABEL[item.type]}</Text>
 
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 4 }}>
           {['ATK', 'DEF', 'SPD', 'PT'].map((label, index) => (
@@ -380,9 +393,9 @@ export function StorageScreen() {
     <View style={{ flex: 1, backgroundColor: colors.bg, paddingHorizontal: 16, paddingTop: insets.top + 12 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <View>
-          <Text style={{ fontSize: 20, fontWeight: '800', color: colors.text }}>캐릭터 보관함</Text>
+          <Text style={{ fontSize: 20, fontWeight: '800', color: colors.text }}>Character Storage</Text>
           <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
-            {characters.length}개 보유 · 스탯 포인트 {user?.statPoints ?? 0}
+            {characters.length}/30 owned / Stat points {user?.statPoints ?? 0}
           </Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -399,7 +412,7 @@ export function StorageScreen() {
             onPress={toggleDismantleMode}
           >
             <Text style={{ color: isDismantleMode ? colors.danger : colors.text, fontSize: 13, fontWeight: '800' }}>
-              {isDismantleMode ? '취소' : '분해'}
+              {isDismantleMode ? 'Cancel' : 'Dismantle'}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -407,7 +420,7 @@ export function StorageScreen() {
             disabled={isDismantleMode}
             onPress={() => navigation.navigate('Gacha')}
           >
-            <Text style={{ color: colors.bg, fontSize: 13, fontWeight: '800' }}>뽑기</Text>
+            <Text style={{ color: colors.bg, fontSize: 13, fontWeight: '800' }}>Gacha</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -427,10 +440,10 @@ export function StorageScreen() {
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <View>
               <Text style={{ color: colors.text, fontSize: 14, fontWeight: '800' }}>
-                {selectedDismantleIds.length}/{maxSelectableDismantleCount}개 선택
+                {selectedDismantleIds.length}/{maxSelectableDismantleCount} selected
               </Text>
               <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
-                예상 획득 스탯 포인트 {expectedStatPoints}
+                Expected stat points {expectedStatPoints}
               </Text>
             </View>
             <TouchableOpacity
@@ -444,12 +457,12 @@ export function StorageScreen() {
               onPress={confirmDismantle}
             >
               <Text style={{ color: selectedDismantleIds.length === 0 ? colors.textMuted : colors.bg, fontSize: 13, fontWeight: '800' }}>
-                {isDismantling ? '분해 중' : '선택 분해'}
+                {isDismantling ? 'Dismantling...' : 'Dismantle selected'}
               </Text>
             </TouchableOpacity>
           </View>
           <Text style={{ color: colors.textMuted, fontSize: 11 }}>
-            배치 중인 캐릭터는 분해할 수 없고, 캐릭터는 최소 1개 이상 보유해야 합니다.
+            Deployed characters cannot be dismantled. At least one character must remain.
           </Text>
         </View>
       )}
@@ -460,8 +473,8 @@ export function StorageScreen() {
         </View>
       ) : characters.length === 0 ? (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ fontSize: 16, color: colors.textSecondary, fontWeight: '600' }}>보유 캐릭터 없음</Text>
-          <Text style={{ fontSize: 13, color: colors.textMuted, marginTop: 4 }}>뽑기에서 캐릭터를 획득해보세요</Text>
+          <Text style={{ fontSize: 16, color: colors.textSecondary, fontWeight: '600' }}>No characters</Text>
+          <Text style={{ fontSize: 13, color: colors.textMuted, marginTop: 4 }}>Draw characters from gacha.</Text>
         </View>
       ) : (
         <FlatList
@@ -475,12 +488,164 @@ export function StorageScreen() {
         />
       )}
 
+      <Modal
+        transparent
+        visible={detailCharacter !== null}
+        animationType="fade"
+        onRequestClose={() => setDetailCharacter(null)}
+      >
+        <Pressable
+          style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.58)', paddingHorizontal: 18 }}
+          onPress={() => setDetailCharacter(null)}
+        >
+          {detailCharacter && (
+            <Pressable
+              style={{
+                backgroundColor: colors.surface,
+                borderColor: colors.cardBorder,
+                borderRadius: radius.xl,
+                borderWidth: 1,
+                padding: 18,
+                maxHeight: '88%',
+              }}
+            >
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View style={{ alignItems: 'center', marginBottom: 14 }}>
+                  <Image
+                    source={getCharacterImageSource(detailCharacter.grade, detailCharacter.type)}
+                    style={{ width: '100%', height: 240 }}
+                    resizeMode="contain"
+                  />
+                </View>
+
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: colors.text, fontSize: 22, fontWeight: '900' }}>
+                      {detailCharacter.name}
+                    </Text>
+                    <Text style={{ color: colors.textSecondary, fontSize: 13, marginTop: 4 }}>
+                      {TYPE_LABEL[detailCharacter.type]} character
+                    </Text>
+                  </View>
+                  <View
+                    style={{
+                      backgroundColor: `${gradeColor[detailCharacter.grade] ?? colors.gradeCommon}24`,
+                      borderRadius: radius.full,
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: gradeColor[detailCharacter.grade] ?? colors.gradeCommon,
+                        fontSize: 12,
+                        fontWeight: '900',
+                      }}
+                    >
+                      {GRADE_LABEL[detailCharacter.grade]}
+                    </Text>
+                  </View>
+                </View>
+
+                {isDeployed(detailCharacter) && (
+                  <View
+                    style={{
+                      backgroundColor: colors.primaryDim,
+                      borderRadius: radius.sm,
+                      marginTop: 14,
+                      paddingHorizontal: 12,
+                      paddingVertical: 10,
+                    }}
+                  >
+                    <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '800' }}>
+                      Deployed to territory #{detailCharacter.deployedTerritoryId}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={{ gap: 8, marginTop: 18 }}>
+                  {[
+                    ['Attack', detailCharacter.attackLv],
+                    ['Defense', detailCharacter.defenseLv],
+                    ['Speed', detailCharacter.speedLv],
+                    ['Point', detailCharacter.pointLv],
+                  ].map(([label, level]) => (
+                    <View
+                      key={label}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        backgroundColor: colors.card,
+                        borderRadius: radius.sm,
+                        paddingHorizontal: 12,
+                        paddingVertical: 10,
+                      }}
+                    >
+                      <View>
+                        <Text style={{ color: colors.text, fontSize: 14, fontWeight: '800' }}>{label}</Text>
+                        <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>Lv. {level}</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={{
+                          backgroundColor: colors.surface,
+                          borderColor: colors.divider,
+                          borderRadius: radius.full,
+                          borderWidth: 1,
+                          paddingHorizontal: 12,
+                          paddingVertical: 7,
+                        }}
+                        onPress={showUpgradePending}
+                      >
+                        <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '800' }}>Upgrade</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 18 }}>
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      backgroundColor: colors.card,
+                      borderColor: colors.divider,
+                      borderRadius: radius.md,
+                      borderWidth: 1,
+                      paddingVertical: 13,
+                      alignItems: 'center',
+                    }}
+                    onPress={() => setDetailCharacter(null)}
+                  >
+                    <Text style={{ color: colors.textSecondary, fontSize: 14, fontWeight: '800' }}>Close</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      backgroundColor: detailCharacter.type === 'attack' ? colors.divider : colors.primary,
+                      borderRadius: radius.md,
+                      paddingVertical: 13,
+                      alignItems: 'center',
+                    }}
+                    disabled={detailCharacter.type === 'attack'}
+                    onPress={() => openDeploy(detailCharacter)}
+                  >
+                    <Text style={{ color: detailCharacter.type === 'attack' ? colors.textMuted : colors.bg, fontSize: 14, fontWeight: '900' }}>
+                      {detailCharacter.type === 'attack' ? 'Cannot deploy' : 'Deploy'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </Pressable>
+          )}
+        </Pressable>
+      </Modal>
+
       <Modal transparent visible={selected !== null} animationType="slide" onRequestClose={() => !isDeploying && setSelected(null)}>
         <Pressable style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }} onPress={() => !isDeploying && setSelected(null)}>
           <Pressable style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: 20, gap: 8 }}>
             <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: colors.divider, alignSelf: 'center', marginBottom: 8 }} />
             <Text style={{ fontSize: 18, fontWeight: '800', color: colors.text }}>{selected?.name}</Text>
-            <Text style={{ fontSize: 13, color: colors.textSecondary }}>배치할 영토를 선택하세요</Text>
+            <Text style={{ fontSize: 13, color: colors.textSecondary }}>Select a territory to deploy.</Text>
 
             {selected?.isDeployed && (
               <TouchableOpacity
@@ -488,12 +653,12 @@ export function StorageScreen() {
                 disabled={isDeploying}
                 onPress={() => submitDeploy(null)}
               >
-                <Text style={{ color: colors.danger, fontWeight: '700', fontSize: 14 }}>배치 해제</Text>
+                <Text style={{ color: colors.danger, fontWeight: '700', fontSize: 14 }}>Withdraw</Text>
               </TouchableOpacity>
             )}
 
             {territories.length === 0 ? (
-              <Text style={{ textAlign: 'center', color: colors.textMuted, paddingVertical: 24 }}>보유 영토가 없습니다</Text>
+              <Text style={{ textAlign: 'center', color: colors.textMuted, paddingVertical: 24 }}>No owned territories</Text>
             ) : (
               <ScrollView style={{ maxHeight: 340 }} showsVerticalScrollIndicator={false}>
                 {territories.map((territory) => {
@@ -516,13 +681,15 @@ export function StorageScreen() {
                       onPress={() => submitDeploy(territory.id)}
                     >
                       <View>
-                        <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>영토 #{territory.id}</Text>
+                        <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>
+                          {territory.name ?? `Territory #${territory.id}`}
+                        </Text>
                         <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
-                          {formatArea(territory.areaSqm)} · 점유 {territory.occupationRate}%
+                          {formatArea(territory.areaSqm)} / ownership {territory.occupationRate}%
                         </Text>
                       </View>
                       <Text style={{ color: disabled ? colors.textMuted : colors.primary, fontWeight: '700', fontSize: 13 }}>
-                        {disabled ? '사용중' : '선택'}
+                        {disabled ? 'Used' : 'Select'}
                       </Text>
                     </TouchableOpacity>
                   );

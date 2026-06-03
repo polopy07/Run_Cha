@@ -287,6 +287,7 @@ export class CharactersService {
       name: userCharacter.character.name,
       grade: userCharacter.character.grade,
       type: userCharacter.character.type,
+      imageUrl: userCharacter.character.image_url ?? null,
       attackLv: userCharacter.attack_lv,
       defenseLv: userCharacter.defense_lv,
       speedLv: userCharacter.speed_lv,

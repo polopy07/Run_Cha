@@ -7,6 +7,7 @@ export type Character = {
   name: string;
   grade: 'common' | 'rare' | 'epic' | 'legendary';
   type: 'attack' | 'defense' | 'buff';
+  imageUrl?: string | null;
   attackLv: number;
   defenseLv: number;
   speedLv: number;

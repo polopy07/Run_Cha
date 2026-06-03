@@ -23,6 +23,8 @@ const TYPE_LABEL: Record<string, string> = {
   attack: 'ATK', defense: 'DEF', buff: 'BUF',
 };
 
+const MAX_CHARACTER_COUNT = 30;
+
 function DrawingIndicator({ colors }: { colors: { primary: string; card: string; text: string; textMuted: string } }) {
   const progress = useRef(new Animated.Value(0)).current;
 
@@ -129,7 +131,7 @@ export function GachaScreen() {
   const { colors, gradeColor } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { fetchCharacters } = useCharacterStore();
+  const { characters, fetchCharacters } = useCharacterStore();
   const user = useAuthStore((s) => s.user);
   const fetchMe = useAuthStore((s) => s.fetchMe);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -147,6 +149,13 @@ export function GachaScreen() {
       Alert.alert('포인트 부족', `${cost}P가 필요합니다.`);
       return;
     }
+    if (characters.length + count > MAX_CHARACTER_COUNT) {
+      Alert.alert(
+        '보관함 가득 참',
+        `캐릭터는 최대 ${MAX_CHARACTER_COUNT}개까지 보유할 수 있습니다. 분해 후 다시 시도해주세요.`,
+      );
+      return;
+    }
     setIsDrawing(true);
     setResults(null);
     try {
@@ -162,7 +171,7 @@ export function GachaScreen() {
     } finally {
       setIsDrawing(false);
     }
-  }, [remainingPoints, fetchMe, fetchCharacters]);
+  }, [characters.length, remainingPoints, fetchMe, fetchCharacters]);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: insets.top }}>
