@@ -9,6 +9,7 @@ export type Character = {
   type: 'attack' | 'defense' | 'buff';
   attackLv: number;
   defenseLv: number;
+  pointLv: number;
   isDeployed: boolean;
   deployedTerritoryId: number | null;
 };

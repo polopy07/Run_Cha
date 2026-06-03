@@ -288,6 +288,7 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | grade | string | 캐릭터 등급 |
 | attackLv | number | 공격 레벨 |
 | defenseLv | number | 방어 레벨 |
+| pointLv | number | 포인트 효율 레벨 |
 
 비로그인 사용자도 접근 가능하며, 로그인 사용자인 경우에만 `isMine`을 현재 사용자 기준으로 계산한다. 상세 응답에서는 소유자 ID를 별도 `userId` 필드가 아닌 `owner.id`로 참조한다.
 
@@ -497,12 +498,13 @@ const attackerPolygonAfter = success
 | type | string | 캐릭터 타입. `attack`, `defense`, `buff` |
 | attackLv | number | 공격 레벨 |
 | defenseLv | number | 방어 레벨 |
+| pointLv | number | 포인트 효율 레벨 |
 | isDeployed | boolean | 배치 여부 |
 | deployedTerritoryId | number \| null | 배치된 영토 ID. `null`이면 미배치 |
 
 캐릭터 최대 보유 개수는 30개다. 보유 페이지의 등급별/능력 타입별 정렬은 클라이언트에서 이 응답을 기준으로 처리한다.
 
-캐릭터 상세 화면에서는 현재 응답에 포함된 공격/방어 스탯 레벨을 우선 표시한다. 이미지, 캐릭터 전체 레벨, 경험치는 후속 DB/API 확장 이후 아래 필드를 추가한다.
+캐릭터 상세 화면에서는 현재 응답에 포함된 공격/방어/포인트 효율 스탯 레벨을 우선 표시한다. 이미지, 캐릭터 전체 레벨, 경험치는 후속 DB/API 확장 이후 아래 필드를 추가한다.
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
@@ -518,7 +520,7 @@ const attackerPolygonAfter = success
 
 | 필드 | 타입 | 필수 | 설명 |
 |---|---|---|---|
-| stat | string | O | 강화할 스탯. `attack`, `defense` |
+| stat | string | O | 강화할 스탯. `attack`, `defense`, `point` |
 
 #### Response
 
@@ -554,6 +556,7 @@ const attackerPolygonAfter = success
 | type | string | 캐릭터 타입 |
 | attackLv | number | 공격 레벨 |
 | defenseLv | number | 방어 레벨 |
+| pointLv | number | 포인트 효율 레벨 |
 | isDeployed | boolean | 배치 여부 |
 | deployedTerritoryId | number \| null | 배치된 영토 ID |
 
@@ -564,7 +567,7 @@ const attackerPolygonAfter = success
 - 보유하지 않은 캐릭터 배치 요청 시 404
 - 사용자가 소유하지 않은 영토 배치 요청 시 404
 - 수비형 캐릭터는 영토 방어 계산에 사용한다.
-- 버프형 캐릭터는 영토의 시간당 포인트 수익 증가에 사용한다. 정확한 배율 공식은 후속 구현에서 확정한다.
+- 버프형 캐릭터는 영토의 시간당 포인트 수익 증가에 사용한다. 포인트 효율 스탯(`pointLv`, `base_point_rate`) 기반의 정확한 배율 공식은 후속 구현에서 확정한다.
 
 #### 현재 구현 기준
 
@@ -670,7 +673,7 @@ const attackerPolygonAfter = success
 1. `/running/start` API 필요 여부
 2. 침략 쿨타임 적용 여부와 쿨타임 시간
 3. 새 영토 침략 보호 시간 저장 방식
-4. 버프형 캐릭터의 시간당 포인트 수익 배율 공식
+4. 버프형 캐릭터의 포인트 효율 스탯 기반 시간당 포인트 수익 배율 공식
 5. 수비형 캐릭터의 자연 감소 계산 반영 방식
 6. 공통 에러 메시지 세부 코드 정의
 7. 침략 성공 시 `difference()` / `union()` 기반 폴리곤 갱신 구현

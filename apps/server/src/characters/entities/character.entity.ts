@@ -34,6 +34,9 @@ export class Character {
   @Column({ type: 'float', default: 10 })
   base_defense: number;
 
+  @Column({ type: 'float', default: 1 })
+  base_point_rate: number;
+
   @Column({ type: 'varchar', length: 500, nullable: true, default: null })
   image_url: string | null;
 

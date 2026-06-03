@@ -98,6 +98,7 @@ export class TerritoriesService {
         type: userCharacter.character.type,
         attackLv: userCharacter.attack_lv,
         defenseLv: userCharacter.defense_lv,
+        pointLv: userCharacter.point_lv,
       })),
     };
   }

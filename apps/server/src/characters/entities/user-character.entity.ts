@@ -29,6 +29,9 @@ export class UserCharacter {
   @Column({ default: 1 })
   defense_lv: number;
 
+  @Column({ default: 1 })
+  point_lv: number;
+
   @Column({ type: 'int', nullable: true, default: null })
   deployed_territory_id: number | null;
 

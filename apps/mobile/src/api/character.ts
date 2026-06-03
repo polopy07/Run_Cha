@@ -1,7 +1,7 @@
 import { apiFetch } from './client';
 import type { Character } from '../store/characterStore';
 
-export type UpgradeStat = 'attack' | 'defense';
+export type UpgradeStat = 'attack' | 'defense' | 'point';
 
 export type DismantleCharactersResponse = {
   dismantledCount: number;

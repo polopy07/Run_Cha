@@ -19,6 +19,7 @@ const makeCharacter = (
   type,
   attackLv: 1,
   defenseLv: 1,
+  pointLv: 1,
   isDeployed: false,
   deployedTerritoryId: null,
 });
