@@ -4,9 +4,15 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, DataSource, EntityManager, Repository } from 'typeorm';
+import {
+  Between,
+  DataSource,
+  EntityManager,
+  MoreThan,
+  Repository,
+} from 'typeorm';
 import { calculateAttackOutcome } from './attack-calculator';
-import { calculateAttackOverlap } from './attack-overlap';
+import { calculateAttackOverlap, mergePolygons } from './attack-overlap';
 import { AttackTerritoryDto } from './dto/attack-territory.dto';
 import { AttackLog } from './entities/attack-log.entity';
 import { AttackResult } from './enums/attack-result.enum';
@@ -226,18 +232,48 @@ export class AttacksService {
       return;
     }
 
-    const attackerCenter = calcCenter(attackerCoordinates);
-    await territoryRepo.save(
-      territoryRepo.create({
-        user_id: attackerId,
-        name: null,
-        coordinates: attackerCoordinates,
-        area_sqm: overlap.contestedAreaSqm,
-        occupation_rate: 100,
-        center_lat: attackerCenter.lat,
-        center_lng: attackerCenter.lng,
-      }),
+    const attackerTerritory = await this.findAttackerTerritoryForMerge(
+      territoryRepo,
+      attackerId,
     );
+    const merged = mergePolygons(
+      attackerTerritory.coordinates,
+      attackerCoordinates,
+    );
+
+    if (!merged.coordinates || merged.areaSqm <= 0) {
+      throw new BadRequestException('Failed to merge contested territory.');
+    }
+
+    const attackerCenter = calcCenter(merged.coordinates);
+    attackerTerritory.coordinates = merged.coordinates;
+    attackerTerritory.area_sqm = merged.areaSqm;
+    attackerTerritory.center_lat = attackerCenter.lat;
+    attackerTerritory.center_lng = attackerCenter.lng;
+
+    await territoryRepo.save(attackerTerritory);
+  }
+
+  private async findAttackerTerritoryForMerge(
+    territoryRepo: Repository<Territory>,
+    attackerId: number,
+  ) {
+    const attackerTerritory = await territoryRepo.findOne({
+      where: {
+        user_id: attackerId,
+        area_sqm: MoreThan(0),
+        occupation_rate: MoreThan(0),
+      },
+      order: { last_active_at: 'DESC', id: 'DESC' },
+    });
+
+    if (!attackerTerritory) {
+      throw new BadRequestException(
+        'Attacker territory for merge was not found.',
+      );
+    }
+
+    return attackerTerritory;
   }
 
   private async findRunningLog(runningLogId: number, userId: number) {

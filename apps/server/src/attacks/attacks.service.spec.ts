@@ -63,6 +63,16 @@ describe('AttacksService', () => {
     occupation_rate: 100,
   } as Territory;
 
+  const attackerOwnedTerritory = {
+    id: 11,
+    user_id: 1,
+    coordinates: HALF_SQUARE,
+    area_sqm: 6182,
+    occupation_rate: 100,
+    center_lat: 37.0005,
+    center_lng: 127.00025,
+  } as Territory;
+
   const runningLog = {
     id: 20,
     user_id: 1,
@@ -104,6 +114,9 @@ describe('AttacksService', () => {
     userCharacterRepo.findOne.mockResolvedValue(attackerCharacter);
     userCharacterRepo.find.mockResolvedValue([]);
     transactionAttackLogRepo.count.mockResolvedValue(0);
+    transactionTerritoryRepo.findOne.mockResolvedValue({
+      ...attackerOwnedTerritory,
+    });
     dataSource.transaction.mockImplementation(
       (callback: (manager: MockTransactionManager) => void) =>
         callback({
@@ -155,19 +168,22 @@ describe('AttacksService', () => {
       1,
       expect.objectContaining({ area_sqm: 0, occupation_rate: 0 }),
     );
-    const attackerTerritory =
+    const mergedAttackerTerritory =
       transactionTerritoryRepo.save.mock.calls[1]?.[0] as unknown as {
+        id: number;
         user_id: number;
         area_sqm: number;
         occupation_rate: number;
       };
-    expect(attackerTerritory).toEqual(
+    expect(mergedAttackerTerritory).toEqual(
       expect.objectContaining({
+        id: 11,
         user_id: 1,
         occupation_rate: 100,
       }),
     );
-    expect(typeof attackerTerritory.area_sqm).toBe('number');
+    expect(typeof mergedAttackerTerritory.area_sqm).toBe('number');
+    expect(transactionTerritoryRepo.create).not.toHaveBeenCalled();
     expect(transactionAttackLogRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({
         attacker_id: 1,
@@ -228,8 +244,9 @@ describe('AttacksService', () => {
     expect(typeof defenderTerritory.center_lat).toBe('number');
     expect(typeof defenderTerritory.center_lng).toBe('number');
 
-    const acquiredTerritory =
+    const mergedAttackerTerritory =
       transactionTerritoryRepo.save.mock.calls[1]?.[0] as unknown as {
+        id: number;
         user_id: number;
         coordinates: unknown[];
         area_sqm: number;
@@ -237,16 +254,31 @@ describe('AttacksService', () => {
         center_lat: number;
         center_lng: number;
       };
-    expect(acquiredTerritory).toEqual(
+    expect(mergedAttackerTerritory).toEqual(
       expect.objectContaining({
+        id: 11,
         user_id: 1,
         occupation_rate: 100,
       }),
     );
-    expect(Array.isArray(acquiredTerritory.coordinates)).toBe(true);
-    expect(typeof acquiredTerritory.area_sqm).toBe('number');
-    expect(typeof acquiredTerritory.center_lat).toBe('number');
-    expect(typeof acquiredTerritory.center_lng).toBe('number');
+    expect(Array.isArray(mergedAttackerTerritory.coordinates)).toBe(true);
+    expect(typeof mergedAttackerTerritory.area_sqm).toBe('number');
+    expect(typeof mergedAttackerTerritory.center_lat).toBe('number');
+    expect(typeof mergedAttackerTerritory.center_lng).toBe('number');
+  });
+
+  it('rejects successful transfer when attacker territory is missing', async () => {
+    transactionTerritoryRepo.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.attack(1, 10, {
+        runningLogId: 20,
+        attackerCharacterId: 30,
+      }),
+    ).rejects.toThrow('Attacker territory for merge was not found.');
+
+    expect(transactionTerritoryRepo.create).not.toHaveBeenCalled();
+    expect(transactionAttackLogRepo.create).not.toHaveBeenCalled();
   });
 
   it('saves deployed defender character id when defender is deployed', async () => {

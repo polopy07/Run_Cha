@@ -11,6 +11,11 @@ export type AttackOverlapResult = {
   defenderRemainingCoordinates: Coordinate[] | null;
 };
 
+export type PolygonMergeResult = {
+  areaSqm: number;
+  coordinates: Coordinate[] | null;
+};
+
 export function calculateAttackOverlap(
   runningPath: Coordinate[],
   territoryCoordinates: Coordinate[],
@@ -47,6 +52,21 @@ export function calculateAttackOverlap(
     defenderRemainingCoordinates: defenderRemainingPolygon
       ? toCoordinates(defenderRemainingPolygon)
       : null,
+  };
+}
+
+export function mergePolygons(
+  baseCoordinates: Coordinate[],
+  addedCoordinates: Coordinate[],
+): PolygonMergeResult {
+  const basePolygon = toPolygon(baseCoordinates);
+  const addedPolygon = toPolygon(addedCoordinates);
+  const union = turf.union(turf.featureCollection([basePolygon, addedPolygon]));
+  const mergedPolygon = union ? extractLargestPolygon(union) : null;
+
+  return {
+    areaSqm: mergedPolygon ? turf.area(mergedPolygon) : 0,
+    coordinates: mergedPolygon ? toCoordinates(mergedPolygon) : null,
   };
 }
 

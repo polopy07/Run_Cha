@@ -1,5 +1,9 @@
 import * as turf from '@turf/turf';
-import { calculateAttackOverlap, toPolygon } from './attack-overlap';
+import {
+  calculateAttackOverlap,
+  mergePolygons,
+  toPolygon,
+} from './attack-overlap';
 
 const SQUARE = [
   { lat: 37.0, lng: 127.0 },
@@ -67,6 +71,13 @@ describe('attack overlap', () => {
 
     expect(result.contestedAreaSqm).toBeGreaterThan(0);
     expect(result.overlapRate).toBe(0);
+  });
+
+  it('merges acquired polygon into the attacker territory polygon', () => {
+    const result = mergePolygons(HALF_SQUARE, SQUARE);
+
+    expect(result.areaSqm).toBeCloseTo(territoryAreaSqm, 0);
+    expect(result.coordinates).toHaveLength(5);
   });
 
   it('closes an open ring automatically', () => {
