@@ -1,22 +1,25 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, PermissionsAndroid, Platform } from 'react-native';
 import {
   startBackgroundTracking,
   stopBackgroundTracking,
 } from '../services/backgroundLocation';
+import { getSocket } from '../api/socket';
 
 export type LatLng = {
   latitude: number;
   longitude: number;
 };
 
-// 화면 간 마지막 위치 공유 (각 useGPS() 인스턴스가 독립적 state를 가져서)
 let _lastLocation: LatLng | null = null;
 export const getLastLocation = () => _lastLocation;
+
+const EMIT_INTERVAL_MS = 3000;
 
 export function useGPS() {
   const [currentLocation, setCurrentLocation] = useState<LatLng | null>(_lastLocation);
   const [isTracking, setIsTracking] = useState(false);
+  const lastEmitRef = useRef(0);
 
   useEffect(() => {
     if (Platform.OS !== 'android') return;
@@ -36,6 +39,15 @@ export function useGPS() {
       if (!coord) return;
       _lastLocation = coord;
       setCurrentLocation(coord);
+
+      const now = Date.now();
+      if (now - lastEmitRef.current >= EMIT_INTERVAL_MS) {
+        lastEmitRef.current = now;
+        getSocket()?.emit('location:update', {
+          lat: coord.latitude,
+          lng: coord.longitude,
+        });
+      }
     },
     [],
   );
