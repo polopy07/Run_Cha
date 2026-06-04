@@ -171,6 +171,27 @@ describe('CharactersService', () => {
     );
   });
 
+  it('upgrades point efficiency stat and deducts points in a transaction', async () => {
+    const user = { id: 1, stat_points: 2 } as User;
+    userCharactersRepository.findOne.mockResolvedValue({ ...userCharacter });
+    usersRepository.findOne.mockResolvedValue(user);
+    usersRepository.save.mockResolvedValue(user);
+    userCharactersRepository.save.mockResolvedValue(userCharacter);
+
+    await expect(service.upgrade(1, 10, 'point')).resolves.toEqual({
+      id: 10,
+      upgradedStat: 'point',
+      newLevel: 5,
+      remainingStatPoints: 1,
+    });
+    expect(usersRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ stat_points: 1 }),
+    );
+    expect(userCharactersRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ point_lv: 5 }),
+    );
+  });
+
   it('caps upgrade cost', async () => {
     const user = { id: 1, stat_points: 1 } as User;
     userCharactersRepository.findOne.mockResolvedValue({
