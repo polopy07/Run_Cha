@@ -6,6 +6,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './src/api/firebase';
 import useAuthStore from './src/store/authStore';
 import useThemeStore from './src/store/themeStore';
+import { connectSocket, disconnectSocket } from './src/api/socket';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import BottomTabNavigator from './src/navigation/BottomTabNavigator';
 import { LoginScreen } from './src/screens/LoginScreen';
@@ -30,6 +31,15 @@ function AppContent() {
 
     return unsubscribe;
   }, [restoreSession]);
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      void connectSocket();
+    } else {
+      disconnectSocket();
+    }
+    return () => disconnectSocket();
+  }, [isLoggedIn]);
 
   if (isLoading) {
     return (

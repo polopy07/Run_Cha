@@ -13,6 +13,8 @@ import { TerritoryDetailSheet } from '../components/TerritoryDetailSheet';
 import { AttackTerritoryPanel } from '../components/attack/AttackTerritoryPanel';
 import { getUserColor } from '../utils/colorUtils';
 import { formatAreaCompact } from '../utils/formatUtils';
+import { useSocket } from '../hooks/useSocket';
+import { CharacterMarker } from '../components/CharacterMarker';
 
 function getCentroid(coords: { lat: number; lng: number }[]): { latitude: number; longitude: number } {
   const len = coords.length || 1;
@@ -38,7 +40,11 @@ export function MapScreen() {
   const regionRef = useRef(INITIAL_REGION);
   const userLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const initialMoveDone = useRef(false);
+  const lastEmitRef = useRef(0);
   const user = useAuthStore(s => s.user);
+  const { nearbyUsers, emitLocation } = useSocket({
+    onTerritoryUpdate: () => fetchTerritories(regionRef.current),
+  });
   const [territories, setTerritories] = useState<Territory[]>([]);
   const [selectedTerritoryId, setSelectedTerritoryId] = useState<number | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
@@ -125,6 +131,11 @@ export function MapScreen() {
             mapRef.current?.animateToRegion(region, 500);
             fetchTerritories(region);
           }
+          const now = Date.now();
+          if (now - lastEmitRef.current >= 3000) {
+            lastEmitRef.current = now;
+            emitLocation(c.latitude, c.longitude);
+          }
         }}
         showsUserLocation
         showsMyLocationButton={false}
@@ -167,6 +178,13 @@ export function MapScreen() {
             </React.Fragment>
           );
         })}
+        {nearbyUsers.map((u) => (
+          <CharacterMarker
+            key={u.userId}
+            user={u}
+            isMe={u.userId === user?.id}
+          />
+        ))}
       </MapView>
 
       {/* 상단 헤더 */}
