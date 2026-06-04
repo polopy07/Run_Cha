@@ -1,33 +1,25 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, View, Text, TouchableOpacity, Alert } from 'react-native';
-import MapView, { Polygon, PROVIDER_GOOGLE, PROVIDER_DEFAULT, type Region } from 'react-native-maps';
+import MapView, { Marker, Polygon, PROVIDER_GOOGLE, PROVIDER_DEFAULT, type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useTheme } from '../contexts/ThemeContext';
 import { radius, mapCardShadow } from '../constants/theme';
 import { darkMapStyle } from '../constants/mapStyle';
 import useAuthStore from '../store/authStore';
 import { getTerritories, type Territory } from '../api/territory';
+import { TerritoryDetailSheet } from '../components/TerritoryDetailSheet';
+import { AttackTerritoryPanel } from '../components/attack/AttackTerritoryPanel';
+import { getUserColor } from '../utils/colorUtils';
+import { formatAreaCompact } from '../utils/formatUtils';
 import { useSocket } from '../hooks/useSocket';
 import { CharacterMarker } from '../components/CharacterMarker';
 
-function hslToHex(h: number, s: number, l: number): string {
-  s /= 100;
-  l /= 100;
-  const a = s * Math.min(l, 1 - l);
-  const f = (n: number) => {
-    const k = (n + h / 30) % 12;
-    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-    return Math.round(255 * color).toString(16).padStart(2, '0');
-  };
-  return `#${f(0)}${f(8)}${f(4)}`;
-}
-
-function getUserColor(userId: number | undefined): string {
-  if (userId == null) return '#888888';
-  const hue = (userId * 137.508) % 360;
-  return hslToHex(hue, 70, 55);
+function getCentroid(coords: { lat: number; lng: number }[]): { latitude: number; longitude: number } {
+  const len = coords.length || 1;
+  const sum = coords.reduce((acc, c) => ({ lat: acc.lat + c.lat, lng: acc.lng + c.lng }), { lat: 0, lng: 0 });
+  return { latitude: sum.lat / len, longitude: sum.lng / len };
 }
 
 type BottomTabParamList = {
@@ -47,16 +39,25 @@ export function MapScreen() {
   const mapRef = useRef<MapView>(null);
   const regionRef = useRef(INITIAL_REGION);
   const userLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const initialMoveDone = useRef(false);
   const lastEmitRef = useRef(0);
   const user = useAuthStore(s => s.user);
   const { nearbyUsers, emitLocation } = useSocket({
     onTerritoryUpdate: () => fetchTerritories(regionRef.current),
   });
   const [territories, setTerritories] = useState<Territory[]>([]);
+  const [selectedTerritoryId, setSelectedTerritoryId] = useState<number | null>(null);
+  const [detailVisible, setDetailVisible] = useState(false);
+  const [attackTerritoryId, setAttackTerritoryId] = useState<number | null>(null);
+  const [attackVisible, setAttackVisible] = useState(false);
 
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const fetchTerritories = useCallback(async (region: Region) => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     const bounds = {
       minLat: region.latitude - region.latitudeDelta / 2,
       maxLat: region.latitude + region.latitudeDelta / 2,
@@ -64,14 +65,23 @@ export function MapScreen() {
       maxLng: region.longitude + region.longitudeDelta / 2,
     };
     try {
-      const data = await getTerritories(bounds);
-      setTerritories(data);
+      const data = await getTerritories(bounds, { signal: controller.signal });
+      if (!controller.signal.aborted) setTerritories(data);
     } catch {}
   }, []);
 
   useEffect(() => {
-    fetchTerritories(INITIAL_REGION);
-  }, [fetchTerritories]);
+    return () => {
+      if (fetchTimer.current) clearTimeout(fetchTimer.current);
+      abortRef.current?.abort();
+    };
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchTerritories(regionRef.current);
+    }, [fetchTerritories]),
+  );
 
   const zoomIn = () => {
     const r = regionRef.current;
@@ -115,6 +125,12 @@ export function MapScreen() {
           const c = e.nativeEvent.coordinate;
           if (!c) return;
           userLocationRef.current = { latitude: c.latitude, longitude: c.longitude };
+          if (!initialMoveDone.current) {
+            initialMoveDone.current = true;
+            const region = { latitude: c.latitude, longitude: c.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 };
+            mapRef.current?.animateToRegion(region, 500);
+            fetchTerritories(region);
+          }
           const now = Date.now();
           if (now - lastEmitRef.current >= 3000) {
             lastEmitRef.current = now;
@@ -127,14 +143,39 @@ export function MapScreen() {
         {territories.map((t) => {
           const isMine = t.userId === user?.id;
           const color = isMine ? colors.primary : getUserColor(t.userId);
+          const center = getCentroid(t.coordinates);
           return (
-            <Polygon
-              key={t.id}
-              coordinates={t.coordinates.map(c => ({ latitude: c.lat, longitude: c.lng }))}
-              fillColor={color + '40'}
-              strokeColor={color}
-              strokeWidth={isMine ? 3 : 2}
-            />
+            <React.Fragment key={t.id}>
+              <Polygon
+                coordinates={t.coordinates.map(c => ({ latitude: c.lat, longitude: c.lng }))}
+                fillColor={color + '40'}
+                strokeColor={color}
+                strokeWidth={isMine ? 3 : 2}
+                tappable
+                onPress={() => {
+                  setSelectedTerritoryId(t.id);
+                  setDetailVisible(true);
+                }}
+              />
+              <Marker
+                coordinate={center}
+                anchor={{ x: 0.5, y: 0.5 }}
+                tracksViewChanges={false}
+                onPress={() => {
+                  setSelectedTerritoryId(t.id);
+                  setDetailVisible(true);
+                }}
+              >
+                <View style={{ alignItems: 'center', paddingHorizontal: 6, paddingVertical: 3, backgroundColor: color + 'CC', borderRadius: 6 }}>
+                  <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }} numberOfLines={1}>
+                    {t.name ?? `#${t.id}`}
+                  </Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 9, fontWeight: '600' }}>
+                    {formatAreaCompact(t.areaSqm)}
+                  </Text>
+                </View>
+              </Marker>
+            </React.Fragment>
           );
         })}
         {nearbyUsers.map((u) => (
@@ -216,6 +257,29 @@ export function MapScreen() {
           <Text style={{ color: colors.bg, fontSize: 16, fontWeight: '800' }}>러닝 시작</Text>
         </TouchableOpacity>
       </View>
+
+      <TerritoryDetailSheet
+        visible={detailVisible}
+        territoryId={selectedTerritoryId}
+        territory={territories.find(t => t.id === selectedTerritoryId) ?? null}
+        onClose={() => { setDetailVisible(false); setSelectedTerritoryId(null); }}
+        onAttack={(id) => {
+          setDetailVisible(false);
+          setAttackTerritoryId(id);
+          setAttackVisible(true);
+        }}
+      />
+
+      <AttackTerritoryPanel
+        visible={attackVisible}
+        territoryId={attackTerritoryId}
+        onClose={() => { setAttackVisible(false); setAttackTerritoryId(null); }}
+        onCompleted={() => {
+          setAttackVisible(false);
+          setAttackTerritoryId(null);
+          fetchTerritories(regionRef.current);
+        }}
+      />
     </View>
   );
 }

@@ -118,6 +118,40 @@ export class UsersService {
     return user;
   }
 
+  async findByIdWithRepresentativeCharacter(id: number): Promise<{
+    id: number;
+    nickname: string;
+    character: {
+      name: string;
+      type: string;
+      grade: string;
+      imageUrl: string | null;
+    } | null;
+  }> {
+    const user = await this.usersRepository.findOne({
+      where: { id },
+      relations: ['representative_character', 'representative_character.character'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('사용자를 찾을 수 없습니다.');
+    }
+
+    const uc = user.representative_character;
+    return {
+      id: user.id,
+      nickname: user.nickname,
+      character: uc?.character
+        ? {
+            name: uc.character.name,
+            type: uc.character.type,
+            grade: uc.character.grade,
+            imageUrl: uc.character.image_url,
+          }
+        : null,
+    };
+  }
+
   async updateNickname(id: number, nickname: string) {
     const user = await this.findById(id);
     const trimmedNickname = nickname.trim();

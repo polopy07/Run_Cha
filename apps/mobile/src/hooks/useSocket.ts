@@ -31,6 +31,7 @@ export function useSocket(options?: SocketOptions) {
   const staleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const callbacksRef = useRef(options);
   callbacksRef.current = options;
+  const handlersRef = useRef<Record<string, (...args: unknown[]) => void> | null>(null);
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -49,48 +50,44 @@ export function useSocket(options?: SocketOptions) {
         if (!mounted) return;
         socketRef.current = sock;
 
-        sock.on('connect', () => {
-          if (mounted) setIsConnected(true);
-        });
-
-        sock.on('disconnect', () => {
-          if (mounted) setIsConnected(false);
-        });
-
-        sock.on('location:broadcast', (data: OnlineUser) => {
+        const onConnect = () => { if (mounted) setIsConnected(true); };
+        const onDisconnect = () => { if (mounted) setIsConnected(false); };
+        const onBroadcast = (data: OnlineUser) => {
           if (!mounted) return;
           setNearbyUsers(prev => {
             const next = new Map(prev);
             next.set(data.userId, { ...data, lastSeen: Date.now() });
             return next;
           });
-        });
-
-        sock.on('user:online', (data: OnlineUser) => {
+        };
+        const onUserOnline = (data: OnlineUser) => {
           if (!mounted) return;
           setNearbyUsers(prev => {
             const next = new Map(prev);
             next.set(data.userId, { ...data, lastSeen: Date.now() });
             return next;
           });
-        });
-
-        sock.on('user:offline', (data: { userId: number }) => {
+        };
+        const onUserOffline = (data: { userId: number }) => {
           if (!mounted) return;
           setNearbyUsers(prev => {
             const next = new Map(prev);
             next.delete(data.userId);
             return next;
           });
-        });
+        };
+        const onRankingUpdate = () => { if (mounted) callbacksRef.current?.onRankingUpdate?.(); };
+        const onTerritoryUpdate = () => { if (mounted) callbacksRef.current?.onTerritoryUpdate?.(); };
 
-        sock.on('ranking:update', () => {
-          if (mounted) callbacksRef.current?.onRankingUpdate?.();
-        });
+        sock.on('connect', onConnect);
+        sock.on('disconnect', onDisconnect);
+        sock.on('location:broadcast', onBroadcast);
+        sock.on('user:online', onUserOnline);
+        sock.on('user:offline', onUserOffline);
+        sock.on('ranking:update', onRankingUpdate);
+        sock.on('territory:update', onTerritoryUpdate);
 
-        sock.on('territory:update', () => {
-          if (mounted) callbacksRef.current?.onTerritoryUpdate?.();
-        });
+        handlersRef.current = { onConnect, onDisconnect, onBroadcast, onUserOnline, onUserOffline, onRankingUpdate, onTerritoryUpdate };
 
         if (sock.connected) setIsConnected(true);
       } catch (e) {
@@ -117,14 +114,15 @@ export function useSocket(options?: SocketOptions) {
       mounted = false;
       if (staleTimerRef.current) clearInterval(staleTimerRef.current);
       const sock = socketRef.current;
-      if (sock) {
-        sock.off('connect');
-        sock.off('disconnect');
-        sock.off('location:broadcast');
-        sock.off('user:online');
-        sock.off('user:offline');
-        sock.off('ranking:update');
-        sock.off('territory:update');
+      const h = handlersRef.current;
+      if (sock && h) {
+        sock.off('connect', h.onConnect);
+        sock.off('disconnect', h.onDisconnect);
+        sock.off('location:broadcast', h.onBroadcast);
+        sock.off('user:online', h.onUserOnline);
+        sock.off('user:offline', h.onUserOffline);
+        sock.off('ranking:update', h.onRankingUpdate);
+        sock.off('territory:update', h.onTerritoryUpdate);
       }
     };
   }, [isLoggedIn]);
