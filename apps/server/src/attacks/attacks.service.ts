@@ -4,14 +4,21 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, DataSource, EntityManager, Repository } from 'typeorm';
+import {
+  Between,
+  DataSource,
+  EntityManager,
+  MoreThan,
+  Repository,
+} from 'typeorm';
 import { calculateAttackOutcome } from './attack-calculator';
-import { calculateAttackOverlap } from './attack-overlap';
+import { calculateAttackOverlap, mergePolygons } from './attack-overlap';
 import { AttackTerritoryDto } from './dto/attack-territory.dto';
 import { AttackLog } from './entities/attack-log.entity';
 import { AttackResult } from './enums/attack-result.enum';
 import { CharacterType } from '../characters/entities/character.entity';
 import { UserCharacter } from '../characters/entities/user-character.entity';
+import { calcCenter } from '../common/utils/geo';
 import { RunningLog } from '../running/entities/running-log.entity';
 import { Territory } from '../territories/entities/territory.entity';
 import { EventsGateway } from '../socket/events.gateway';
@@ -64,10 +71,8 @@ export class AttacksService {
       throw new BadRequestException('자신의 영토는 침략할 수 없습니다.');
     }
 
-    const { overlapRate, contestedAreaSqm } = this.calculateOverlapOrThrow(
-      runningLog,
-      territory,
-    );
+    const overlap = this.calculateOverlapOrThrow(runningLog, territory);
+    const { overlapRate, contestedAreaSqm } = overlap;
 
     if (overlapRate < MIN_ATTACK_OVERLAP_RATE) {
       throw new BadRequestException(
@@ -86,6 +91,10 @@ export class AttacksService {
       deployedDefenders,
       territory,
     });
+
+    if (outcome.success && overlap.contestedCoordinates) {
+      await this.ensureAttackerTerritoryExists(userId);
+    }
 
     let remainingDailyAttacks = 0;
 
@@ -118,7 +127,16 @@ export class AttacksService {
         }
 
         territory.occupation_rate = outcome.occupationRateAfter;
-        await territoryRepo.save(territory);
+        if (outcome.success && overlap.contestedCoordinates) {
+          await this.transferContestedTerritory(
+            territoryRepo,
+            territory,
+            overlap,
+            userId,
+          );
+        } else {
+          await territoryRepo.save(territory);
+        }
 
         await attackLogRepo.save(
           attackLogRepo.create({
@@ -159,7 +177,7 @@ export class AttacksService {
       damage: outcome.damage,
       occupationRateBefore: outcome.occupationRateBefore,
       occupationRateAfter: outcome.occupationRateAfter,
-      acquiredAreaSqm: outcome.acquiredAreaSqm,
+      acquiredAreaSqm: outcome.success ? contestedAreaSqm : 0,
       neutralAreaSqm: NEUTRAL_AREA_SQM_PENDING_POLICY,
       nextAttackAvailableAt: null,
       remainingDailyAttacks,
@@ -198,6 +216,95 @@ export class AttacksService {
 
       throw error;
     }
+  }
+
+  private async transferContestedTerritory(
+    territoryRepo: Repository<Territory>,
+    defenderTerritory: Territory,
+    overlap: ReturnType<typeof calculateAttackOverlap>,
+    attackerId: number,
+  ) {
+    if (
+      overlap.defenderRemainingCoordinates &&
+      overlap.defenderRemainingAreaSqm > 0
+    ) {
+      const defenderCenter = calcCenter(overlap.defenderRemainingCoordinates);
+      defenderTerritory.coordinates = overlap.defenderRemainingCoordinates;
+      defenderTerritory.area_sqm = overlap.defenderRemainingAreaSqm;
+      defenderTerritory.center_lat = defenderCenter.lat;
+      defenderTerritory.center_lng = defenderCenter.lng;
+    } else {
+      defenderTerritory.area_sqm = 0;
+      defenderTerritory.occupation_rate = 0;
+    }
+
+    await territoryRepo.save(defenderTerritory);
+
+    const attackerCoordinates = overlap.contestedCoordinates;
+    if (!attackerCoordinates || overlap.contestedAreaSqm <= 0) {
+      return;
+    }
+
+    const attackerTerritory = await this.findAttackerTerritoryForMergeWithLock(
+      territoryRepo,
+      attackerId,
+    );
+    const merged = mergePolygons(
+      attackerTerritory.coordinates,
+      attackerCoordinates,
+    );
+
+    if (!merged.coordinates || merged.areaSqm <= 0) {
+      throw new BadRequestException('Failed to merge contested territory.');
+    }
+
+    const attackerCenter = calcCenter(merged.coordinates);
+    attackerTerritory.coordinates = merged.coordinates;
+    attackerTerritory.area_sqm = merged.areaSqm;
+    attackerTerritory.center_lat = attackerCenter.lat;
+    attackerTerritory.center_lng = attackerCenter.lng;
+
+    await territoryRepo.save(attackerTerritory);
+  }
+
+  private async findAttackerTerritoryForMerge(
+    territoryRepo: Repository<Territory>,
+    attackerId: number,
+    lock?: { mode: 'pessimistic_write' },
+  ) {
+    const attackerTerritory = await territoryRepo.findOne({
+      where: {
+        user_id: attackerId,
+        area_sqm: MoreThan(0),
+        occupation_rate: MoreThan(0),
+      },
+      order: { last_active_at: 'DESC', id: 'DESC' },
+      lock,
+    });
+
+    if (!attackerTerritory) {
+      throw new BadRequestException(
+        '침략하려면 먼저 자신의 영토가 있어야 합니다.',
+      );
+    }
+
+    return attackerTerritory;
+  }
+
+  private ensureAttackerTerritoryExists(attackerId: number) {
+    return this.findAttackerTerritoryForMerge(
+      this.territoriesRepository,
+      attackerId,
+    );
+  }
+
+  private findAttackerTerritoryForMergeWithLock(
+    territoryRepo: Repository<Territory>,
+    attackerId: number,
+  ) {
+    return this.findAttackerTerritoryForMerge(territoryRepo, attackerId, {
+      mode: 'pessimistic_write',
+    });
   }
 
   private async findRunningLog(runningLogId: number, userId: number) {

@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { MoreThan, Repository } from 'typeorm';
 import { Territory } from './entities/territory.entity';
 import { GetTerritoriesDto } from './dto/get-territories.dto';
 import { UserCharacter } from '../characters/entities/user-character.entity';
@@ -21,7 +21,11 @@ export class TerritoriesService {
 
   async findMine(userId: number) {
     const territories = await this.territoryRepo.find({
-      where: { user_id: userId },
+      where: {
+        user_id: userId,
+        area_sqm: MoreThan(0),
+        occupation_rate: MoreThan(0),
+      },
       order: { id: 'ASC' },
       relations: ['user'],
       select: {
@@ -47,6 +51,8 @@ export class TerritoriesService {
       .leftJoinAndSelect('t.user', 'u')
       .where('t.center_lat BETWEEN :minLat AND :maxLat', { minLat, maxLat })
       .andWhere('t.center_lng BETWEEN :minLng AND :maxLng', { minLng, maxLng })
+      .andWhere('t.area_sqm > 0')
+      .andWhere('t.occupation_rate > 0')
       .getMany();
 
     return territories.map((t) => this.toPublicTerritoryResponse(t));
