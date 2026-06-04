@@ -9,12 +9,12 @@ import { radius, mapCardShadow, GRADE_LABEL } from '../constants/theme';
 import { darkMapStyle } from '../constants/mapStyle';
 import useAuthStore from '../store/authStore';
 import { getTerritories, type Territory } from '../api/territory';
-import { useSocket } from '../hooks/useSocket';
-import { CharacterMarker } from '../components/CharacterMarker';
 import { TerritoryDetailSheet } from '../components/TerritoryDetailSheet';
 import { AttackTerritoryPanel } from '../components/attack/AttackTerritoryPanel';
 import { getUserColor } from '../utils/colorUtils';
 import { formatAreaCompact } from '../utils/formatUtils';
+import { useSocket } from '../hooks/useSocket';
+import { CharacterMarker } from '../components/CharacterMarker';
 
 function getCentroid(coords: { lat: number; lng: number }[]): { latitude: number; longitude: number } {
   const len = coords.length || 1;
@@ -40,6 +40,7 @@ export function MapScreen() {
   const regionRef = useRef(INITIAL_REGION);
   const userLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const initialMoveDone = useRef(false);
+  const lastEmitRef = useRef(0);
   const user = useAuthStore(s => s.user);
   const rep = user?.representativeCharacter ?? null;
   const { nearbyUsers, emitLocation } = useSocket({
@@ -126,12 +127,16 @@ export function MapScreen() {
           const c = e.nativeEvent.coordinate;
           if (!c) return;
           userLocationRef.current = { latitude: c.latitude, longitude: c.longitude };
-          emitLocation(c.latitude, c.longitude);
           if (!initialMoveDone.current) {
             initialMoveDone.current = true;
             const region = { latitude: c.latitude, longitude: c.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 };
             mapRef.current?.animateToRegion(region, 500);
             fetchTerritories(region);
+          }
+          const now = Date.now();
+          if (now - lastEmitRef.current >= 3000) {
+            lastEmitRef.current = now;
+            emitLocation(c.latitude, c.longitude);
           }
         }}
         showsUserLocation

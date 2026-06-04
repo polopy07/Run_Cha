@@ -30,9 +30,6 @@ export class UserCharacter {
   defense_lv: number;
 
   @Column({ default: 1 })
-  speed_lv: number;
-
-  @Column({ default: 1 })
   point_lv: number;
 
   @Column({ type: 'int', nullable: true, default: null })

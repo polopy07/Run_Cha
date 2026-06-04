@@ -8,8 +8,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { getAreaRanking, getDistanceRanking } from '../api/ranking';
 import { useTheme } from '../contexts/ThemeContext';
 import { radius } from '../constants/theme';
-import { useSocket } from '../hooks/useSocket';
 import useAuthStore from '../store/authStore';
+import { useSocket } from '../hooks/useSocket';
 
 type Tab = 'area' | 'distance';
 type AreaEntry = { rank: number; userId: number; nickname: string; totalAreaSqm: number };
@@ -44,12 +44,10 @@ export function RankingScreen() {
     } finally { setIsLoading(false); setIsRefreshing(false); }
   }, []);
 
-  useSocket({
-    onRankingUpdate: () => { void fetchAll(false); },
-  });
-
   useFocusEffect(useCallback(() => { fetchAll(); }, [fetchAll]));
   const onRefresh = () => { setIsRefreshing(true); fetchAll(false); };
+
+  useSocket({ onRankingUpdate: () => { void fetchAll(false); } });
 
   const data = tab === 'area' ? areaData : distData;
 
