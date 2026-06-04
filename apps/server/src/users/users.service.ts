@@ -131,6 +131,32 @@ export class UsersService {
     return user;
   }
 
+  async findByIdWithRepresentativeCharacter(id: number): Promise<{
+    id: number;
+    nickname: string;
+    character: {
+      name: string;
+      type: string;
+      grade: string;
+      imageUrl: string | null;
+    } | null;
+  }> {
+    const user = await this.findByIdWithRepresentative(id);
+    const uc = user.representative_character;
+    return {
+      id: user.id,
+      nickname: user.nickname,
+      character: uc?.character
+        ? {
+            name: uc.character.name,
+            type: uc.character.type,
+            grade: uc.character.grade,
+            imageUrl: uc.character.image_url,
+          }
+        : null,
+    };
+  }
+
   async setRepresentative(userId: number, userCharacterId: number | null) {
     if (userCharacterId === null) {
       await this.usersRepository.update(userId, { representative_character_id: null });

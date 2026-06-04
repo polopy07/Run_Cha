@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -40,6 +40,7 @@ describe('UsersService', () => {
       callback(manager),
     ),
     getRepository: jest.fn(() => userCharactersRepository),
+    query: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -259,6 +260,60 @@ describe('UsersService', () => {
       BadRequestException,
     );
     expect(usersRepository.save).not.toHaveBeenCalled();
+  });
+
+  describe('findByIdWithRepresentativeCharacter', () => {
+    it('대표 캐릭터가 있으면 character 정보를 포함해 반환한다', async () => {
+      usersRepository.findOne.mockResolvedValue({
+        id: 1,
+        nickname: 'runner',
+        representative_character: {
+          character: {
+            name: '공격형1',
+            type: 'attack',
+            grade: 'common',
+            image_url: 'attack_common',
+          },
+        },
+      });
+
+      const result = await service.findByIdWithRepresentativeCharacter(1);
+
+      expect(usersRepository.findOne).toHaveBeenCalledWith({
+        where: { id: 1 },
+        relations: ['representative_character', 'representative_character.character'],
+      });
+      expect(result).toEqual({
+        id: 1,
+        nickname: 'runner',
+        character: {
+          name: '공격형1',
+          type: 'attack',
+          grade: 'common',
+          imageUrl: 'attack_common',
+        },
+      });
+    });
+
+    it('대표 캐릭터 미설정 유저는 character: null을 반환한다', async () => {
+      usersRepository.findOne.mockResolvedValue({
+        id: 2,
+        nickname: 'nochar',
+        representative_character: null,
+      });
+
+      const result = await service.findByIdWithRepresentativeCharacter(2);
+
+      expect(result).toEqual({ id: 2, nickname: 'nochar', character: null });
+    });
+
+    it('존재하지 않는 유저 ID는 NotFoundException을 던진다', async () => {
+      usersRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.findByIdWithRepresentativeCharacter(999),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
   });
 
   it('응답 객체는 API 명세에 맞는 camelCase 필드로 반환한다', () => {

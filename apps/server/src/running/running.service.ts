@@ -6,6 +6,7 @@ import { User } from '../users/entities/user.entity';
 import { Territory } from '../territories/entities/territory.entity';
 import { FinishRunningDto } from './dto/finish-running.dto';
 import { calcCenter } from '../common/utils/geo';
+import { EventsGateway } from '../socket/events.gateway';
 
 const PACE_MULTIPLIER: Record<string, number> = {
   fast_walk: 0.6,
@@ -35,7 +36,10 @@ type RunningLogSummary = {
 
 @Injectable()
 export class RunningService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly eventsGateway: EventsGateway,
+  ) {}
 
   async findMine(userId: number): Promise<RunningLogSummary[]> {
     const logs = await this.dataSource.getRepository(RunningLog).find({
@@ -134,6 +138,14 @@ export class RunningService {
         return { savedLog, territory };
       },
     );
+
+    this.eventsGateway.broadcastRankingUpdate();
+    if (territory) {
+      this.eventsGateway.broadcastTerritoryUpdate(
+        territory.center_lat,
+        territory.center_lng,
+      );
+    }
 
     return {
       log: savedLog,

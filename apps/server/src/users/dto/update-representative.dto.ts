@@ -1,4 +1,4 @@
-import { IsDefined, IsInt, IsNull, Min, ValidateIf } from 'class-validator';
+import { IsDefined, IsInt, Min, ValidateIf } from 'class-validator';
 
 export class UpdateRepresentativeDto {
   @IsDefined()

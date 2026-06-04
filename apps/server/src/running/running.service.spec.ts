@@ -5,6 +5,7 @@ import * as turf from '@turf/turf';
 import { RunningService } from './running.service';
 import { RunningLog } from './entities/running-log.entity';
 import { Territory } from '../territories/entities/territory.entity';
+import { EventsGateway } from '../socket/events.gateway';
 
 const CLOSED_LOOP = [
   { lat: 37.5, lng: 127.0 },
@@ -81,6 +82,7 @@ describe('RunningService', () => {
       providers: [
         RunningService,
         { provide: DataSource, useValue: mockDataSource },
+        { provide: EventsGateway, useValue: { broadcastRankingUpdate: jest.fn(), broadcastTerritoryUpdate: jest.fn() } },
       ],
     }).compile();
     service = module.get<RunningService>(RunningService);
