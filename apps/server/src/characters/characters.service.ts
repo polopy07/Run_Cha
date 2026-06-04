@@ -26,6 +26,8 @@ const DISMANTLE_REWARD_BY_GRADE: Record<CharacterGrade, number> = {
   [CharacterGrade.LEGENDARY]: 4,
 };
 
+const UPGRADE_COST = 1;
+
 type StatLevelColumn = 'attack_lv' | 'defense_lv' | 'point_lv';
 
 const STAT_LEVEL_COLUMN: Record<UpgradeStat, StatLevelColumn> = {
@@ -86,13 +88,11 @@ export class CharactersService {
         throw new NotFoundException('사용자를 찾을 수 없습니다.');
       }
 
-      const cost = this.calculateUpgradeCost();
-
-      if (user.stat_points < cost) {
+      if (user.stat_points < UPGRADE_COST) {
         throw new BadRequestException('스탯 포인트가 부족합니다.');
       }
 
-      user.stat_points -= cost;
+      user.stat_points -= UPGRADE_COST;
       userCharacter[levelColumn] = currentLevel + 1;
 
       await usersRepository.save(user);
@@ -260,10 +260,6 @@ export class CharactersService {
         remainingCharacterCount,
       };
     });
-  }
-
-  private calculateUpgradeCost() {
-    return 1;
   }
 
   private toUserCharacterResponse(userCharacter: UserCharacter) {

@@ -28,6 +28,7 @@ type GachaResult = {
   isNew: boolean;
 };
 
+// Keep in sync with apps/server/src/gacha/gacha.service.ts.
 const MAX_CHARACTER_COUNT = 30;
 
 function DrawingIndicator({

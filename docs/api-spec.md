@@ -529,7 +529,7 @@ const attackerPolygonAfter = success
 | id | number | 유저 캐릭터 ID |
 | upgradedStat | string | 강화된 스탯 |
 | newLevel | number | 강화 후 레벨 |
-| remainingPoints | number | 강화 후 남은 포인트 |
+| remainingStatPoints | number | 강화 후 남은 스탯 포인트 |
 
 ### PATCH `/characters/:id/deploy`
 
@@ -574,7 +574,7 @@ const attackerPolygonAfter = success
 - 가챠 비용: 1회 100 포인트, 10회 900 포인트
 - 가챠 확률: common 60%, rare 30%, epic 9%, legendary 1%
 - 천장 보장 시스템은 사용하지 않는다.
-- 강화 비용: `Math.min(Math.floor(100 * 1.5 ** currentLevel), 5000)`
+- 강화 비용: 스탯 포인트 1개
 - 위 수치는 현재 구현 기준이며, 밸런스 검토 후 조정될 수 있다.
 
 ### POST `/characters/dismantle`

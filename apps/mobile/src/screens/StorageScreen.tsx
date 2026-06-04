@@ -139,6 +139,7 @@ export function StorageScreen() {
     useCharacterStore();
   const user = useAuthStore(state => state.user);
   const fetchMe = useAuthStore(state => state.fetchMe);
+  const setRepresentative = useAuthStore(state => state.setRepresentative);
 
   const [territories, setTerritories] = useState<Territory[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -152,6 +153,7 @@ export function StorageScreen() {
     [],
   );
   const [isDismantling, setIsDismantling] = useState(false);
+  const [isSettingRepresentative, setIsSettingRepresentative] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>('recent');
   const [typeFilter, setTypeFilter] = useState<Character['type'] | null>(null);
   const [upgradingStat, setUpgradingStat] = useState<UpgradeStat | null>(null);
@@ -274,6 +276,13 @@ export function StorageScreen() {
         return;
       }
 
+      if (user?.representativeCharacter?.id === character.id) {
+        Alert.alert(
+          '대표 캐릭터 선택',
+          '대표 캐릭터가 분해 대상에 포함됩니다. 실제 분해 전 다시 확인해주세요.',
+        );
+      }
+
       setSelectedDismantleIds(current => {
         if (current.includes(character.id)) {
           return current.filter(id => id !== character.id);
@@ -295,7 +304,7 @@ export function StorageScreen() {
         return [...current, character.id];
       });
     },
-    [characters.length],
+    [characters.length, user?.representativeCharacter?.id],
   );
 
   const openCharacterDetail = useCallback(
@@ -432,22 +441,63 @@ export function StorageScreen() {
     [fetchMe, updateCharacter, upgradingStat, user?.statPoints],
   );
 
+  const handleRepresentative = useCallback(
+    async (character: Character) => {
+      if (isDismantleMode || isSettingRepresentative) return;
+
+      const isCurrentRepresentative =
+        user?.representativeCharacter?.id === character.id;
+      const action = isCurrentRepresentative ? '해제' : '설정';
+      const message = isCurrentRepresentative
+        ? `${character.name}의 대표 캐릭터 설정을 해제할까요?`
+        : `${character.name}을(를) 대표 캐릭터로 설정할까요?`;
+
+      Alert.alert(`대표 캐릭터 ${action}`, message, [
+        { text: '취소', style: 'cancel' },
+        {
+          text: action,
+          onPress: async () => {
+            setIsSettingRepresentative(true);
+            try {
+              await setRepresentative(
+                isCurrentRepresentative ? null : character.id,
+              );
+            } catch (error) {
+              Alert.alert('설정 실패', getErr(error, '다시 시도해주세요.'));
+            } finally {
+              setIsSettingRepresentative(false);
+            }
+          },
+        },
+      ]);
+    },
+    [
+      isDismantleMode,
+      isSettingRepresentative,
+      setRepresentative,
+      user?.representativeCharacter?.id,
+    ],
+  );
+
   const renderItem = ({ item }: { item: Character }) => {
     const grade = gradeColor[item.grade] ?? colors.gradeCommon;
     const selectedForDismantle = selectedDismantleIds.includes(item.id);
     const deployed = isDeployed(item);
     const disabledForDismantle = isDismantleMode && deployed;
+    const isRepresentative = user?.representativeCharacter?.id === item.id;
 
     return (
       <TouchableOpacity
         style={{
           width: '48%',
           backgroundColor: colors.card,
-          borderColor: selectedForDismantle
-            ? colors.primary
-            : colors.cardBorder,
+          borderColor: isRepresentative
+            ? colors.gold
+            : selectedForDismantle
+              ? colors.primary
+              : colors.cardBorder,
           borderRadius: radius.md,
-          borderWidth: selectedForDismantle ? 2 : 1,
+          borderWidth: isRepresentative || selectedForDismantle ? 2 : 1,
           opacity: disabledForDismantle ? 0.45 : 1,
           padding: 14,
           alignItems: 'center',
@@ -460,6 +510,7 @@ export function StorageScreen() {
         activeOpacity={0.85}
         disabled={disabledForDismantle}
         onPress={() => openCharacterDetail(item)}
+        onLongPress={() => handleRepresentative(item)}
       >
         <View
           style={{
@@ -468,9 +519,29 @@ export function StorageScreen() {
             left: 0,
             right: 0,
             height: 3,
-            backgroundColor: grade,
+            backgroundColor: isRepresentative ? colors.gold : grade,
           }}
         />
+
+        {isRepresentative && (
+          <View
+            style={{
+              position: 'absolute',
+              top: 8,
+              left: 8,
+              backgroundColor: colors.gold,
+              borderRadius: 4,
+              paddingHorizontal: 6,
+              paddingVertical: 2,
+            }}
+          >
+            <Text
+              style={{ color: colors.bg, fontSize: 9, fontWeight: '900' }}
+            >
+              대표
+            </Text>
+          </View>
+        )}
 
         {isDismantleMode && (
           <View
@@ -618,6 +689,7 @@ export function StorageScreen() {
           </Text>
           <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
             보유 {characters.length}/30 / 스탯 포인트 {user?.statPoints ?? 0}
+            {!isDismantleMode ? ' / 길게 눌러 대표 설정' : ''}
           </Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -815,8 +887,8 @@ export function StorageScreen() {
             </TouchableOpacity>
           </View>
           <Text style={{ color: colors.textMuted, fontSize: 11 }}>
-            배치 중인 캐릭터는 분해할 수 없습니다. 최소 1개의 캐릭터는 남아
-            있어야 합니다.
+            배치 중인 캐릭터는 분해할 수 없습니다. 대표 캐릭터를 분해하면 대표
+            설정도 함께 해제됩니다. 최소 1개의 캐릭터는 남아 있어야 합니다.
           </Text>
         </View>
       )}
