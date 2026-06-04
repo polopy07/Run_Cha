@@ -3,14 +3,16 @@ import {
   View, Text, TouchableOpacity,
   Alert, ActivityIndicator, Platform, StatusBar,
 } from 'react-native';
-import MapView, { Polyline, PROVIDER_GOOGLE, PROVIDER_DEFAULT } from 'react-native-maps';
+import MapView, { Polygon, Polyline, PROVIDER_GOOGLE, PROVIDER_DEFAULT, type Region } from 'react-native-maps';
 import useRunningStore from '../store/runningStore';
-import useAuthStore from '../store/authStore';
 import { finishRunning as finishRunningAPI } from '../api/running';
 import { useTheme } from '../contexts/ThemeContext';
 import { radius, mapCardShadow } from '../constants/theme';
 import { darkMapStyle } from '../constants/mapStyle';
 import { useGPS, getLastLocation } from '../hooks/useGPS';
+import { getTerritories, type Territory } from '../api/territory';
+import useAuthStore from '../store/authStore';
+import { getUserColor } from '../utils/colorUtils';
 
 const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 
@@ -45,18 +47,31 @@ export function RunningScreen() {
   } = useRunningStore();
 
   const fetchMe = useAuthStore(s => s.fetchMe);
+  const user = useAuthStore(s => s.user);
+  const [territories, setTerritories] = useState<Territory[]>([]);
+
+  const fetchNearbyTerritories = useCallback(async (region: Region) => {
+    try {
+      const data = await getTerritories({
+        minLat: region.latitude - region.latitudeDelta / 2,
+        maxLat: region.latitude + region.latitudeDelta / 2,
+        minLng: region.longitude - region.longitudeDelta / 2,
+        maxLng: region.longitude + region.longitudeDelta / 2,
+      });
+      setTerritories(data);
+    } catch {}
+  }, []);
 
   useEffect(() => {
     const last = getLastLocation();
     if (!last) return;
+    const region = { latitude: last.latitude, longitude: last.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 };
+    fetchNearbyTerritories(region);
     const id = setTimeout(() => {
-      mapRef.current?.animateToRegion(
-        { latitude: last.latitude, longitude: last.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 },
-        500,
-      );
+      mapRef.current?.animateToRegion(region, 500);
     }, 300);
     return () => clearTimeout(id);
-  }, []);
+  }, [fetchNearbyTerritories]);
 
   useEffect(() => {
     if (phase !== 'running') return;
@@ -256,7 +271,21 @@ export function RunningScreen() {
         showsUserLocation showsMyLocationButton={false}
         followsUserLocation={Platform.OS === 'ios'}
         onUserLocationChange={handleUserLocationChange}
+        onRegionChangeComplete={(r) => fetchNearbyTerritories(r)}
       >
+        {territories.map((t) => {
+          const isMine = t.userId === user?.id;
+          const color = isMine ? colors.primary : getUserColor(t.userId);
+          return (
+            <Polygon
+              key={t.id}
+              coordinates={t.coordinates.map(c => ({ latitude: c.lat, longitude: c.lng }))}
+              fillColor={color + '30'}
+              strokeColor={color + '80'}
+              strokeWidth={isMine ? 2 : 1}
+            />
+          );
+        })}
         {polylineCoords.length > 1 && (
           <Polyline coordinates={polylineCoords} strokeColor={colors.primary} strokeWidth={5} />
         )}

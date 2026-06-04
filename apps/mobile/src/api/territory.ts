@@ -57,14 +57,14 @@ export type AttackTerritoryResponse = {
   message: string;
 };
 
-export async function getTerritories(bounds: TerritoryBounds) {
+export async function getTerritories(bounds: TerritoryBounds, options?: RequestInit) {
   const params = new URLSearchParams({
     minLat: String(bounds.minLat),
     maxLat: String(bounds.maxLat),
     minLng: String(bounds.minLng),
     maxLng: String(bounds.maxLng),
   });
-  return apiFetch<Territory[]>(`/territories?${params}`);
+  return apiFetch<Territory[]>(`/territories?${params}`, options);
 }
 
 export async function getMyTerritories() {
