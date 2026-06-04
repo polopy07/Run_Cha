@@ -3,26 +3,34 @@ import { SOCKET_URL } from '@env';
 import { getToken } from './client';
 
 let socket: Socket | null = null;
+let connectingPromise: Promise<Socket> | null = null;
 
 export async function connectSocket(): Promise<Socket> {
   if (socket?.connected) return socket;
+  if (connectingPromise) return connectingPromise;
 
-  if (socket) {
-    socket.removeAllListeners();
-    socket.disconnect();
-  }
+  connectingPromise = (async () => {
+    if (socket) {
+      socket.removeAllListeners();
+      socket.disconnect();
+    }
 
-  const token = await getToken();
+    const token = await getToken();
 
-  socket = io(SOCKET_URL, {
-    auth: { token },
-    transports: ['websocket'],
-    reconnection: true,
-    reconnectionAttempts: 10,
-    reconnectionDelay: 2000,
+    socket = io(SOCKET_URL, {
+      auth: { token },
+      transports: ['websocket'],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
+    });
+
+    return socket;
+  })().finally(() => {
+    connectingPromise = null;
   });
 
-  return socket;
+  return connectingPromise;
 }
 
 export function getSocket(): Socket | null {
@@ -30,6 +38,7 @@ export function getSocket(): Socket | null {
 }
 
 export function disconnectSocket() {
+  connectingPromise = null;
   if (socket) {
     socket.removeAllListeners();
     socket.disconnect();

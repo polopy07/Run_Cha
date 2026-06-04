@@ -47,6 +47,7 @@ export function MapScreen() {
   const mapRef = useRef<MapView>(null);
   const regionRef = useRef(INITIAL_REGION);
   const userLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const lastEmitRef = useRef(0);
   const user = useAuthStore(s => s.user);
   const { nearbyUsers, emitLocation } = useSocket({
     onTerritoryUpdate: () => fetchTerritories(regionRef.current),
@@ -114,7 +115,11 @@ export function MapScreen() {
           const c = e.nativeEvent.coordinate;
           if (!c) return;
           userLocationRef.current = { latitude: c.latitude, longitude: c.longitude };
-          emitLocation(c.latitude, c.longitude);
+          const now = Date.now();
+          if (now - lastEmitRef.current >= 3000) {
+            lastEmitRef.current = now;
+            emitLocation(c.latitude, c.longitude);
+          }
         }}
         showsUserLocation
         showsMyLocationButton={false}

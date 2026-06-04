@@ -50,7 +50,7 @@ export function CharacterMarker({ user, isMe }: Props) {
             </Text>
           ) : (
             <Text style={{ fontSize: isMe ? 18 : 14, fontWeight: '800', color: colors.text }}>
-              {user.nickname[0] ?? '?'}
+              {user.nickname[0] || '?'}
             </Text>
           )}
         </View>

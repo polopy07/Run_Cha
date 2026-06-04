@@ -93,7 +93,9 @@ export function useSocket(options?: SocketOptions) {
         });
 
         if (sock.connected) setIsConnected(true);
-      } catch {}
+      } catch (e) {
+        if (mounted) console.warn('[useSocket] connectSocket 실패', e);
+      }
     })();
 
     staleTimerRef.current = setInterval(() => {
@@ -114,6 +116,16 @@ export function useSocket(options?: SocketOptions) {
     return () => {
       mounted = false;
       if (staleTimerRef.current) clearInterval(staleTimerRef.current);
+      const sock = socketRef.current;
+      if (sock) {
+        sock.off('connect');
+        sock.off('disconnect');
+        sock.off('location:broadcast');
+        sock.off('user:online');
+        sock.off('user:offline');
+        sock.off('ranking:update');
+        sock.off('territory:update');
+      }
     };
   }, [isLoggedIn]);
 
