@@ -233,7 +233,7 @@ export function MapScreen() {
               {[
                 { label: '포인트', value: (user?.points ?? 0).toLocaleString(), color: colors.gold },
                 { label: '스탯 포인트', value: String(user?.statPoints ?? 0), color: colors.primary },
-                { label: '총 거리', value: `${((user?.totalDistance ?? 0) / 1000).toFixed(1)} km`, color: colors.accent },
+                { label: '총 거리', value: `${(user?.totalDistance ?? 0).toFixed(1)} km`, color: colors.accent },
               ].map((row) => (
                 <View key={row.label} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Text style={{ fontSize: 13, color: colors.textSecondary }}>{row.label}</Text>

@@ -28,12 +28,9 @@ export class UsersController {
     @CurrentUser() user: User,
     @Body() dto: UpdateNicknameDto,
   ) {
-    const updatedUser = await this.usersService.updateNickname(
-      user.id,
-      dto.nickname,
-    );
-
-    return this.usersService.toResponse(updatedUser);
+    await this.usersService.updateNickname(user.id, dto.nickname);
+    const loaded = await this.usersService.findByIdWithRepresentative(user.id);
+    return this.usersService.toResponse(loaded);
   }
 
   @UseGuards(JwtAuthGuard)
