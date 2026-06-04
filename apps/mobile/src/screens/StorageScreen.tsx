@@ -251,9 +251,15 @@ export function StorageScreen() {
       return;
     }
 
+    const repId = user?.representativeCharacter?.id;
+    const includesRep = repId != null && selectedDismantleIds.includes(repId);
+    const message = includesRep
+      ? `${selectedDismantleIds.length}개를 분해하고 스탯 포인트 ${expectedStatPoints}개를 획득합니다.\n\n⚠️ 대표 캐릭터가 포함되어 있어 대표 설정이 해제됩니다.`
+      : `${selectedDismantleIds.length}개를 분해하고 스탯 포인트 ${expectedStatPoints}개를 획득합니다.`;
+
     Alert.alert(
       '캐릭터 분해',
-      `${selectedDismantleIds.length}개를 분해하고 스탯 포인트 ${expectedStatPoints}개를 획득합니다.`,
+      message,
       [
         { text: '취소', style: 'cancel' },
         {
@@ -269,7 +275,8 @@ export function StorageScreen() {
     characters.length,
     executeDismantle,
     expectedStatPoints,
-    selectedDismantleIds.length,
+    selectedDismantleIds,
+    user?.representativeCharacter?.id,
   ]);
 
   const handleRepresentative = useCallback(async (character: Character) => {
