@@ -109,7 +109,18 @@ describe('AttacksService', () => {
     transactionAttackLogRepo = makeRepository();
     managerQuery = jest.fn().mockResolvedValue([{ acquired: 1 }]);
 
-    territoryRepo.findOne.mockResolvedValue({ ...territory });
+    territoryRepo.findOne.mockImplementation(
+      (options?: { where?: Record<string, unknown> }) => {
+        if (options?.where && 'id' in options.where) {
+          return Promise.resolve({ ...territory });
+        }
+        if (options?.where && 'user_id' in options.where) {
+          return Promise.resolve({ ...attackerOwnedTerritory });
+        }
+
+        return Promise.resolve(null);
+      },
+    );
     runningLogRepo.findOne.mockResolvedValue(runningLog);
     userCharacterRepo.findOne.mockResolvedValue(attackerCharacter);
     userCharacterRepo.find.mockResolvedValue([]);
@@ -268,15 +279,18 @@ describe('AttacksService', () => {
   });
 
   it('rejects successful transfer when attacker territory is missing', async () => {
-    transactionTerritoryRepo.findOne.mockResolvedValue(null);
+    territoryRepo.findOne
+      .mockResolvedValueOnce({ ...territory })
+      .mockResolvedValueOnce(null);
 
     await expect(
       service.attack(1, 10, {
         runningLogId: 20,
         attackerCharacterId: 30,
       }),
-    ).rejects.toThrow('Attacker territory for merge was not found.');
+    ).rejects.toThrow('침략하려면 먼저 자신의 영토가 있어야 합니다.');
 
+    expect(dataSource.transaction).not.toHaveBeenCalled();
     expect(transactionTerritoryRepo.create).not.toHaveBeenCalled();
     expect(transactionAttackLogRepo.create).not.toHaveBeenCalled();
   });

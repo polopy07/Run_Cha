@@ -29,6 +29,14 @@ const FAR_SQUARE = [
   { lat: 37.01, lng: 127.01 },
 ];
 
+const INNER_SQUARE = [
+  { lat: 37.00025, lng: 127.00025 },
+  { lat: 37.00025, lng: 127.00075 },
+  { lat: 37.00075, lng: 127.00075 },
+  { lat: 37.00075, lng: 127.00025 },
+  { lat: 37.00025, lng: 127.00025 },
+];
+
 describe('attack overlap', () => {
   const territoryAreaSqm = turf.area(toPolygon(SQUARE));
 
@@ -54,6 +62,20 @@ describe('attack overlap', () => {
     expect(result.contestedCoordinates).toHaveLength(5);
     expect(result.defenderRemainingAreaSqm).toBeGreaterThan(0);
     expect(result.defenderRemainingCoordinates).toHaveLength(5);
+  });
+
+  it('keeps stored defender coordinates and area consistent when remaining polygon has a hole', () => {
+    const result = calculateAttackOverlap(
+      INNER_SQUARE,
+      SQUARE,
+      territoryAreaSqm,
+    );
+
+    expect(result.defenderRemainingCoordinates).toHaveLength(5);
+    expect(result.defenderRemainingAreaSqm).toBeCloseTo(
+      turf.area(toPolygon(result.defenderRemainingCoordinates ?? [])),
+      5,
+    );
   });
 
   it('returns zero overlap when polygons do not intersect', () => {
@@ -85,6 +107,7 @@ describe('attack overlap', () => {
     const ring = polygon.geometry.coordinates[0];
 
     expect(ring[0]).toEqual(ring[ring.length - 1]);
+    expect(ring[0]).not.toBe(ring[ring.length - 1]);
   });
 
   it('throws Error when coordinates are insufficient', () => {

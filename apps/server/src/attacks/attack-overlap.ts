@@ -29,15 +29,23 @@ export function calculateAttackOverlap(
   const contestedPolygon = intersection
     ? extractLargestPolygon(intersection)
     : null;
-  const contestedAreaSqm = contestedPolygon ? turf.area(contestedPolygon) : 0;
+  const storableContestedPolygon = contestedPolygon
+    ? toStorablePolygon(contestedPolygon)
+    : null;
+  const contestedAreaSqm = storableContestedPolygon
+    ? turf.area(storableContestedPolygon)
+    : 0;
   const remaining = contestedPolygon
     ? turf.difference(turf.featureCollection([territoryPolygon, contestedPolygon]))
     : territoryPolygon;
   const defenderRemainingPolygon = remaining
     ? extractLargestPolygon(remaining)
     : null;
-  const defenderRemainingAreaSqm = defenderRemainingPolygon
-    ? turf.area(defenderRemainingPolygon)
+  const storableDefenderRemainingPolygon = defenderRemainingPolygon
+    ? toStorablePolygon(defenderRemainingPolygon)
+    : null;
+  const defenderRemainingAreaSqm = storableDefenderRemainingPolygon
+    ? turf.area(storableDefenderRemainingPolygon)
     : 0;
   const overlapRate =
     territoryAreaSqm > 0 ? (contestedAreaSqm / territoryAreaSqm) * 100 : 0;
@@ -45,12 +53,12 @@ export function calculateAttackOverlap(
   return {
     overlapRate,
     contestedAreaSqm,
-    contestedCoordinates: contestedPolygon
-      ? toCoordinates(contestedPolygon)
+    contestedCoordinates: storableContestedPolygon
+      ? toCoordinates(storableContestedPolygon)
       : null,
     defenderRemainingAreaSqm,
-    defenderRemainingCoordinates: defenderRemainingPolygon
-      ? toCoordinates(defenderRemainingPolygon)
+    defenderRemainingCoordinates: storableDefenderRemainingPolygon
+      ? toCoordinates(storableDefenderRemainingPolygon)
       : null,
   };
 }
@@ -80,7 +88,7 @@ export function toPolygon(coordinates: Coordinate[]): Feature<Polygon> {
   const last = ring[ring.length - 1];
 
   if (first[0] !== last[0] || first[1] !== last[1]) {
-    ring.push(first);
+    ring.push([...first]);
   }
 
   return turf.polygon([ring]);
@@ -107,6 +115,12 @@ function extractLargestPolygon(
   }
 
   return largest;
+}
+
+function toStorablePolygon(feature: Feature<Polygon>): Feature<Polygon> {
+  const outerRing = feature.geometry.coordinates[0];
+
+  return turf.polygon([outerRing]);
 }
 
 function toCoordinates(feature: Feature<Polygon>): Coordinate[] {

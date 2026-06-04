@@ -89,6 +89,13 @@ export class AttacksService {
       deployedDefenders,
       territory,
     });
+    const attackerTerritoryForMerge =
+      outcome.success && overlap.contestedCoordinates
+        ? await this.findAttackerTerritoryForMerge(
+            this.territoriesRepository,
+            userId,
+          )
+        : null;
 
     let remainingDailyAttacks = 0;
 
@@ -125,8 +132,8 @@ export class AttacksService {
           await this.transferContestedTerritory(
             territoryRepo,
             territory,
-            userId,
             overlap,
+            attackerTerritoryForMerge,
           );
         } else {
           await territoryRepo.save(territory);
@@ -208,8 +215,8 @@ export class AttacksService {
   private async transferContestedTerritory(
     territoryRepo: Repository<Territory>,
     defenderTerritory: Territory,
-    attackerId: number,
     overlap: ReturnType<typeof calculateAttackOverlap>,
+    attackerTerritoryForMerge: Territory | null,
   ) {
     if (
       overlap.defenderRemainingCoordinates &&
@@ -232,10 +239,12 @@ export class AttacksService {
       return;
     }
 
-    const attackerTerritory = await this.findAttackerTerritoryForMerge(
-      territoryRepo,
-      attackerId,
-    );
+    const attackerTerritory = attackerTerritoryForMerge;
+    if (!attackerTerritory) {
+      throw new BadRequestException(
+        '침략하려면 먼저 자신의 영토가 있어야 합니다.',
+      );
+    }
     const merged = mergePolygons(
       attackerTerritory.coordinates,
       attackerCoordinates,
@@ -269,7 +278,7 @@ export class AttacksService {
 
     if (!attackerTerritory) {
       throw new BadRequestException(
-        'Attacker territory for merge was not found.',
+        '침략하려면 먼저 자신의 영토가 있어야 합니다.',
       );
     }
 
