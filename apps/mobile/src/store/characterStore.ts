@@ -9,7 +9,6 @@ export type Character = {
   type: 'attack' | 'defense' | 'buff';
   attackLv: number;
   defenseLv: number;
-  speedLv: number;
   pointLv: number;
   isDeployed: boolean;
   deployedTerritoryId: number | null;

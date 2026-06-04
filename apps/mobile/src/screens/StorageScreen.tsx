@@ -364,10 +364,10 @@ export function StorageScreen() {
         <Text style={{ fontSize: 11, color: colors.textSecondary, marginBottom: 8 }}>{TYPE_FULL[item.type]}</Text>
 
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 4 }}>
-          {['ATK', 'DEF', 'SPD', 'PT'].map((label, index) => (
+          {['ATK', 'DEF', 'PT'].map((label, index) => (
             <View key={label} style={{ backgroundColor: colors.surface, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
               <Text style={{ fontSize: 10, color: colors.textSecondary, fontWeight: '600' }}>
-                {label} {[item.attackLv, item.defenseLv, item.speedLv, item.pointLv][index]}
+                {label} {[item.attackLv, item.defenseLv, item.pointLv][index]}
               </Text>
             </View>
           ))}

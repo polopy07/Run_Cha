@@ -65,8 +65,7 @@ describe('CharactersService', () => {
     character_id: 3,
     attack_lv: 1,
     defense_lv: 2,
-    speed_lv: 3,
-    point_lv: 4,
+    point_lv: 3,
     deployed_territory_id: null,
     character: {
       id: 3,
@@ -128,8 +127,7 @@ describe('CharactersService', () => {
         type: CharacterType.DEFENSE,
         attackLv: 1,
         defenseLv: 2,
-        speedLv: 3,
-        pointLv: 4,
+        pointLv: 3,
         isDeployed: false,
         deployedTerritoryId: null,
       },
@@ -172,6 +170,24 @@ describe('CharactersService', () => {
     );
     expect(userCharactersRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({ attack_lv: 2 }),
+    );
+  });
+
+  it('upgrades point efficiency stat and deducts points in a transaction', async () => {
+    const user = { id: 1, points: 500 } as User;
+    userCharactersRepository.findOne.mockResolvedValue({ ...userCharacter });
+    usersRepository.findOne.mockResolvedValue(user);
+    usersRepository.save.mockResolvedValue(user);
+    userCharactersRepository.save.mockResolvedValue(userCharacter);
+
+    await expect(service.upgrade(1, 10, 'point')).resolves.toEqual({
+      id: 10,
+      upgradedStat: 'point',
+      newLevel: 4,
+      remainingPoints: 163,
+    });
+    expect(userCharactersRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ point_lv: 4 }),
     );
   });
 
