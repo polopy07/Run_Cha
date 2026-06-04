@@ -89,13 +89,10 @@ export class AttacksService {
       deployedDefenders,
       territory,
     });
-    const attackerTerritoryForMerge =
-      outcome.success && overlap.contestedCoordinates
-        ? await this.findAttackerTerritoryForMerge(
-            this.territoriesRepository,
-            userId,
-          )
-        : null;
+
+    if (outcome.success && overlap.contestedCoordinates) {
+      await this.ensureAttackerTerritoryExists(userId);
+    }
 
     let remainingDailyAttacks = 0;
 
@@ -133,7 +130,7 @@ export class AttacksService {
             territoryRepo,
             territory,
             overlap,
-            attackerTerritoryForMerge,
+            userId,
           );
         } else {
           await territoryRepo.save(territory);
@@ -216,7 +213,7 @@ export class AttacksService {
     territoryRepo: Repository<Territory>,
     defenderTerritory: Territory,
     overlap: ReturnType<typeof calculateAttackOverlap>,
-    attackerTerritoryForMerge: Territory | null,
+    attackerId: number,
   ) {
     if (
       overlap.defenderRemainingCoordinates &&
@@ -239,12 +236,10 @@ export class AttacksService {
       return;
     }
 
-    const attackerTerritory = attackerTerritoryForMerge;
-    if (!attackerTerritory) {
-      throw new BadRequestException(
-        '침략하려면 먼저 자신의 영토가 있어야 합니다.',
-      );
-    }
+    const attackerTerritory = await this.findAttackerTerritoryForMergeWithLock(
+      territoryRepo,
+      attackerId,
+    );
     const merged = mergePolygons(
       attackerTerritory.coordinates,
       attackerCoordinates,
@@ -266,6 +261,7 @@ export class AttacksService {
   private async findAttackerTerritoryForMerge(
     territoryRepo: Repository<Territory>,
     attackerId: number,
+    lock?: { mode: 'pessimistic_write' },
   ) {
     const attackerTerritory = await territoryRepo.findOne({
       where: {
@@ -274,6 +270,7 @@ export class AttacksService {
         occupation_rate: MoreThan(0),
       },
       order: { last_active_at: 'DESC', id: 'DESC' },
+      lock,
     });
 
     if (!attackerTerritory) {
@@ -283,6 +280,22 @@ export class AttacksService {
     }
 
     return attackerTerritory;
+  }
+
+  private ensureAttackerTerritoryExists(attackerId: number) {
+    return this.findAttackerTerritoryForMerge(
+      this.territoriesRepository,
+      attackerId,
+    );
+  }
+
+  private findAttackerTerritoryForMergeWithLock(
+    territoryRepo: Repository<Territory>,
+    attackerId: number,
+  ) {
+    return this.findAttackerTerritoryForMerge(territoryRepo, attackerId, {
+      mode: 'pessimistic_write',
+    });
   }
 
   private async findRunningLog(runningLogId: number, userId: number) {

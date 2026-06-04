@@ -40,6 +40,49 @@ type MockTransactionManager = {
   getRepository: (entity: unknown) => MockRepository;
   query: jest.Mock;
 };
+type SavedTerritoryCall = [
+  {
+    id?: number;
+    user_id?: number;
+    coordinates?: unknown[];
+    area_sqm?: number;
+    occupation_rate?: number;
+    center_lat?: number;
+    center_lng?: number;
+  },
+];
+type FindOneCall = [
+  {
+    lock?: { mode?: string };
+    where?: { user_id?: number };
+  },
+];
+
+function getSavedTerritory(
+  repo: MockRepository,
+  callIndex: number,
+): SavedTerritoryCall[0] {
+  const calls = repo.save.mock.calls as unknown;
+  const savedTerritory = (calls as SavedTerritoryCall[])[callIndex]?.[0];
+
+  if (!savedTerritory) {
+    throw new Error(`Missing saved territory call at index ${callIndex}.`);
+  }
+
+  return savedTerritory;
+}
+
+function expectLockedAttackerTerritoryFind(repo: MockRepository) {
+  const calls = repo.findOne.mock.calls as unknown;
+  const hasLockedAttackerFind = (calls as FindOneCall[]).some(([options]) => {
+    return (
+      options?.lock?.mode === 'pessimistic_write' &&
+      options?.where?.user_id === 1
+    );
+  });
+
+  expect(hasLockedAttackerFind).toBe(true);
+}
 
 describe('AttacksService', () => {
   let service: AttacksService;
@@ -179,13 +222,10 @@ describe('AttacksService', () => {
       1,
       expect.objectContaining({ area_sqm: 0, occupation_rate: 0 }),
     );
-    const mergedAttackerTerritory =
-      transactionTerritoryRepo.save.mock.calls[1]?.[0] as unknown as {
-        id: number;
-        user_id: number;
-        area_sqm: number;
-        occupation_rate: number;
-      };
+    const mergedAttackerTerritory = getSavedTerritory(
+      transactionTerritoryRepo,
+      1,
+    );
     expect(mergedAttackerTerritory).toEqual(
       expect.objectContaining({
         id: 11,
@@ -217,6 +257,7 @@ describe('AttacksService', () => {
       'SELECT RELEASE_LOCK(?)',
       expect.any(Array),
     );
+    expectLockedAttackerTerritoryFind(transactionTerritoryRepo);
   });
 
   it('moves the overlapped polygon to attacker territory on partial success', async () => {
@@ -235,15 +276,7 @@ describe('AttacksService', () => {
     expect(result.overlapRate).toBeLessThan(41);
     expect(result.acquiredAreaSqm).toBeGreaterThan(4800);
     expect(result.acquiredAreaSqm).toBeLessThan(5100);
-    const defenderTerritory =
-      transactionTerritoryRepo.save.mock.calls[0]?.[0] as unknown as {
-        user_id: number;
-        area_sqm: number;
-        occupation_rate: number;
-        coordinates: unknown[];
-        center_lat: number;
-        center_lng: number;
-      };
+    const defenderTerritory = getSavedTerritory(transactionTerritoryRepo, 0);
     expect(defenderTerritory).toEqual(
       expect.objectContaining({
         user_id: 2,
@@ -255,16 +288,10 @@ describe('AttacksService', () => {
     expect(typeof defenderTerritory.center_lat).toBe('number');
     expect(typeof defenderTerritory.center_lng).toBe('number');
 
-    const mergedAttackerTerritory =
-      transactionTerritoryRepo.save.mock.calls[1]?.[0] as unknown as {
-        id: number;
-        user_id: number;
-        coordinates: unknown[];
-        area_sqm: number;
-        occupation_rate: number;
-        center_lat: number;
-        center_lng: number;
-      };
+    const mergedAttackerTerritory = getSavedTerritory(
+      transactionTerritoryRepo,
+      1,
+    );
     expect(mergedAttackerTerritory).toEqual(
       expect.objectContaining({
         id: 11,
@@ -292,6 +319,21 @@ describe('AttacksService', () => {
 
     expect(dataSource.transaction).not.toHaveBeenCalled();
     expect(transactionTerritoryRepo.create).not.toHaveBeenCalled();
+    expect(transactionAttackLogRepo.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects when attacker territory disappears before locked transfer', async () => {
+    transactionTerritoryRepo.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.attack(1, 10, {
+        runningLogId: 20,
+        attackerCharacterId: 30,
+      }),
+    ).rejects.toThrow('침략하려면 먼저 자신의 영토가 있어야 합니다.');
+
+    expect(dataSource.transaction).toHaveBeenCalled();
+    expectLockedAttackerTerritoryFind(transactionTerritoryRepo);
     expect(transactionAttackLogRepo.create).not.toHaveBeenCalled();
   });
 
