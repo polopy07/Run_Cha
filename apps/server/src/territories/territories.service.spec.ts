@@ -197,7 +197,6 @@ describe('TerritoriesService', () => {
         character,
         attack_lv: 1,
         defense_lv: 2,
-        speed_lv: 1,
         point_lv: 1,
       } as UserCharacter;
       mockRepo.findOne.mockResolvedValue(territory);
@@ -242,7 +241,6 @@ describe('TerritoriesService', () => {
             type: CharacterType.DEFENSE,
             attackLv: 1,
             defenseLv: 2,
-            speedLv: 1,
             pointLv: 1,
           },
         ],

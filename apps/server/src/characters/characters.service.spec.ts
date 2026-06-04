@@ -3,10 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { CharactersService } from './characters.service';
-import {
-  CharacterGrade,
-  CharacterType,
-} from './entities/character.entity';
+import { CharacterGrade, CharacterType } from './entities/character.entity';
 import { UserCharacter } from './entities/user-character.entity';
 import { User } from '../users/entities/user.entity';
 import { Territory } from '../territories/entities/territory.entity';
@@ -65,7 +62,6 @@ describe('CharactersService', () => {
     character_id: 3,
     attack_lv: 1,
     defense_lv: 2,
-    speed_lv: 3,
     point_lv: 4,
     deployed_territory_id: null,
     character: {
@@ -126,9 +122,9 @@ describe('CharactersService', () => {
         name: 'defender',
         grade: CharacterGrade.COMMON,
         type: CharacterType.DEFENSE,
+        imageUrl: null,
         attackLv: 1,
         defenseLv: 2,
-        speedLv: 3,
         pointLv: 4,
         isDeployed: false,
         deployedTerritoryId: null,
@@ -154,7 +150,7 @@ describe('CharactersService', () => {
   });
 
   it('upgrades a stat and deducts points in a transaction', async () => {
-    const user = { id: 1, points: 200 } as User;
+    const user = { id: 1, stat_points: 2 } as User;
     userCharactersRepository.findOne.mockResolvedValue({ ...userCharacter });
     usersRepository.findOne.mockResolvedValue(user);
     usersRepository.save.mockResolvedValue(user);
@@ -164,11 +160,11 @@ describe('CharactersService', () => {
       id: 10,
       upgradedStat: 'attack',
       newLevel: 2,
-      remainingPoints: 50,
+      remainingStatPoints: 1,
     });
     expect(dataSource.transaction).toHaveBeenCalledTimes(1);
     expect(usersRepository.save).toHaveBeenCalledWith(
-      expect.objectContaining({ points: 50 }),
+      expect.objectContaining({ stat_points: 1 }),
     );
     expect(userCharactersRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({ attack_lv: 2 }),
@@ -176,7 +172,7 @@ describe('CharactersService', () => {
   });
 
   it('caps upgrade cost', async () => {
-    const user = { id: 1, points: 5000 } as User;
+    const user = { id: 1, stat_points: 1 } as User;
     userCharactersRepository.findOne.mockResolvedValue({
       ...userCharacter,
       attack_lv: 29,
@@ -193,7 +189,7 @@ describe('CharactersService', () => {
       id: 10,
       upgradedStat: 'attack',
       newLevel: 30,
-      remainingPoints: 0,
+      remainingStatPoints: 0,
     });
   });
 
@@ -409,7 +405,7 @@ describe('CharactersService', () => {
 
   it('rejects upgrade when points are insufficient', async () => {
     userCharactersRepository.findOne.mockResolvedValue({ ...userCharacter });
-    usersRepository.findOne.mockResolvedValue({ id: 1, points: 10 });
+    usersRepository.findOne.mockResolvedValue({ id: 1, stat_points: 0 });
 
     await expect(service.upgrade(1, 10, 'attack')).rejects.toBeInstanceOf(
       BadRequestException,

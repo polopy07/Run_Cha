@@ -8,10 +8,7 @@ import {
 } from '../src/utils/attackFlow';
 import type { Character } from '../src/store/characterStore';
 
-const makeCharacter = (
-  id: number,
-  type: Character['type'],
-): Character => ({
+const makeCharacter = (id: number, type: Character['type']): Character => ({
   id,
   characterId: id + 100,
   name: `character-${id}`,
@@ -19,7 +16,6 @@ const makeCharacter = (
   type,
   attackLv: 1,
   defenseLv: 1,
-  speedLv: 1,
   pointLv: 1,
   isDeployed: false,
   deployedTerritoryId: null,
@@ -34,10 +30,9 @@ describe('attackFlow', () => {
       makeCharacter(4, 'attack'),
     ];
 
-    expect(getAttackCharacters(characters).map((character) => character.id)).toEqual([
-      1,
-      4,
-    ]);
+    expect(
+      getAttackCharacters(characters).map(character => character.id),
+    ).toEqual([1, 4]);
   });
 
   it('formats running log distance for meter and kilometer ranges', () => {

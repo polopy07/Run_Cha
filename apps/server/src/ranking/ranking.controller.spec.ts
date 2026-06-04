@@ -62,7 +62,9 @@ describe('RankingController', () => {
 
     const result = await controller.getDistanceRanking({ user: undefined });
 
-    expect(mockRankingService.getDistanceRanking).toHaveBeenCalledWith(undefined);
+    expect(mockRankingService.getDistanceRanking).toHaveBeenCalledWith(
+      undefined,
+    );
     expect(result).toBe(expected);
   });
 });

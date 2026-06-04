@@ -10,7 +10,6 @@ export type Character = {
   imageUrl?: string | null;
   attackLv: number;
   defenseLv: number;
-  speedLv: number;
   pointLv: number;
   isDeployed: boolean;
   deployedTerritoryId: number | null;
@@ -41,13 +40,13 @@ const useCharacterStore = create<CharacterState>((set, get) => ({
     }
   },
 
-  addCharacter: (character) => {
+  addCharacter: character => {
     set({ characters: [...get().characters, character] });
   },
 
-  updateCharacter: (character) => {
+  updateCharacter: character => {
     set({
-      characters: get().characters.map((current) =>
+      characters: get().characters.map(current =>
         current.id === character.id ? character : current,
       ),
     });

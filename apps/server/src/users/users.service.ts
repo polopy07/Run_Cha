@@ -130,7 +130,10 @@ export class UsersService {
   }> {
     const user = await this.usersRepository.findOne({
       where: { id },
-      relations: ['representative_character', 'representative_character.character'],
+      relations: [
+        'representative_character',
+        'representative_character.character',
+      ],
     });
 
     if (!user) {

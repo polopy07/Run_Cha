@@ -34,9 +34,6 @@ export class Character {
   @Column({ type: 'float', default: 10 })
   base_defense: number;
 
-  @Column({ type: 'float', default: 10 })
-  base_speed: number;
-
   @Column({ type: 'float', default: 1.0 })
   base_point_rate: number;
 
