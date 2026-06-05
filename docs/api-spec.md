@@ -314,7 +314,7 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | name | string | 캐릭터 이름 |
 | type | string | 캐릭터 타입. `defense`, `buff` |
 | grade | string | 캐릭터 등급 |
-| basePointRate | number | 버프형 캐릭터의 기본 포인트 수익 배율 |
+| basePointRate | number | 기본 포인트 수익 배율. 버프형 캐릭터에서만 수익 계산에 사용하며, 공격형/수비형에서는 계산에 사용하지 않음 |
 | attackLv | number | 공격 레벨 |
 | defenseLv | number | 방어 레벨 |
 | pointLv | number | 포인트 효율 레벨 |
@@ -330,6 +330,8 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 캐릭터 배치 화면에서 사용자가 배치할 영토를 선택할 때 사용한다.
 
 현재 응답은 내 영토 관리 화면에서 목록과 지도 위치를 표시할 수 있도록 `coordinates`를 포함한다. 보유자 닉네임, 배치 캐릭터 등 상세 정보가 필요한 경우 `GET /territories/:id`를 추가 호출한다.
+
+내 영토 관리 화면은 영토 개수, 총 면적, 각 영토의 면적, 점령률, 최근 활동 시간을 표시한다. 영토 이름은 `PATCH /territories/:id/name`으로 수정하거나 `name: null` 요청으로 삭제할 수 있다.
 
 #### Response
 
@@ -527,7 +529,7 @@ const attackerPolygonAfter = success
 | name | string | 캐릭터 이름 |
 | grade | string | 캐릭터 등급 |
 | type | string | 캐릭터 타입. `attack`, `defense`, `buff` |
-| basePointRate | number | 버프형 캐릭터의 기본 포인트 수익 배율 |
+| basePointRate | number | 기본 포인트 수익 배율. 버프형 캐릭터에서만 수익 계산에 사용하며, 공격형/수비형에서는 계산에 사용하지 않음 |
 | attackLv | number | 공격 레벨 |
 | defenseLv | number | 방어 레벨 |
 | pointLv | number | 포인트 효율 레벨 |
@@ -544,9 +546,9 @@ const attackerPolygonAfter = success
 
 #### 캐릭터 성장 공식
 
-- 대표 캐릭터 경험치는 유효 러닝 보상 포인트가 1 이상일 때 `Math.max(1, Math.floor(distanceKm * 20))`만큼 지급한다.
+- 대표 캐릭터 경험치는 러닝 거리(`distanceKm`)가 0보다 클 때 `Math.max(1, Math.floor(distanceKm * 20))`만큼 지급한다.
 - 다음 레벨 필요 경험치는 `100 + (현재 레벨 - 1) * 50`이다.
-- 최대 레벨은 common 10, rare 15, epic 20, legendary 30이다.
+- 캐릭터 최대 레벨과 스탯 레벨 상한은 별도 개념으로 관리한다. 구체 수치는 PR #68 성장 로직 확정 후 최종 반영한다.
 - 캐릭터 레벨업 시 타입별 주 스탯이 1 증가한다.
   - 공격형: `attackLv + 1`
   - 수비형: `defenseLv + 1`
@@ -578,6 +580,8 @@ const attackerPolygonAfter = success
 
 수비형/버프형 캐릭터만 배치할 수 있으며, 배치 여부는 `user_characters.deployed_territory_id` 값으로 판단한다.
 
+앱의 배치 후보 목록은 캐릭터 이미지, 등급, 타입, 방어/포인트 효율 스탯을 표시한다. 최근/등급/타입 정렬을 제공하며, 타입 정렬 시 수비형/버프형 필터를 제공한다. 공격형 캐릭터는 배치 후보에서 제외한다.
+
 #### Request Body
 
 | 필드 | 타입 | 필수 | 설명 |
@@ -595,7 +599,7 @@ const attackerPolygonAfter = success
 | name | string | 캐릭터 이름 |
 | grade | string | 캐릭터 등급 |
 | type | string | 캐릭터 타입 |
-| basePointRate | number | 버프형 캐릭터의 기본 포인트 수익 배율 |
+| basePointRate | number | 기본 포인트 수익 배율. 버프형 캐릭터에서만 수익 계산에 사용하며, 공격형/수비형에서는 계산에 사용하지 않음 |
 | attackLv | number | 공격 레벨 |
 | defenseLv | number | 방어 레벨 |
 | pointLv | number | 포인트 효율 레벨 |
