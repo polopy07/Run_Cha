@@ -354,7 +354,12 @@ describe('UsersService', () => {
         representative_character: {
           id: 10,
           character_id: 5,
-          character: { name: 'FireKnight', type: 'attack', grade: 'rare', image_url: null },
+          character: {
+            name: 'FireKnight',
+            type: 'attack',
+            grade: 'rare',
+            image_url: null,
+          },
         },
       });
 
@@ -364,7 +369,9 @@ describe('UsersService', () => {
       expect(userCharactersRepository.findOne).toHaveBeenCalledWith({
         where: { id: 10, user_id: 1 },
       });
-      expect(usersRepository.update).toHaveBeenCalledWith(1, { representative_character_id: 10 });
+      expect(usersRepository.update).toHaveBeenCalledWith(1, {
+        representative_character_id: 10,
+      });
       expect(result.representative_character).toBeDefined();
     });
 
@@ -378,7 +385,9 @@ describe('UsersService', () => {
 
       const result = await service.setRepresentative(1, null);
 
-      expect(usersRepository.update).toHaveBeenCalledWith(1, { representative_character_id: null });
+      expect(usersRepository.update).toHaveBeenCalledWith(1, {
+        representative_character_id: null,
+      });
       expect(result.representative_character).toBeNull();
       expect(dataSource.getRepository).not.toHaveBeenCalled();
     });

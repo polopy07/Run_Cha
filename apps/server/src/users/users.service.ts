@@ -121,7 +121,10 @@ export class UsersService {
   async findByIdWithRepresentative(id: number) {
     const user = await this.usersRepository.findOne({
       where: { id },
-      relations: ['representative_character', 'representative_character.character'],
+      relations: [
+        'representative_character',
+        'representative_character.character',
+      ],
     });
 
     if (!user) {
@@ -159,7 +162,9 @@ export class UsersService {
 
   async setRepresentative(userId: number, userCharacterId: number | null) {
     if (userCharacterId === null) {
-      await this.usersRepository.update(userId, { representative_character_id: null });
+      await this.usersRepository.update(userId, {
+        representative_character_id: null,
+      });
       return this.findByIdWithRepresentative(userId);
     }
 
@@ -172,7 +177,9 @@ export class UsersService {
       throw new BadRequestException('보유하지 않은 캐릭터입니다.');
     }
 
-    await this.usersRepository.update(userId, { representative_character_id: userCharacterId });
+    await this.usersRepository.update(userId, {
+      representative_character_id: userCharacterId,
+    });
     return this.findByIdWithRepresentative(userId);
   }
 
@@ -200,16 +207,17 @@ export class UsersService {
       points: user.points,
       statPoints: user.stat_points,
       totalDistance: user.total_distance,
-      representativeCharacter: rc && rc.character
-        ? {
-            id: rc.id,
-            characterId: rc.character_id,
-            name: rc.character.name,
-            type: rc.character.type,
-            grade: rc.character.grade,
-            imageUrl: rc.character.image_url,
-          }
-        : null,
+      representativeCharacter:
+        rc && rc.character
+          ? {
+              id: rc.id,
+              characterId: rc.character_id,
+              name: rc.character.name,
+              type: rc.character.type,
+              grade: rc.character.grade,
+              imageUrl: rc.character.image_url,
+            }
+          : null,
     };
   }
 }

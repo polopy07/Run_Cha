@@ -59,6 +59,14 @@ react {
  */
 def enableProguardInReleaseBuilds = false
 
+def mobileEnvProps = new Properties()
+def mobileEnvFile = rootProject.file("../.env")
+if (mobileEnvFile.exists()) {
+    mobileEnvFile.withInputStream { stream ->
+        mobileEnvProps.load(stream)
+    }
+}
+
 /**
  * The preferred build flavor of JavaScriptCore (JSC)
  *
@@ -87,7 +95,12 @@ android {
         def localProps = new Properties()
         def localPropsFile = rootProject.file("local.properties")
         if (localPropsFile.exists()) { localProps.load(new FileInputStream(localPropsFile)) }
-        manifestPlaceholders = [googleMapsApiKey: localProps.getProperty("GOOGLE_MAPS_API_KEY", "")]
+        def googleMapsApiKey =
+            localProps.getProperty("GOOGLE_MAPS_API_KEY")
+                ?: System.getenv("GOOGLE_MAPS_API_KEY")
+                ?: mobileEnvProps.getProperty("GOOGLE_MAPS_API_KEY")
+                ?: ""
+        manifestPlaceholders = [googleMapsApiKey: googleMapsApiKey]
     }
     signingConfigs {
         debug {

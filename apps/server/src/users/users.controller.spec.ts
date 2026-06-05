@@ -70,8 +70,16 @@ describe('UsersController', () => {
   });
 
   it('updateNickname은 닉네임을 변경하고 대표 캐릭터 relation이 포함된 유저 응답을 반환한다', async () => {
-    const loadedUser = { ...user, nickname: 'new-name', representative_character: null };
-    const response = { id: 1, nickname: 'new-name', representativeCharacter: null };
+    const loadedUser = {
+      ...user,
+      nickname: 'new-name',
+      representative_character: null,
+    };
+    const response = {
+      id: 1,
+      nickname: 'new-name',
+      representativeCharacter: null,
+    };
     mockUsersService.updateNickname.mockResolvedValue(undefined);
     mockUsersService.findByIdWithRepresentative.mockResolvedValue(loadedUser);
     mockUsersService.toResponse.mockReturnValue(response);
