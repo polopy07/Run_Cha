@@ -26,7 +26,6 @@ export class TerritoryIncomeService {
         UPDATE users u
         INNER JOIN (
           SELECT
-            user_id,
             t.user_id,
             FLOOR(
               SUM(
