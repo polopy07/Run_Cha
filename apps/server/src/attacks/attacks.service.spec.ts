@@ -18,6 +18,14 @@ const SQUARE = [
   { lat: 37.0, lng: 127.0 },
 ];
 
+const HALF_SQUARE = [
+  { lat: 37.0, lng: 127.0 },
+  { lat: 37.0, lng: 127.0005 },
+  { lat: 37.001, lng: 127.0005 },
+  { lat: 37.001, lng: 127.0 },
+  { lat: 37.0, lng: 127.0 },
+];
+
 function makeRepository() {
   return {
     findOne: jest.fn(),
@@ -33,6 +41,49 @@ type MockTransactionManager = {
   getRepository: (entity: unknown) => MockRepository;
   query: jest.Mock;
 };
+type SavedTerritoryCall = [
+  {
+    id?: number;
+    user_id?: number;
+    coordinates?: unknown[];
+    area_sqm?: number;
+    occupation_rate?: number;
+    center_lat?: number;
+    center_lng?: number;
+  },
+];
+type FindOneCall = [
+  {
+    lock?: { mode?: string };
+    where?: { user_id?: number };
+  },
+];
+
+function getSavedTerritory(
+  repo: MockRepository,
+  callIndex: number,
+): SavedTerritoryCall[0] {
+  const calls = repo.save.mock.calls as unknown;
+  const savedTerritory = (calls as SavedTerritoryCall[])[callIndex]?.[0];
+
+  if (!savedTerritory) {
+    throw new Error(`Missing saved territory call at index ${callIndex}.`);
+  }
+
+  return savedTerritory;
+}
+
+function expectLockedAttackerTerritoryFind(repo: MockRepository) {
+  const calls = repo.findOne.mock.calls as unknown;
+  const hasLockedAttackerFind = (calls as FindOneCall[]).some(([options]) => {
+    return (
+      options?.lock?.mode === 'pessimistic_write' &&
+      options?.where?.user_id === 1
+    );
+  });
+
+  expect(hasLockedAttackerFind).toBe(true);
+}
 
 describe('AttacksService', () => {
   let service: AttacksService;
@@ -54,6 +105,16 @@ describe('AttacksService', () => {
     coordinates: SQUARE,
     area_sqm: 12364,
     occupation_rate: 100,
+  } as Territory;
+
+  const attackerOwnedTerritory = {
+    id: 11,
+    user_id: 1,
+    coordinates: HALF_SQUARE,
+    area_sqm: 6182,
+    occupation_rate: 100,
+    center_lat: 37.0005,
+    center_lng: 127.00025,
   } as Territory;
 
   const runningLog = {
@@ -92,11 +153,25 @@ describe('AttacksService', () => {
     transactionAttackLogRepo = makeRepository();
     managerQuery = jest.fn().mockResolvedValue([{ acquired: 1 }]);
 
-    territoryRepo.findOne.mockResolvedValue({ ...territory });
+    territoryRepo.findOne.mockImplementation(
+      (options?: { where?: Record<string, unknown> }) => {
+        if (options?.where && 'id' in options.where) {
+          return Promise.resolve({ ...territory });
+        }
+        if (options?.where && 'user_id' in options.where) {
+          return Promise.resolve({ ...attackerOwnedTerritory });
+        }
+
+        return Promise.resolve(null);
+      },
+    );
     runningLogRepo.findOne.mockResolvedValue(runningLog);
     userCharacterRepo.findOne.mockResolvedValue(attackerCharacter);
     userCharacterRepo.find.mockResolvedValue([]);
     transactionAttackLogRepo.count.mockResolvedValue(0);
+    transactionTerritoryRepo.findOne.mockResolvedValue({
+      ...attackerOwnedTerritory,
+    });
     dataSource.transaction.mockImplementation(
       (callback: (manager: MockTransactionManager) => void) =>
         callback({
@@ -146,14 +221,28 @@ describe('AttacksService', () => {
     expect(result.damage).toBe(25);
     expect(result.occupationRateBefore).toBe(100);
     expect(result.occupationRateAfter).toBe(75);
-    expect(result.acquiredAreaSqm).toBe(3091);
+    expect(result.acquiredAreaSqm).toBeGreaterThan(9000);
     expect(result.neutralAreaSqm).toBe(0);
     expect(result.remainingDailyAttacks).toBe(4);
     expect(result.nextAttackAvailableAt).toBeNull();
     expect(result.message).toBe('침략에 성공했습니다.');
-    expect(transactionTerritoryRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({ occupation_rate: 75 }),
+    expect(transactionTerritoryRepo.save).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ area_sqm: 0, occupation_rate: 0 }),
     );
+    const mergedAttackerTerritory = getSavedTerritory(
+      transactionTerritoryRepo,
+      1,
+    );
+    expect(mergedAttackerTerritory).toEqual(
+      expect.objectContaining({
+        id: 11,
+        user_id: 1,
+        occupation_rate: 100,
+      }),
+    );
+    expect(typeof mergedAttackerTerritory.area_sqm).toBe('number');
+    expect(transactionTerritoryRepo.create).not.toHaveBeenCalled();
     expect(transactionAttackLogRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({
         attacker_id: 1,
@@ -176,6 +265,84 @@ describe('AttacksService', () => {
       'SELECT RELEASE_LOCK(?)',
       expect.any(Array),
     );
+    expectLockedAttackerTerritoryFind(transactionTerritoryRepo);
+  });
+
+  it('moves the overlapped polygon to attacker territory on partial success', async () => {
+    runningLogRepo.findOne.mockResolvedValue({
+      ...runningLog,
+      path: HALF_SQUARE,
+    });
+
+    const result = await service.attack(1, 10, {
+      runningLogId: 20,
+      attackerCharacterId: 30,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.overlapRate).toBeGreaterThan(39);
+    expect(result.overlapRate).toBeLessThan(41);
+    expect(result.acquiredAreaSqm).toBeGreaterThan(4800);
+    expect(result.acquiredAreaSqm).toBeLessThan(5100);
+    const defenderTerritory = getSavedTerritory(transactionTerritoryRepo, 0);
+    expect(defenderTerritory).toEqual(
+      expect.objectContaining({
+        user_id: 2,
+        occupation_rate: 75,
+      }),
+    );
+    expect(typeof defenderTerritory.area_sqm).toBe('number');
+    expect(Array.isArray(defenderTerritory.coordinates)).toBe(true);
+    expect(typeof defenderTerritory.center_lat).toBe('number');
+    expect(typeof defenderTerritory.center_lng).toBe('number');
+
+    const mergedAttackerTerritory = getSavedTerritory(
+      transactionTerritoryRepo,
+      1,
+    );
+    expect(mergedAttackerTerritory).toEqual(
+      expect.objectContaining({
+        id: 11,
+        user_id: 1,
+        occupation_rate: 100,
+      }),
+    );
+    expect(Array.isArray(mergedAttackerTerritory.coordinates)).toBe(true);
+    expect(typeof mergedAttackerTerritory.area_sqm).toBe('number');
+    expect(typeof mergedAttackerTerritory.center_lat).toBe('number');
+    expect(typeof mergedAttackerTerritory.center_lng).toBe('number');
+  });
+
+  it('rejects successful transfer when attacker territory is missing', async () => {
+    territoryRepo.findOne
+      .mockResolvedValueOnce({ ...territory })
+      .mockResolvedValueOnce(null);
+
+    await expect(
+      service.attack(1, 10, {
+        runningLogId: 20,
+        attackerCharacterId: 30,
+      }),
+    ).rejects.toThrow('침략하려면 먼저 자신의 영토가 있어야 합니다.');
+
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+    expect(transactionTerritoryRepo.create).not.toHaveBeenCalled();
+    expect(transactionAttackLogRepo.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects when attacker territory disappears before locked transfer', async () => {
+    transactionTerritoryRepo.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.attack(1, 10, {
+        runningLogId: 20,
+        attackerCharacterId: 30,
+      }),
+    ).rejects.toThrow('침략하려면 먼저 자신의 영토가 있어야 합니다.');
+
+    expect(dataSource.transaction).toHaveBeenCalled();
+    expectLockedAttackerTerritoryFind(transactionTerritoryRepo);
+    expect(transactionAttackLogRepo.create).not.toHaveBeenCalled();
   });
 
   it('saves deployed defender character id when defender is deployed', async () => {

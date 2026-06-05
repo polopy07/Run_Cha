@@ -17,12 +17,14 @@ describe('UsersService', () => {
     create: jest.fn(),
     findOne: jest.fn(),
     save: jest.fn(),
+    update: jest.fn(),
   };
   const charactersRepository = {
     find: jest.fn(),
   };
   const userCharactersRepository = {
     create: jest.fn(),
+    findOne: jest.fn(),
     save: jest.fn(),
   };
   type MockManager = {
@@ -39,6 +41,7 @@ describe('UsersService', () => {
     transaction: jest.fn((callback: (manager: MockManager) => unknown) =>
       callback(manager),
     ),
+    getRepository: jest.fn(() => userCharactersRepository),
     query: jest.fn(),
   };
 
@@ -326,6 +329,7 @@ describe('UsersService', () => {
       points: 100,
       stat_points: 3,
       total_distance: 3.5,
+      representative_character: null,
     } as User;
 
     expect(service.toResponse(user)).toEqual({
@@ -335,6 +339,95 @@ describe('UsersService', () => {
       points: 100,
       statPoints: 3,
       totalDistance: 3.5,
+      representativeCharacter: null,
+    });
+  });
+
+  describe('setRepresentative', () => {
+    it('유효한 userCharacterId 전달 시 대표 캐릭터를 설정한다', async () => {
+      const uc = { id: 10, user_id: 1, character_id: 5 };
+      userCharactersRepository.findOne.mockResolvedValue(uc);
+      usersRepository.update.mockResolvedValue(undefined);
+      usersRepository.findOne.mockResolvedValue({
+        id: 1,
+        nickname: 'runner',
+        representative_character: {
+          id: 10,
+          character_id: 5,
+          character: { name: 'FireKnight', type: 'attack', grade: 'rare', image_url: null },
+        },
+      });
+
+      const result = await service.setRepresentative(1, 10);
+
+      expect(dataSource.getRepository).toHaveBeenCalledWith(UserCharacter);
+      expect(userCharactersRepository.findOne).toHaveBeenCalledWith({
+        where: { id: 10, user_id: 1 },
+      });
+      expect(usersRepository.update).toHaveBeenCalledWith(1, { representative_character_id: 10 });
+      expect(result.representative_character).toBeDefined();
+    });
+
+    it('null 전달 시 대표 캐릭터를 해제한다', async () => {
+      usersRepository.update.mockResolvedValue(undefined);
+      usersRepository.findOne.mockResolvedValue({
+        id: 1,
+        nickname: 'runner',
+        representative_character: null,
+      });
+
+      const result = await service.setRepresentative(1, null);
+
+      expect(usersRepository.update).toHaveBeenCalledWith(1, { representative_character_id: null });
+      expect(result.representative_character).toBeNull();
+      expect(dataSource.getRepository).not.toHaveBeenCalled();
+    });
+
+    it('미보유 캐릭터 ID 전달 시 BadRequestException을 던진다', async () => {
+      userCharactersRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.setRepresentative(1, 999)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(usersRepository.update).not.toHaveBeenCalled();
+    });
+  });
+
+  it('대표 캐릭터가 설정되어 있으면 응답에 포함한다', () => {
+    const user = {
+      id: 1,
+      email: 'test@example.com',
+      nickname: 'test',
+      points: 100,
+      stat_points: 3,
+      total_distance: 3.5,
+      representative_character: {
+        id: 10,
+        character_id: 5,
+        character: {
+          name: 'FireKnight',
+          type: 'attack',
+          grade: 'rare',
+          image_url: null,
+        },
+      },
+    } as unknown as User;
+
+    expect(service.toResponse(user)).toEqual({
+      id: 1,
+      email: 'test@example.com',
+      nickname: 'test',
+      points: 100,
+      statPoints: 3,
+      totalDistance: 3.5,
+      representativeCharacter: {
+        id: 10,
+        characterId: 5,
+        name: 'FireKnight',
+        type: 'attack',
+        grade: 'rare',
+        imageUrl: null,
+      },
     });
   });
 });
