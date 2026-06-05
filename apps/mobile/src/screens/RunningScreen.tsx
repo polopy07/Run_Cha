@@ -330,6 +330,29 @@ export function RunningScreen() {
         </View>
       )}
 
+      {phase !== 'result' && (
+        <TouchableOpacity
+          style={{
+            position: 'absolute', right: 12, top: '42%',
+            width: 40, height: 40, backgroundColor: colors.overlayLight,
+            borderRadius: radius.sm, justifyContent: 'center', alignItems: 'center',
+            ...mapCardShadow(isDark),
+          }}
+          onPress={() => {
+            const loc = gps.currentLocation;
+            if (!loc) {
+              Alert.alert('위치 오류', '현재 위치를 확인할 수 없습니다.');
+              return;
+            }
+            mapRef.current?.animateToRegion(
+              { latitude: loc.latitude, longitude: loc.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 500,
+            );
+          }}
+        >
+          <Text style={{ fontSize: 20, color: colors.text, fontWeight: '600' }}>◎</Text>
+        </TouchableOpacity>
+      )}
+
       <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, alignItems: 'center', paddingHorizontal: 24, paddingBottom: 28 }}>
         {phase === 'ready' && (
           <TouchableOpacity
