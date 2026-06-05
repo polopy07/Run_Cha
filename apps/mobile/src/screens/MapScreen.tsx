@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform, View, Text, TouchableOpacity, Alert, Modal, Pressable } from 'react-native';
+import { Platform, View, Text, Image, TouchableOpacity, Alert, Modal, Pressable } from 'react-native';
+import { getCharacterImageSource, getCharacterImageTransform } from '../assets/characters/characterImages';
 import MapView, { Marker, Polygon, PROVIDER_GOOGLE, PROVIDER_DEFAULT, type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -207,11 +208,16 @@ export function MapScreen() {
               width: 36, height: 36, borderRadius: 12,
               backgroundColor: `${gradeColor[rep.grade]}20`,
               borderWidth: 2, borderColor: gradeColor[rep.grade],
-              justifyContent: 'center', alignItems: 'center',
+              overflow: 'hidden',
             }}>
-              <Text style={{ color: gradeColor[rep.grade], fontSize: 12, fontWeight: '800' }}>
-                {rep.type === 'attack' ? 'ATK' : rep.type === 'defense' ? 'DEF' : 'BUF'}
-              </Text>
+              <Image
+                source={getCharacterImageSource(rep.grade, rep.type)}
+                style={{
+                  width: 36, height: 36,
+                  transform: getCharacterImageTransform(rep.grade, rep.type, 36),
+                }}
+                resizeMode="contain"
+              />
             </View>
           ) : (
             <View style={{
@@ -243,11 +249,16 @@ export function MapScreen() {
                 width: 56, height: 56, borderRadius: 20,
                 backgroundColor: `${gradeColor[rep.grade]}20`,
                 borderWidth: 2, borderColor: gradeColor[rep.grade],
-                justifyContent: 'center', alignItems: 'center',
+                overflow: 'hidden',
               }}>
-                <Text style={{ color: gradeColor[rep.grade], fontSize: 18, fontWeight: '800' }}>
-                  {rep.type === 'attack' ? 'ATK' : rep.type === 'defense' ? 'DEF' : 'BUF'}
-                </Text>
+                <Image
+                  source={getCharacterImageSource(rep.grade, rep.type)}
+                  style={{
+                    width: 56, height: 56,
+                    transform: getCharacterImageTransform(rep.grade, rep.type, 56),
+                  }}
+                  resizeMode="contain"
+                />
               </View>
             ) : (
               <View style={{
