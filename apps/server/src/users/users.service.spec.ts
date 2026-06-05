@@ -283,7 +283,10 @@ describe('UsersService', () => {
 
       expect(usersRepository.findOne).toHaveBeenCalledWith({
         where: { id: 1 },
-        relations: ['representative_character', 'representative_character.character'],
+        relations: [
+          'representative_character',
+          'representative_character.character',
+        ],
       });
       expect(result).toEqual({
         id: 1,

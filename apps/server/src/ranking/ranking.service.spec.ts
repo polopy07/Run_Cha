@@ -57,8 +57,18 @@ describe('RankingService', () => {
       const result = await service.getAreaRanking();
 
       expect(result.rankings).toHaveLength(2);
-      expect(result.rankings[0]).toEqual({ rank: 1, userId: 1, nickname: 'alice', totalAreaSqm: 5000.5 });
-      expect(result.rankings[1]).toEqual({ rank: 2, userId: 2, nickname: 'bob', totalAreaSqm: 3000.0 });
+      expect(result.rankings[0]).toEqual({
+        rank: 1,
+        userId: 1,
+        nickname: 'alice',
+        totalAreaSqm: 5000.5,
+      });
+      expect(result.rankings[1]).toEqual({
+        rank: 2,
+        userId: 2,
+        nickname: 'bob',
+        totalAreaSqm: 3000.0,
+      });
     });
 
     it('userId 없으면 myRank는 null이다', async () => {
@@ -72,7 +82,12 @@ describe('RankingService', () => {
       territoryRepo.createQueryBuilder.mockReturnValue(makeQb());
 
       const result = await service.getAreaRanking(2);
-      expect(result.myRank).toEqual({ rank: 2, userId: 2, nickname: 'bob', totalAreaSqm: 3000.0 });
+      expect(result.myRank).toEqual({
+        rank: 2,
+        userId: 2,
+        nickname: 'bob',
+        totalAreaSqm: 3000.0,
+      });
     });
 
     it('userId가 랭킹에 없으면 myRank는 null이다', async () => {
@@ -119,8 +134,18 @@ describe('RankingService', () => {
       const result = await service.getDistanceRanking();
 
       expect(result.rankings).toHaveLength(2);
-      expect(result.rankings[0]).toEqual({ rank: 1, userId: 3, nickname: 'carol', totalDistanceKm: 200.5 });
-      expect(result.rankings[1]).toEqual({ rank: 2, userId: 1, nickname: 'alice', totalDistanceKm: 150.0 });
+      expect(result.rankings[0]).toEqual({
+        rank: 1,
+        userId: 3,
+        nickname: 'carol',
+        totalDistanceKm: 200.5,
+      });
+      expect(result.rankings[1]).toEqual({
+        rank: 2,
+        userId: 1,
+        nickname: 'alice',
+        totalDistanceKm: 150.0,
+      });
     });
 
     it('userId 없으면 myRank는 null이다', async () => {
@@ -134,7 +159,12 @@ describe('RankingService', () => {
       userRepo.createQueryBuilder.mockReturnValue(makeQb());
 
       const result = await service.getDistanceRanking(3);
-      expect(result.myRank).toEqual({ rank: 1, userId: 3, nickname: 'carol', totalDistanceKm: 200.5 });
+      expect(result.myRank).toEqual({
+        rank: 1,
+        userId: 3,
+        nickname: 'carol',
+        totalDistanceKm: 200.5,
+      });
     });
 
     it('userId가 랭킹에 없으면 myRank는 null이다', async () => {

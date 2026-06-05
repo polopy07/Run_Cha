@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   Modal,
   Pressable,
   RefreshControl,
@@ -23,6 +24,10 @@ import {
 import { radius, spacing } from '../constants/theme';
 import { useTheme } from '../contexts/ThemeContext';
 import type { MenuStackParamList } from '../navigation/MenuStack';
+import {
+  getCharacterImageSource,
+  getCharacterImageTransform,
+} from '../assets/characters/characterImages';
 import useCharacterStore, { type Character } from '../store/characterStore';
 
 type Props = StackScreenProps<MenuStackParamList, 'MyTerritories'>;
@@ -38,6 +43,41 @@ const GRADE_LABEL: Record<Character['grade'], string> = {
   rare: '레어',
   epic: '에픽',
   legendary: '전설',
+};
+
+const TYPE_SHORT: Record<Character['type'], string> = {
+  attack: 'ATK',
+  defense: 'DEF',
+  buff: 'BUF',
+};
+
+type SortMode = 'recent' | 'grade' | 'type';
+
+const SORT_OPTIONS: { value: SortMode; label: string }[] = [
+  { value: 'recent', label: '최근' },
+  { value: 'grade', label: '등급' },
+  { value: 'type', label: '타입' },
+];
+
+const TYPE_FILTER_OPTIONS: {
+  value: Extract<Character['type'], 'defense' | 'buff'>;
+  label: string;
+}[] = [
+  { value: 'defense', label: '수비형' },
+  { value: 'buff', label: '버프형' },
+];
+
+const GRADE_ORDER: Record<Character['grade'], number> = {
+  legendary: 4,
+  epic: 3,
+  rare: 2,
+  common: 1,
+};
+
+const TYPE_ORDER: Record<Character['type'], number> = {
+  attack: 3,
+  defense: 2,
+  buff: 1,
 };
 
 function formatArea(areaSqm: number) {
@@ -74,7 +114,7 @@ function canDeploy(character: Character) {
 
 export function MyTerritoriesScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const { colors } = useTheme();
+  const { colors, gradeColor } = useTheme();
   const { characters, fetchCharacters, updateCharacter } = useCharacterStore();
   const [territories, setTerritories] = useState<Territory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -87,19 +127,39 @@ export function MyTerritoriesScreen({ navigation }: Props) {
     null,
   );
   const [nameInput, setNameInput] = useState('');
+  const [deploySortMode, setDeploySortMode] = useState<SortMode>('recent');
+  const [deployTypeFilter, setDeployTypeFilter] = useState<
+    Extract<Character['type'], 'defense' | 'buff'> | null
+  >(null);
 
   const totalArea = useMemo(
     () => territories.reduce((sum, territory) => sum + territory.areaSqm, 0),
     [territories],
   );
 
-  const deployableCharacters = useMemo(
-    () =>
-      characters.filter(
-        character => canDeploy(character) && character.deployedTerritoryId === null,
-      ),
-    [characters],
-  );
+  const deployableCharacters = useMemo(() => {
+    const visibleCharacters = characters.filter(character => {
+      if (!canDeploy(character) || character.deployedTerritoryId !== null) {
+        return false;
+      }
+
+      return deploySortMode !== 'type' || deployTypeFilter === null
+        ? true
+        : character.type === deployTypeFilter;
+    });
+
+    return [...visibleCharacters].sort((a, b) => {
+      if (deploySortMode === 'grade') {
+        return GRADE_ORDER[b.grade] - GRADE_ORDER[a.grade] || b.id - a.id;
+      }
+
+      if (deploySortMode === 'type') {
+        return TYPE_ORDER[b.type] - TYPE_ORDER[a.type] || b.id - a.id;
+      }
+
+      return b.id - a.id;
+    });
+  }, [characters, deploySortMode, deployTypeFilter]);
 
   const load = useCallback(async () => {
     try {
@@ -357,6 +417,35 @@ export function MyTerritoriesScreen({ navigation }: Props) {
               }}
             >
               <View style={{ flex: 1 }}>
+                <View
+                  style={{
+                    width: 58,
+                    height: 58,
+                    borderRadius: radius.sm,
+                    backgroundColor: colors.surface,
+                    overflow: 'hidden',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: 8,
+                  }}
+                >
+                  <Image
+                    source={getCharacterImageSource(
+                      deployedCharacter.grade,
+                      deployedCharacter.type,
+                    )}
+                    style={{
+                      width: 64,
+                      height: 64,
+                      transform: getCharacterImageTransform(
+                        deployedCharacter.grade,
+                        deployedCharacter.type,
+                        64,
+                      ),
+                    }}
+                    resizeMode="contain"
+                  />
+                </View>
                 <Text
                   style={{
                     color: colors.text,
@@ -670,6 +759,96 @@ export function MyTerritoriesScreen({ navigation }: Props) {
               {selectedTerritory ? getTerritoryTitle(selectedTerritory) : ''}
             </Text>
 
+            <View
+              style={{
+                flexDirection: 'row',
+                gap: 8,
+                marginTop: 16,
+              }}
+            >
+              {SORT_OPTIONS.map(option => {
+                const active = deploySortMode === option.value;
+                return (
+                  <TouchableOpacity
+                    key={option.value}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      setDeploySortMode(option.value);
+                      if (option.value !== 'type') {
+                        setDeployTypeFilter(null);
+                      }
+                    }}
+                    style={{
+                      backgroundColor: active ? colors.primary : colors.card,
+                      borderColor: active ? colors.primary : colors.divider,
+                      borderRadius: radius.full,
+                      borderWidth: 1,
+                      minWidth: 58,
+                      paddingHorizontal: 14,
+                      paddingVertical: 9,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: active ? colors.bg : colors.textSecondary,
+                        fontSize: 13,
+                        fontWeight: '800',
+                      }}
+                    >
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {deploySortMode === 'type' && (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  gap: 8,
+                  marginTop: 10,
+                }}
+              >
+                {TYPE_FILTER_OPTIONS.map(option => {
+                  const active = deployTypeFilter === option.value;
+                  return (
+                    <TouchableOpacity
+                      key={option.value}
+                      activeOpacity={0.8}
+                      onPress={() =>
+                        setDeployTypeFilter(current =>
+                          current === option.value ? null : option.value,
+                        )
+                      }
+                      style={{
+                        flex: 1,
+                        backgroundColor: active
+                          ? colors.primaryDim
+                          : colors.card,
+                        borderColor: active ? colors.primary : colors.divider,
+                        borderRadius: radius.full,
+                        borderWidth: 1,
+                        paddingVertical: 9,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: active ? colors.primary : colors.textSecondary,
+                          fontSize: 13,
+                          fontWeight: '800',
+                        }}
+                      >
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+
             {deployableCharacters.length === 0 ? (
               <Text
                 style={{
@@ -681,7 +860,7 @@ export function MyTerritoriesScreen({ navigation }: Props) {
                 배치 가능한 수비형/버프형 캐릭터가 없습니다.
               </Text>
             ) : (
-              <ScrollView style={{ maxHeight: 360, marginTop: 16 }}>
+              <ScrollView style={{ maxHeight: 390, marginTop: 16 }}>
                 {deployableCharacters.map(character => (
                   <TouchableOpacity
                     key={character.id}
@@ -694,30 +873,101 @@ export function MyTerritoriesScreen({ navigation }: Props) {
                       borderRadius: radius.md,
                       borderWidth: 1,
                       marginBottom: 10,
-                      paddingHorizontal: 14,
-                      paddingVertical: 12,
+                      padding: 12,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 12,
                     }}
                   >
-                    <Text
+                    <View
                       style={{
-                        color: colors.text,
-                        fontSize: 15,
-                        fontWeight: '800',
+                        width: 68,
+                        height: 68,
+                        borderRadius: radius.sm,
+                        backgroundColor: colors.surface,
+                        overflow: 'hidden',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                       }}
                     >
-                      {character.name}
-                    </Text>
-                    <Text
-                      style={{
-                        color: colors.textSecondary,
-                        fontSize: 12,
-                        marginTop: 3,
-                      }}
-                    >
-                      {TYPE_LABEL[character.type]} / {GRADE_LABEL[character.grade]} ·
-                      ATK {character.attackLv} · DEF {character.defenseLv} · PT{' '}
-                      {character.pointLv}
-                    </Text>
+                      <Image
+                        source={getCharacterImageSource(
+                          character.grade,
+                          character.type,
+                        )}
+                        style={{
+                          width: 78,
+                          height: 78,
+                          transform: getCharacterImageTransform(
+                            character.grade,
+                            character.type,
+                            78,
+                          ),
+                        }}
+                        resizeMode="contain"
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 6,
+                          marginBottom: 5,
+                        }}
+                      >
+                        <View
+                          style={{
+                            backgroundColor: `${
+                              gradeColor[character.grade] ?? colors.gradeCommon
+                            }22`,
+                            borderRadius: radius.sm,
+                            paddingHorizontal: 7,
+                            paddingVertical: 3,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color:
+                                gradeColor[character.grade] ??
+                                colors.gradeCommon,
+                              fontSize: 10,
+                              fontWeight: '900',
+                            }}
+                          >
+                            {GRADE_LABEL[character.grade]}
+                          </Text>
+                        </View>
+                        <Text
+                          style={{
+                            color: colors.textMuted,
+                            fontSize: 11,
+                            fontWeight: '800',
+                          }}
+                        >
+                          {TYPE_SHORT[character.type]}
+                        </Text>
+                      </View>
+                      <Text
+                        style={{
+                          color: colors.text,
+                          fontSize: 15,
+                          fontWeight: '800',
+                        }}
+                      >
+                        {character.name}
+                      </Text>
+                      <Text
+                        style={{
+                          color: colors.textSecondary,
+                          fontSize: 12,
+                          marginTop: 3,
+                        }}
+                      >
+                        {TYPE_LABEL[character.type]} · DEF{' '}
+                        {character.defenseLv} · PT {character.pointLv}
+                      </Text>
+                    </View>
                   </TouchableOpacity>
                 ))}
               </ScrollView>

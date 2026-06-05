@@ -5,6 +5,12 @@ import { auth } from './firebase';
 const TOKEN_KEY = 'accessToken';
 let isRefreshing = false;
 
+const BASE_URL = (API_URL ?? 'http://localhost:3000').replace(/\/+$/, '');
+
+function buildUrl(path: string) {
+  return `${BASE_URL}/${path.replace(/^\/+/, '')}`;
+}
+
 export async function saveToken(token: string) {
   await AsyncStorage.setItem(TOKEN_KEY, token);
 }
@@ -32,7 +38,7 @@ export async function apiFetch<T = unknown>(
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetch(buildUrl(path), {
     ...options,
     headers,
   });
@@ -43,7 +49,7 @@ export async function apiFetch<T = unknown>(
       const firebaseUser = auth.currentUser;
       if (firebaseUser) {
         const idToken = await firebaseUser.getIdToken(true);
-        const loginRes = await fetch(`${API_URL}/auth/login`, {
+        const loginRes = await fetch(buildUrl('/auth/login'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ idToken }),
@@ -52,7 +58,7 @@ export async function apiFetch<T = unknown>(
           const data = await loginRes.json();
           await saveToken(data.accessToken);
           headers.Authorization = `Bearer ${data.accessToken}`;
-          const retry = await fetch(`${API_URL}${path}`, { ...options, headers });
+          const retry = await fetch(buildUrl(path), { ...options, headers });
           if (retry.ok) {
             return retry.json();
           }
