@@ -7,6 +7,7 @@ type IncomeCharacter =
   | null
   | undefined;
 
+// Keep in sync with apps/server/src/scheduler/territory-income.service.ts.
 const SQM_PER_POINT = 1000;
 const POINT_EFFICIENCY_LEVEL_BONUS = 0.05;
 const POINT_EFFICIENCY_MULTIPLIER_CAP = 2;

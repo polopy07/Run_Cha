@@ -11,13 +11,11 @@ import { CharacterGrade, CharacterType } from './entities/character.entity';
 import { UserCharacter } from './entities/user-character.entity';
 import { UpgradeStat } from './dto/upgrade-character.dto';
 import { DISMANTLE_MAX_COUNT } from './dto/dismantle-characters.dto';
-
-const MAX_LEVEL_BY_GRADE: Record<CharacterGrade, number> = {
-  [CharacterGrade.COMMON]: 10,
-  [CharacterGrade.RARE]: 15,
-  [CharacterGrade.EPIC]: 20,
-  [CharacterGrade.LEGENDARY]: 30,
-};
+import {
+  getCharacterMaxLevel,
+  getCharacterNextLevelExperience,
+  getCharacterStatMaxLevel,
+} from './character-level.util';
 
 const DISMANTLE_REWARD_BY_GRADE: Record<CharacterGrade, number> = {
   [CharacterGrade.COMMON]: 1,
@@ -28,9 +26,6 @@ const DISMANTLE_REWARD_BY_GRADE: Record<CharacterGrade, number> = {
 
 const UPGRADE_COST = 1;
 
-export const CHARACTER_EXP_BASE = 100;
-export const CHARACTER_EXP_LEVEL_STEP = 50;
-
 type StatLevelColumn = 'attack_lv' | 'defense_lv' | 'point_lv';
 
 const STAT_LEVEL_COLUMN: Record<UpgradeStat, StatLevelColumn> = {
@@ -38,14 +33,6 @@ const STAT_LEVEL_COLUMN: Record<UpgradeStat, StatLevelColumn> = {
   defense: 'defense_lv',
   point: 'point_lv',
 };
-
-export function getCharacterMaxLevel(grade: CharacterGrade) {
-  return MAX_LEVEL_BY_GRADE[grade];
-}
-
-export function getCharacterNextLevelExperience(level: number) {
-  return CHARACTER_EXP_BASE + (level - 1) * CHARACTER_EXP_LEVEL_STEP;
-}
 
 @Injectable()
 export class CharactersService {
@@ -84,7 +71,7 @@ export class CharactersService {
 
       const levelColumn: StatLevelColumn = STAT_LEVEL_COLUMN[stat];
       const currentLevel = userCharacter[levelColumn];
-      const maxLevel = MAX_LEVEL_BY_GRADE[userCharacter.character.grade];
+      const maxLevel = getCharacterStatMaxLevel(userCharacter.character.grade);
 
       if (currentLevel >= maxLevel) {
         throw new BadRequestException('이미 최대 레벨입니다.');
@@ -290,7 +277,8 @@ export class CharactersService {
       level: userCharacter.level,
       experience: userCharacter.experience,
       nextLevelExperience:
-        userCharacter.level >= MAX_LEVEL_BY_GRADE[userCharacter.character.grade]
+        userCharacter.level >=
+        getCharacterMaxLevel(userCharacter.character.grade)
           ? null
           : getCharacterNextLevelExperience(userCharacter.level),
       isDeployed: deployedTerritoryId !== null,

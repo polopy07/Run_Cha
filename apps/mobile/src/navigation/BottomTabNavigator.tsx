@@ -13,18 +13,15 @@ const Tab = createBottomTabNavigator();
 function TabIcon({ label, focused }: { label: string; focused: boolean }) {
   const { colors } = useTheme();
   return (
-    <View style={{ alignItems: 'center', justifyContent: 'center', width: 64 }}>
+    <View style={{ alignItems: 'center', gap: 4 }}>
       <View style={{
-        width: 4, height: 4, borderRadius: 2, marginBottom: 4,
+        width: 4, height: 4, borderRadius: 2,
         backgroundColor: focused ? colors.primary : 'transparent',
       }} />
       <Text style={{
         fontSize: 11, fontWeight: '600',
         color: focused ? colors.primary : colors.textMuted,
-        includeFontPadding: false,
-        lineHeight: 14,
-        textAlign: 'center',
-      }} numberOfLines={1}>
+      }}>
         {label}
       </Text>
     </View>
@@ -45,9 +42,6 @@ export default function BottomTabNavigator() {
           height: 64,
           paddingBottom: 8,
           paddingTop: 8,
-        },
-        tabBarItemStyle: {
-          minWidth: 64,
         },
         tabBarShowLabel: false,
       }}

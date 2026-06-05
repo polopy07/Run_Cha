@@ -13,7 +13,7 @@ import {
 import {
   getCharacterMaxLevel,
   getCharacterNextLevelExperience,
-} from '../characters/characters.service';
+} from '../characters/character-level.util';
 import { UserCharacter } from '../characters/entities/user-character.entity';
 import { User } from './entities/user.entity';
 

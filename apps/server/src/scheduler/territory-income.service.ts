@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { DataSource } from 'typeorm';
 
+// Keep in sync with apps/mobile/src/utils/territoryIncomeUtils.ts.
 const SQM_PER_POINT = 1000;
 const POINT_EFFICIENCY_LEVEL_BONUS = 0.05;
 const POINT_EFFICIENCY_MULTIPLIER_CAP = 2;

@@ -66,7 +66,7 @@ const TYPE_FILTER_OPTIONS: {
   label: string;
 }[] = [
   { value: 'attack', label: '공격형' },
-  { value: 'defense', label: '방어형' },
+  { value: 'defense', label: '수비형' },
   { value: 'buff', label: '버프형' },
 ];
 
@@ -332,7 +332,10 @@ export function StorageScreen() {
 
   const openDeploy = useCallback((character: Character) => {
     if (character.type === 'attack') {
-      Alert.alert('배치 불가', '수비/버프 캐릭터만 영토에 배치할 수 있습니다.');
+      Alert.alert(
+        '배치 불가',
+        '수비/버프 캐릭터만 영토에 배치할 수 있습니다.',
+      );
       return;
     }
 

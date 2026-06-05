@@ -12,7 +12,8 @@ import { UserCharacter } from '../characters/entities/user-character.entity';
 import {
   getCharacterMaxLevel,
   getCharacterNextLevelExperience,
-} from '../characters/characters.service';
+  getCharacterStatMaxLevel,
+} from '../characters/character-level.util';
 
 const PACE_MULTIPLIER: Record<string, number> = {
   fast_walk: 0.6,
@@ -143,7 +144,6 @@ export class RunningService {
             manager,
             userId,
             distanceKm,
-            earned_points,
           );
 
         let territory: Territory | null = null;
@@ -186,9 +186,8 @@ export class RunningService {
     manager: EntityManager,
     userId: number,
     distanceKm: number,
-    earnedPoints: number,
   ): Promise<RepresentativeCharacterExpResult> {
-    if (earnedPoints <= 0) {
+    if (distanceKm <= 0) {
       return null;
     }
 
@@ -258,7 +257,9 @@ export class RunningService {
   }
 
   private increaseTypePrimaryStat(userCharacter: UserCharacter): IncreasedStat {
-    const maxStatLevel = getCharacterMaxLevel(userCharacter.character.grade);
+    const maxStatLevel = getCharacterStatMaxLevel(
+      userCharacter.character.grade,
+    );
 
     if (
       userCharacter.character.type === CharacterType.ATTACK &&

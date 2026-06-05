@@ -45,16 +45,6 @@ type Props = {
   onAttack?: (territoryId: number) => void;
 };
 
-function gradeColor(grade: string, colors: ReturnType<typeof useTheme>['colors']): string {
-  const map: Record<string, string> = {
-    common: colors.gradeCommon,
-    rare: colors.gradeRare,
-    epic: colors.gradeEpic,
-    legendary: colors.gradeLegendary,
-  };
-  return map[grade] ?? colors.textMuted;
-}
-
 const TYPE_LABEL: Record<Character['type'], string> = {
   attack: '공격형',
   defense: '수비형',
@@ -67,8 +57,16 @@ const TYPE_SHORT: Record<Character['type'], string> = {
   buff: 'BUF',
 };
 
-function CharacterCard({ char, colors }: { char: TerritoryDeployedCharacter; colors: ReturnType<typeof useTheme>['colors'] }) {
-  const gc = gradeColor(char.grade, colors);
+function CharacterCard({
+  char,
+  colors,
+  gradeColor,
+}: {
+  char: TerritoryDeployedCharacter;
+  colors: ReturnType<typeof useTheme>['colors'];
+  gradeColor: ReturnType<typeof useTheme>['gradeColor'];
+}) {
+  const gc = gradeColor[char.grade] ?? colors.textMuted;
   const typeLabel = char.type === 'defense' ? '수비' : char.type === 'buff' ? '버프' : '공격';
 
   return (
@@ -129,7 +127,7 @@ function StatBadge({ label, value, colors }: { label: string; value: number; col
 }
 
 export function TerritoryDetailSheet({ visible, territoryId, territory, onClose, onAttack }: Props) {
-  const { colors } = useTheme();
+  const { colors, gradeColor } = useTheme();
   const { characters, fetchCharacters, updateCharacter } = useCharacterStore();
   const [detail, setDetail] = useState<TerritoryDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -451,7 +449,12 @@ export function TerritoryDetailSheet({ visible, territoryId, territory, onClose,
                 ) : (
                   <View style={{ marginBottom: 16 }}>
                     {detail.deployedCharacters.map(c => (
-                      <CharacterCard key={c.id} char={c} colors={colors} />
+                      <CharacterCard
+                        key={c.id}
+                        char={c}
+                        colors={colors}
+                        gradeColor={gradeColor}
+                      />
                     ))}
                     {detail.isMine && deployedCharacter && (
                       <TouchableOpacity
@@ -587,7 +590,7 @@ export function TerritoryDetailSheet({ visible, territoryId, territory, onClose,
                           </View>
                         ) : (
                           deployableCharacters.map(character => {
-                            const gc = gradeColor(character.grade, colors);
+                            const gc = gradeColor[character.grade] ?? colors.textMuted;
                             return (
                               <TouchableOpacity
                                 key={character.id}

@@ -58,6 +58,18 @@ describe('apiFetch', () => {
     expect(callHeaders.Authorization).toBeUndefined();
   });
 
+  it('path 앞 슬래시가 중복되어도 API URL은 한 번만 이어 붙인다', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({}),
+    });
+
+    await apiFetch('//auth/login');
+
+    const requestedUrl = new URL((global.fetch as jest.Mock).mock.calls[0][0]);
+    expect(requestedUrl.pathname).toBe('/auth/login');
+  });
+
   it('에러 응답(JSON) 시 서버 메시지로 throw', async () => {
     (global.fetch as jest.Mock).mockResolvedValue({
       ok: false,
