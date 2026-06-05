@@ -85,6 +85,21 @@ Firebase Auth 로그인/회원가입 후 발급받은 ID Token을 서버에 전�
 | points | number | 보유 포인트 |
 | statPoints | number | 보유 스탯 포인트 |
 | totalDistance | number | 누적 러닝 거리 |
+| representativeCharacter | RepresentativeCharacter \| null | 대표 캐릭터 정보 |
+
+#### RepresentativeCharacter
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| id | number | 유저 캐릭터 ID |
+| characterId | number | 캐릭터 원본 ID |
+| name | string | 캐릭터 이름 |
+| type | string | 캐릭터 타입. `attack`, `defense`, `buff` |
+| grade | string | 캐릭터 등급 |
+| imageUrl | string \| null | 캐릭터 이미지 URL |
+| level | number | 캐릭터 전체 레벨 |
+| experience | number | 현재 경험치 |
+| nextLevelExperience | number \| null | 다음 레벨 필요 경험치. 최대 레벨이면 `null` |
 
 #### 닉네임 초기값 정책
 
@@ -192,6 +207,19 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | territory | object \| null | 생성된 영토. 폐곡선 조건 미충족 시 null |
 | earned_points | number | 획득 포인트 |
 | area_sqm | number | 계산된 면적(m²) |
+| representativeCharacterExp | RepresentativeCharacterExp \| null | 대표 캐릭터 경험치 보상 결과 |
+
+#### RepresentativeCharacterExp
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| userCharacterId | number | 경험치를 받은 유저 캐릭터 ID |
+| gainedExp | number | 이번 러닝으로 획득한 경험치 |
+| level | number | 보상 반영 후 캐릭터 전체 레벨 |
+| experience | number | 보상 반영 후 현재 경험치 |
+| nextLevelExperience | number \| null | 다음 레벨 필요 경험치. 최대 레벨이면 `null` |
+| levelUps | number | 이번 러닝으로 상승한 레벨 수 |
+| increasedStat | string \| null | 레벨업으로 증가한 주 스탯. `attack`, `defense`, `point`, 또는 `null` |
 
 #### 폐곡선 판단 기준
 
@@ -501,16 +529,25 @@ const attackerPolygonAfter = success
 | pointLv | number | 포인트 효율 레벨 |
 | isDeployed | boolean | 배치 여부 |
 | deployedTerritoryId | number \| null | 배치된 영토 ID. `null`이면 미배치 |
+| level | number | 캐릭터 전체 레벨 |
+| experience | number | 현재 경험치 |
+| nextLevelExperience | number \| null | 다음 레벨 필요 경험치. 최대 레벨이면 `null` |
+| imageUrl | string \| null | 캐릭터 이미지 URL |
 
 캐릭터 최대 보유 개수는 30개다. 보유 페이지의 등급별/능력 타입별 정렬은 클라이언트에서 이 응답을 기준으로 처리한다.
 
-캐릭터 상세 화면에서는 현재 응답에 포함된 공격/방어/포인트 효율 스탯 레벨을 우선 표시한다. 이미지, 캐릭터 전체 레벨, 경험치는 후속 DB/API 확장 이후 아래 필드를 추가한다.
+캐릭터 상세 화면에서는 공격/방어/포인트 효율 스탯 레벨, 캐릭터 전체 레벨, 경험치, 이미지를 표시한다.
 
-| 필드 | 타입 | 설명 |
-|---|---|---|
-| level | number | 캐릭터 전체 레벨 |
-| experience | number | 현재 경험치 |
-| imageUrl | string \| null | 캐릭터 이미지 URL |
+#### 캐릭터 성장 공식
+
+- 대표 캐릭터 경험치는 유효 러닝 보상 포인트가 1 이상일 때 `Math.max(1, Math.floor(distanceKm * 20))`만큼 지급한다.
+- 다음 레벨 필요 경험치는 `100 + (현재 레벨 - 1) * 50`이다.
+- 최대 레벨은 common 10, rare 15, epic 20, legendary 30이다.
+- 캐릭터 레벨업 시 타입별 주 스탯이 1 증가한다.
+  - 공격형: `attackLv + 1`
+  - 수비형: `defenseLv + 1`
+  - 버프형: `pointLv + 1`
+  - 주 스탯은 등급별 최대 레벨을 초과하지 않는다.
 
 ### PATCH `/characters/:id/upgrade`
 
@@ -559,6 +596,10 @@ const attackerPolygonAfter = success
 | pointLv | number | 포인트 효율 레벨 |
 | isDeployed | boolean | 배치 여부 |
 | deployedTerritoryId | number \| null | 배치된 영토 ID |
+| level | number | 캐릭터 전체 레벨 |
+| experience | number | 현재 경험치 |
+| nextLevelExperience | number \| null | 다음 레벨 필요 경험치. 최대 레벨이면 `null` |
+| imageUrl | string \| null | 캐릭터 이미지 URL |
 
 #### 예외
 
@@ -567,7 +608,9 @@ const attackerPolygonAfter = success
 - 보유하지 않은 캐릭터 배치 요청 시 404
 - 사용자가 소유하지 않은 영토 배치 요청 시 404
 - 수비형 캐릭터는 영토 방어 계산에 사용한다.
-- 버프형 캐릭터는 영토의 시간당 포인트 수익 증가에 사용한다. 포인트 효율 스탯(`pointLv`, `base_point_rate`) 기반의 정확한 배율 공식은 후속 구현에서 확정한다.
+- 버프형 캐릭터는 영토의 시간당 포인트 수익 증가에 사용한다.
+- 버프형 캐릭터가 배치된 영토의 수익 배율은 `Math.min(base_point_rate + (pointLv - 1) * 0.05, 2.0)`이다.
+- 수비형 캐릭터 또는 미배치 영토는 수익 배율 `1.0`을 사용한다.
 
 #### 현재 구현 기준
 
@@ -673,13 +716,11 @@ const attackerPolygonAfter = success
 1. `/running/start` API 필요 여부
 2. 침략 쿨타임 적용 여부와 쿨타임 시간
 3. 새 영토 침략 보호 시간 저장 방식
-4. 버프형 캐릭터의 포인트 효율 스탯 기반 시간당 포인트 수익 배율 공식
-5. 수비형 캐릭터의 자연 감소 계산 반영 방식
-6. 공통 에러 메시지 세부 코드 정의
-7. 침략 성공 시 `difference()` / `union()` 기반 폴리곤 갱신 구현
-8. `difference()` 결과가 `MultiPolygon`일 때의 장기 처리 방식
-9. 모바일 침략 결과 지도 반영 방식. 응답 좌표 포함, 소켓 이벤트, 재조회 중 선택
-10. 겹치는 영토 포인트 수입 패널티 적용 여부와 `territory_overlaps` 캐시 테이블 도입 여부
-11. `GET /territories/:id` 상세 응답의 보유자/배치 캐릭터 JOIN 최적화 방식
-12. 캐릭터 레벨/경험치/이미지 필드의 DB 저장 방식
-13. 캐릭터 분해로 획득한 스탯 포인트 사용처
+4. 수비형 캐릭터의 자연 감소 계산 반영 방식
+5. 공통 에러 메시지 세부 코드 정의
+6. 침략 성공 시 `difference()` / `union()` 기반 폴리곤 갱신 구현
+7. `difference()` 결과가 `MultiPolygon`일 때의 장기 처리 방식
+8. 모바일 침략 결과 지도 반영 방식. 응답 좌표 포함, 소켓 이벤트, 재조회 중 선택
+9. 겹치는 영토 포인트 수입 패널티 적용 여부와 `territory_overlaps` 캐시 테이블 도입 여부
+10. `GET /territories/:id` 상세 응답의 보유자/배치 캐릭터 JOIN 최적화 방식
+11. 캐릭터 분해로 획득한 스탯 포인트 사용처
