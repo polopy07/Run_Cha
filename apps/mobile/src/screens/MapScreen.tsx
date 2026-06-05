@@ -16,6 +16,7 @@ import { getUserColor } from '../utils/colorUtils';
 import { formatAreaCompact } from '../utils/formatUtils';
 import { useSocket } from '../hooks/useSocket';
 import { CharacterMarker } from '../components/CharacterMarker';
+import { getLastLocation, updateSharedLocation } from '../hooks/useGPS';
 
 function getCentroid(coords: { lat: number; lng: number }[]): { latitude: number; longitude: number } {
   const len = coords.length || 1;
@@ -47,7 +48,7 @@ export function MapScreen() {
   const { nearbyUsers, emitLocation } = useSocket({
     onTerritoryUpdate: () => fetchTerritories(regionRef.current),
   });
-  const [myLocation, setMyLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [myLocation, setMyLocation] = useState<{ latitude: number; longitude: number } | null>(getLastLocation());
   const [territories, setTerritories] = useState<Territory[]>([]);
   const [showProfile, setShowProfile] = useState(false);
   const [selectedTerritoryId, setSelectedTerritoryId] = useState<number | null>(null);
@@ -128,8 +129,10 @@ export function MapScreen() {
         onUserLocationChange={(e) => {
           const c = e.nativeEvent.coordinate;
           if (!c) return;
-          userLocationRef.current = { latitude: c.latitude, longitude: c.longitude };
-          setMyLocation({ latitude: c.latitude, longitude: c.longitude });
+          const loc = { latitude: c.latitude, longitude: c.longitude };
+          updateSharedLocation(loc);
+          userLocationRef.current = loc;
+          setMyLocation(loc);
           if (!initialMoveDone.current) {
             initialMoveDone.current = true;
             const region = { latitude: c.latitude, longitude: c.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 };

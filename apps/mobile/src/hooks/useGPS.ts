@@ -13,6 +13,7 @@ export type LatLng = {
 
 let _lastLocation: LatLng | null = null;
 export const getLastLocation = () => _lastLocation;
+export const updateSharedLocation = (loc: LatLng) => { _lastLocation = loc; };
 
 const EMIT_INTERVAL_MS = 3000;
 

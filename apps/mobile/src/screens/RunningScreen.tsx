@@ -9,7 +9,7 @@ import { finishRunning as finishRunningAPI } from '../api/running';
 import { useTheme } from '../contexts/ThemeContext';
 import { radius, mapCardShadow } from '../constants/theme';
 import { darkMapStyle } from '../constants/mapStyle';
-import { useGPS, getLastLocation } from '../hooks/useGPS';
+import { useGPS, getLastLocation, updateSharedLocation } from '../hooks/useGPS';
 import { getTerritories, type Territory } from '../api/territory';
 import useAuthStore from '../store/authStore';
 import { getUserColor } from '../utils/colorUtils';
@@ -89,11 +89,14 @@ export function RunningScreen() {
     }
   }, [phase, lastCoord]);
 
+  const { handleLocationChange } = gps;
   const handleUserLocationChange = useCallback(
     (e: { nativeEvent: { coordinate?: { latitude: number; longitude: number } } }) => {
-      gps.handleLocationChange(e);
+      handleLocationChange(e);
       const coordinate = e.nativeEvent.coordinate;
       if (!coordinate) return;
+
+      updateSharedLocation({ latitude: coordinate.latitude, longitude: coordinate.longitude });
 
       if (!initialMoveDone.current) {
         initialMoveDone.current = true;
@@ -107,7 +110,7 @@ export function RunningScreen() {
         updatePosition({ latitude: coordinate.latitude, longitude: coordinate.longitude });
       }
     },
-    [gps, isRunning, updatePosition],
+    [handleLocationChange, isRunning, updatePosition],
   );
 
   const handleStart = async () => {
@@ -339,7 +342,7 @@ export function RunningScreen() {
             ...mapCardShadow(isDark),
           }}
           onPress={() => {
-            const loc = gps.currentLocation;
+            const loc = gps.currentLocation ?? getLastLocation();
             if (!loc) {
               Alert.alert('위치 오류', '현재 위치를 확인할 수 없습니다.');
               return;
