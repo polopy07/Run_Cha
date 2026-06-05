@@ -23,7 +23,7 @@ type Props = {
 export function CharacterMarker({ user, isMe }: Props) {
   const { colors } = useTheme();
   const char = user.character;
-  const size = isMe ? 48 : 40;
+  const size = isMe ? 24 : 40;
   const borderColor = char ? GRADE_BORDER[char.grade] ?? colors.textMuted : colors.textMuted;
 
   return (
