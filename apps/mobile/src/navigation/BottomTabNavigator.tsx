@@ -5,7 +5,7 @@ import { MapScreen } from '../screens/MapScreen';
 import CharacterStack from './CharacterStack';
 import { RunningScreen } from '../screens/RunningScreen';
 import { RankingScreen } from '../screens/RankingScreen';
-import { MenuScreen } from '../screens/MenuScreen';
+import MenuStack from './MenuStack';
 import { useTheme } from '../contexts/ThemeContext';
 
 const Tab = createBottomTabNavigator();
@@ -68,7 +68,7 @@ export default function BottomTabNavigator() {
       />
       <Tab.Screen
         name="메뉴"
-        component={MenuScreen}
+        component={MenuStack}
         options={{ tabBarIcon: ({ focused }) => <TabIcon label="메뉴" focused={focused} /> }}
       />
     </Tab.Navigator>

@@ -1,11 +1,15 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Alert, Switch } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { StackScreenProps } from '@react-navigation/stack';
 import useAuthStore from '../store/authStore';
 import { useTheme } from '../contexts/ThemeContext';
 import { radius } from '../constants/theme';
+import type { MenuStackParamList } from '../navigation/MenuStack';
 
-export function MenuScreen() {
+type Props = StackScreenProps<MenuStackParamList, 'MenuHome'>;
+
+export function MenuScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuthStore();
   const { colors, isDark, toggle } = useTheme();
@@ -77,7 +81,11 @@ export function MenuScreen() {
         </View>
 
         {[
-          { label: '내 영토 관리', sub: '보유 영토 확인' },
+          {
+            label: '내 영토 관리',
+            sub: '보유 영토 확인',
+            onPress: () => navigation.navigate('MyTerritories'),
+          },
           { label: '설정', sub: '알림, 계정 관리' },
           { label: '도움말', sub: '이용 가이드' },
         ].map((item, i) => (
@@ -85,7 +93,7 @@ export function MenuScreen() {
             flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
             paddingHorizontal: 16, paddingVertical: 16,
             borderBottomWidth: 1, borderBottomColor: colors.divider,
-          }} activeOpacity={0.7}>
+          }} activeOpacity={0.7} onPress={item.onPress}>
             <View>
               <Text style={{ fontSize: 15, fontWeight: '600', color: colors.text }}>{item.label}</Text>
               <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>{item.sub}</Text>

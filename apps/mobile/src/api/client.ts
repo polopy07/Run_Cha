@@ -4,7 +4,6 @@ import { auth } from './firebase';
 
 const TOKEN_KEY = 'accessToken';
 let isRefreshing = false;
-
 const BASE_URL = (API_URL ?? 'http://localhost:3000').replace(/\/+$/, '');
 
 function buildUrl(path: string) {

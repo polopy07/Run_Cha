@@ -3,7 +3,11 @@ jest.mock('@env', () => ({
 }));
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { attackTerritory } from '../src/api/territory';
+import {
+  attackTerritory,
+  getMyTerritories,
+  updateTerritoryName,
+} from '../src/api/territory';
 
 beforeEach(async () => {
   jest.clearAllMocks();
@@ -64,5 +68,51 @@ describe('territory api', () => {
         attackerCharacterId: 30,
       }),
     ).rejects.toThrow('bad request');
+  });
+
+  it('fetches my territories', async () => {
+    const response = [
+      {
+        id: 1,
+        userId: 1,
+        name: '홈 코스',
+        coordinates: [],
+        areaSqm: 1234,
+        occupationRate: 90,
+        lastActiveAt: '2026-06-01T00:00:00.000Z',
+      },
+    ];
+
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(response),
+    });
+
+    const result = await getMyTerritories();
+    const [url] = (global.fetch as jest.Mock).mock.calls[0];
+
+    expect(url).toContain('/territories/me');
+    expect(result).toEqual(response);
+  });
+
+  it('updates territory name', async () => {
+    const response = { id: 1, name: '새 이름' };
+
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(response),
+    });
+
+    const result = await updateTerritoryName(1, '새 이름');
+    const [url, options] = (global.fetch as jest.Mock).mock.calls[0];
+
+    expect(url).toContain('/territories/1/name');
+    expect(options).toEqual(
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ name: '새 이름' }),
+      }),
+    );
+    expect(result).toEqual(response);
   });
 });

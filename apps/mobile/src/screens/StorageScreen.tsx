@@ -43,7 +43,7 @@ const GRADE_LABEL: Record<Character['grade'], string> = {
 
 const TYPE_LABEL: Record<Character['type'], string> = {
   attack: '공격형',
-  defense: '방어형',
+  defense: '수비형',
   buff: '버프형',
 };
 
@@ -66,7 +66,7 @@ const TYPE_FILTER_OPTIONS: {
   label: string;
 }[] = [
   { value: 'attack', label: '공격형' },
-  { value: 'defense', label: '방어형' },
+  { value: 'defense', label: '수비형' },
   { value: 'buff', label: '버프형' },
 ];
 
@@ -321,7 +321,10 @@ export function StorageScreen() {
 
   const openDeploy = useCallback((character: Character) => {
     if (character.type === 'attack') {
-      Alert.alert('배치 불가', 'defense와 buff 캐릭터만 배치할 수 있습니다.');
+      Alert.alert(
+        '배치 불가',
+        '수비/버프 캐릭터만 영토에 배치할 수 있습니다.',
+      );
       return;
     }
 
@@ -380,9 +383,16 @@ export function StorageScreen() {
       return;
     }
 
+    const includesRepresentative =
+      user?.representativeCharacter?.id != null &&
+      selectedDismantleIds.includes(user.representativeCharacter.id);
+    const message = includesRepresentative
+      ? `${selectedDismantleIds.length}개 캐릭터를 분해하고 스탯 포인트 ${expectedStatPoints}개를 얻을까요?\n\n대표 캐릭터가 포함되어 있어 대표 설정이 해제됩니다.`
+      : `${selectedDismantleIds.length}개 캐릭터를 분해하고 스탯 포인트 ${expectedStatPoints}개를 얻을까요?`;
+
     Alert.alert(
       '캐릭터 분해',
-      `${selectedDismantleIds.length}개 캐릭터를 분해하고 스탯 포인트 ${expectedStatPoints}개를 얻을까요?`,
+      message,
       [
         { text: '취소', style: 'cancel' },
         {
@@ -398,7 +408,8 @@ export function StorageScreen() {
     characters.length,
     executeDismantle,
     expectedStatPoints,
-    selectedDismantleIds.length,
+    selectedDismantleIds,
+    user?.representativeCharacter?.id,
   ]);
 
   const handleUpgrade = useCallback(
@@ -1399,7 +1410,7 @@ export function StorageScreen() {
                             color: colors.text,
                           }}
                         >
-                          {territory.name ?? `Territory #${territory.id}`}
+                          {territory.name ?? `영토 #${territory.id}`}
                         </Text>
                         <Text
                           style={{
