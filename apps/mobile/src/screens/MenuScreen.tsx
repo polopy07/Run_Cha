@@ -13,19 +13,6 @@ export function MenuScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuthStore();
   const { colors, isDark, toggle } = useTheme();
-  const menuItems: {
-    label: string;
-    sub: string;
-    onPress?: () => void;
-  }[] = [
-    {
-      label: '내 영토 관리',
-      sub: '보유 영토 확인',
-      onPress: () => navigation.navigate('MyTerritories'),
-    },
-    { label: '설정', sub: '알림, 계정 관리' },
-    { label: '도움말', sub: '이용 가이드' },
-  ];
 
   const handleLogout = () => {
     Alert.alert('로그아웃', '정말 로그아웃하시겠습니까?', [
@@ -93,7 +80,15 @@ export function MenuScreen({ navigation }: Props) {
           />
         </View>
 
-        {menuItems.map((item, i) => (
+        {[
+          {
+            label: '내 영토 관리',
+            sub: '보유 영토 확인',
+            onPress: () => navigation.navigate('MyTerritories'),
+          },
+          { label: '설정', sub: '알림, 계정 관리' },
+          { label: '도움말', sub: '이용 가이드' },
+        ].map((item, i) => (
           <TouchableOpacity key={i} style={{
             flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
             paddingHorizontal: 16, paddingVertical: 16,
