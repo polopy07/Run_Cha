@@ -3,6 +3,13 @@ import type { Character } from '../store/characterStore';
 
 export type UpgradeStat = 'attack' | 'defense' | 'point';
 
+export type UpgradeCharacterResponse = {
+  id: number;
+  upgradedStat: UpgradeStat;
+  newLevel: number;
+  remainingStatPoints: number;
+};
+
 export type DismantleCharactersResponse = {
   dismantledCount: number;
   earnedStatPoints: number;
@@ -15,10 +22,13 @@ export async function getCharacters() {
 }
 
 export async function upgradeCharacter(characterId: number, stat: UpgradeStat) {
-  return apiFetch(`/characters/${characterId}/upgrade`, {
-    method: 'PATCH',
-    body: JSON.stringify({ stat }),
-  });
+  return apiFetch<UpgradeCharacterResponse>(
+    `/characters/${characterId}/upgrade`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ stat }),
+    },
+  );
 }
 
 export async function deployCharacter(

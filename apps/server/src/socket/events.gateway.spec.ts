@@ -51,7 +51,8 @@ function addUser(
   };
   internal(gateway).onlineUsers.set(socketId, user);
 
-  const sockets = internal(gateway).userSockets.get(user.userId) ?? new Set<string>();
+  const sockets =
+    internal(gateway).userSockets.get(user.userId) ?? new Set<string>();
   sockets.add(socketId);
   internal(gateway).userSockets.set(user.userId, sockets);
 }

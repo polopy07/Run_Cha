@@ -23,6 +23,16 @@ type SocketOptions = {
   onTerritoryUpdate?: () => void;
 };
 
+type SocketHandlers = {
+  onConnect: () => void;
+  onDisconnect: () => void;
+  onBroadcast: (data: OnlineUser) => void;
+  onUserOnline: (data: OnlineUser) => void;
+  onUserOffline: (data: { userId: number }) => void;
+  onRankingUpdate: () => void;
+  onTerritoryUpdate: () => void;
+};
+
 export function useSocket(options?: SocketOptions) {
   const isLoggedIn = useAuthStore(s => s.isLoggedIn);
   const socketRef = useRef<Socket | null>(null);
@@ -31,7 +41,7 @@ export function useSocket(options?: SocketOptions) {
   const staleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const callbacksRef = useRef(options);
   callbacksRef.current = options;
-  const handlersRef = useRef<Record<string, (...args: unknown[]) => void> | null>(null);
+  const handlersRef = useRef<SocketHandlers | null>(null);
 
   useEffect(() => {
     if (!isLoggedIn) {

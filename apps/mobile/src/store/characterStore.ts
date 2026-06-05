@@ -7,6 +7,7 @@ export type Character = {
   name: string;
   grade: 'common' | 'rare' | 'epic' | 'legendary';
   type: 'attack' | 'defense' | 'buff';
+  imageUrl?: string | null;
   attackLv: number;
   defenseLv: number;
   pointLv: number;
@@ -39,13 +40,13 @@ const useCharacterStore = create<CharacterState>((set, get) => ({
     }
   },
 
-  addCharacter: (character) => {
+  addCharacter: character => {
     set({ characters: [...get().characters, character] });
   },
 
-  updateCharacter: (character) => {
+  updateCharacter: character => {
     set({
-      characters: get().characters.map((current) =>
+      characters: get().characters.map(current =>
         current.id === character.id ? character : current,
       ),
     });

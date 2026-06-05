@@ -19,17 +19,14 @@ const MAX_LEVEL_BY_GRADE: Record<CharacterGrade, number> = {
   [CharacterGrade.LEGENDARY]: 30,
 };
 
-const UPGRADE_BASE_COST = 100;
-const UPGRADE_MAX_COST = 5000;
-const UPGRADE_MAX_COST_START_LEVEL = Math.ceil(
-  Math.log(UPGRADE_MAX_COST / UPGRADE_BASE_COST) / Math.log(1.5),
-);
 const DISMANTLE_REWARD_BY_GRADE: Record<CharacterGrade, number> = {
   [CharacterGrade.COMMON]: 1,
   [CharacterGrade.RARE]: 2,
   [CharacterGrade.EPIC]: 3,
   [CharacterGrade.LEGENDARY]: 4,
 };
+
+const UPGRADE_COST = 1;
 
 type StatLevelColumn = 'attack_lv' | 'defense_lv' | 'point_lv';
 
@@ -91,13 +88,11 @@ export class CharactersService {
         throw new NotFoundException('사용자를 찾을 수 없습니다.');
       }
 
-      const cost = this.calculateUpgradeCost(currentLevel);
-
-      if (user.points < cost) {
-        throw new BadRequestException('포인트가 부족합니다.');
+      if (user.stat_points < UPGRADE_COST) {
+        throw new BadRequestException('스탯 포인트가 부족합니다.');
       }
 
-      user.points -= cost;
+      user.stat_points -= UPGRADE_COST;
       userCharacter[levelColumn] = currentLevel + 1;
 
       await usersRepository.save(user);
@@ -107,7 +102,7 @@ export class CharactersService {
         id: userCharacter.id,
         upgradedStat: stat,
         newLevel: currentLevel + 1,
-        remainingPoints: user.points,
+        remainingStatPoints: user.stat_points,
       };
     });
   }
@@ -267,16 +262,6 @@ export class CharactersService {
     });
   }
 
-  private calculateUpgradeCost(currentLevel: number) {
-    if (currentLevel >= UPGRADE_MAX_COST_START_LEVEL) {
-      return UPGRADE_MAX_COST;
-    }
-
-    const cost = Math.floor(UPGRADE_BASE_COST * 1.5 ** currentLevel);
-
-    return Math.min(cost, UPGRADE_MAX_COST);
-  }
-
   private toUserCharacterResponse(userCharacter: UserCharacter) {
     const deployedTerritoryId = userCharacter.deployed_territory_id ?? null;
 
@@ -286,6 +271,7 @@ export class CharactersService {
       name: userCharacter.character.name,
       grade: userCharacter.character.grade,
       type: userCharacter.character.type,
+      imageUrl: userCharacter.character.image_url ?? null,
       attackLv: userCharacter.attack_lv,
       defenseLv: userCharacter.defense_lv,
       pointLv: userCharacter.point_lv,

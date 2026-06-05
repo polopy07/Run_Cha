@@ -174,7 +174,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const emittedUserIds = new Set<number>();
     for (const [socketId, user] of this.onlineUsers) {
       if (excludeSocketId && socketId === excludeSocketId) continue;
-      if (excludeUserId !== undefined && user.userId === excludeUserId) continue;
+      if (excludeUserId !== undefined && user.userId === excludeUserId)
+        continue;
       if (!user.hasLocation) continue;
       if (emittedUserIds.has(user.userId)) continue;
       if (distanceKm(centerLat, centerLng, user.lat, user.lng) <= 2) {
