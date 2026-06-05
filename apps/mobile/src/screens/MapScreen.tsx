@@ -47,6 +47,7 @@ export function MapScreen() {
   const { nearbyUsers, emitLocation } = useSocket({
     onTerritoryUpdate: () => fetchTerritories(regionRef.current),
   });
+  const [myLocation, setMyLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [territories, setTerritories] = useState<Territory[]>([]);
   const [showProfile, setShowProfile] = useState(false);
   const [selectedTerritoryId, setSelectedTerritoryId] = useState<number | null>(null);
@@ -128,6 +129,7 @@ export function MapScreen() {
           const c = e.nativeEvent.coordinate;
           if (!c) return;
           userLocationRef.current = { latitude: c.latitude, longitude: c.longitude };
+          setMyLocation({ latitude: c.latitude, longitude: c.longitude });
           if (!initialMoveDone.current) {
             initialMoveDone.current = true;
             const region = { latitude: c.latitude, longitude: c.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 };
@@ -188,6 +190,20 @@ export function MapScreen() {
             isMe={u.userId === user?.id}
           />
         ))}
+        {myLocation && user && (
+          <CharacterMarker
+            user={{
+              userId: user.id,
+              nickname: user.nickname,
+              lat: myLocation.latitude,
+              lng: myLocation.longitude,
+              character: rep
+                ? { name: rep.name, type: rep.type, grade: rep.grade, imageUrl: rep.imageUrl }
+                : null,
+            }}
+            isMe
+          />
+        )}
       </MapView>
 
       {/* 상단 헤더 */}
