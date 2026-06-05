@@ -103,7 +103,7 @@ export function MapScreen() {
   };
 
   const goToMyLocation = () => {
-    const loc = userLocationRef.current;
+    const loc = userLocationRef.current ?? myLocation ?? getLastLocation();
     if (!loc) {
       Alert.alert('위치 오류', '현재 위치를 확인할 수 없습니다.');
       return;
@@ -145,7 +145,7 @@ export function MapScreen() {
             emitLocation(c.latitude, c.longitude);
           }
         }}
-        showsUserLocation
+        showsUserLocation={!(user && myLocation)}
         showsMyLocationButton={false}
       >
         {territories.map((t) => {
@@ -195,6 +195,7 @@ export function MapScreen() {
         ))}
         {myLocation && user && (
           <CharacterMarker
+            key={rep ? `${rep.grade}-${rep.type}` : 'no-rep'}
             user={{
               userId: user.id,
               nickname: user.nickname,

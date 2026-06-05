@@ -276,7 +276,7 @@ export function RunningScreen() {
             : DEFAULT_REGION;
         })()}
         customMapStyle={Platform.OS === 'android' && isDark ? darkMapStyle : undefined}
-        showsUserLocation showsMyLocationButton={false}
+        showsUserLocation={!(user && myLocation)} showsMyLocationButton={false}
         followsUserLocation={Platform.OS === 'ios'}
         onUserLocationChange={handleUserLocationChange}
         onRegionChangeComplete={(r) => fetchNearbyTerritories(r)}
@@ -299,6 +299,7 @@ export function RunningScreen() {
         )}
         {myLocation && user && (
           <CharacterMarker
+            key={rep ? `${rep.grade}-${rep.type}` : 'no-rep'}
             user={{
               userId: user.id,
               nickname: user.nickname,

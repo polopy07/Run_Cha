@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, Image } from 'react-native';
 import { Marker } from 'react-native-maps';
 import { useTheme } from '../contexts/ThemeContext';
@@ -25,12 +25,13 @@ export function CharacterMarker({ user, isMe }: Props) {
   const char = user.character;
   const size = isMe ? 24 : 40;
   const borderColor = char ? GRADE_BORDER[char.grade] ?? colors.textMuted : colors.textMuted;
+  const [imageLoaded, setImageLoaded] = useState(false);
 
   return (
     <Marker
       coordinate={{ latitude: user.lat, longitude: user.lng }}
       anchor={{ x: 0.5, y: 1 }}
-      tracksViewChanges={false}
+      tracksViewChanges={char ? !imageLoaded : false}
     >
       <View style={{ alignItems: 'center' }}>
         <View style={{
@@ -53,6 +54,7 @@ export function CharacterMarker({ user, isMe }: Props) {
                 transform: getCharacterImageTransform(char.grade, char.type, size),
               }}
               resizeMode="contain"
+              onLoadEnd={() => setImageLoaded(true)}
             />
           ) : (
             <Text style={{ fontSize: isMe ? 18 : 14, fontWeight: '800', color: colors.text }}>
