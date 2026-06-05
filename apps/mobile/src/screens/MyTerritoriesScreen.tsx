@@ -24,6 +24,15 @@ import {
 import { radius, spacing } from '../constants/theme';
 import { useTheme } from '../contexts/ThemeContext';
 import type { MenuStackParamList } from '../navigation/MenuStack';
+import { formatArea } from '../utils/formatUtils';
+import {
+  canDeployCharacter,
+  DEPLOY_SORT_OPTIONS,
+  DEPLOY_TYPE_FILTER_OPTIONS,
+  GRADE_ORDER,
+  TYPE_ORDER,
+  type DeploySortMode,
+} from '../utils/deployUtils';
 import {
   getCharacterImageSource,
   getCharacterImageTransform,
@@ -34,7 +43,7 @@ type Props = StackScreenProps<MenuStackParamList, 'MyTerritories'>;
 
 const TYPE_LABEL: Record<Character['type'], string> = {
   attack: '공격형',
-  defense: '방어형',
+  defense: '수비형',
   buff: '버프형',
 };
 
@@ -50,43 +59,6 @@ const TYPE_SHORT: Record<Character['type'], string> = {
   defense: 'DEF',
   buff: 'BUF',
 };
-
-type SortMode = 'recent' | 'grade' | 'type';
-
-const SORT_OPTIONS: { value: SortMode; label: string }[] = [
-  { value: 'recent', label: '최근' },
-  { value: 'grade', label: '등급' },
-  { value: 'type', label: '타입' },
-];
-
-const TYPE_FILTER_OPTIONS: {
-  value: Extract<Character['type'], 'defense' | 'buff'>;
-  label: string;
-}[] = [
-  { value: 'defense', label: '수비형' },
-  { value: 'buff', label: '버프형' },
-];
-
-const GRADE_ORDER: Record<Character['grade'], number> = {
-  legendary: 4,
-  epic: 3,
-  rare: 2,
-  common: 1,
-};
-
-const TYPE_ORDER: Record<Character['type'], number> = {
-  attack: 3,
-  defense: 2,
-  buff: 1,
-};
-
-function formatArea(areaSqm: number) {
-  if (areaSqm >= 1_000_000) {
-    return `${(areaSqm / 1_000_000).toFixed(2)} km²`;
-  }
-
-  return `${Math.round(areaSqm).toLocaleString()} m²`;
-}
 
 function formatDate(value?: string) {
   if (!value) return '-';
@@ -108,10 +80,6 @@ function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
-function canDeploy(character: Character) {
-  return character.type === 'defense' || character.type === 'buff';
-}
-
 export function MyTerritoriesScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { colors, gradeColor } = useTheme();
@@ -127,7 +95,7 @@ export function MyTerritoriesScreen({ navigation }: Props) {
     null,
   );
   const [nameInput, setNameInput] = useState('');
-  const [deploySortMode, setDeploySortMode] = useState<SortMode>('recent');
+  const [deploySortMode, setDeploySortMode] = useState<DeploySortMode>('recent');
   const [deployTypeFilter, setDeployTypeFilter] = useState<
     Extract<Character['type'], 'defense' | 'buff'> | null
   >(null);
@@ -139,7 +107,7 @@ export function MyTerritoriesScreen({ navigation }: Props) {
 
   const deployableCharacters = useMemo(() => {
     const visibleCharacters = characters.filter(character => {
-      if (!canDeploy(character) || character.deployedTerritoryId !== null) {
+      if (!canDeployCharacter(character) || character.deployedTerritoryId !== null) {
         return false;
       }
 
@@ -766,7 +734,7 @@ export function MyTerritoriesScreen({ navigation }: Props) {
                 marginTop: 16,
               }}
             >
-              {SORT_OPTIONS.map(option => {
+              {DEPLOY_SORT_OPTIONS.map(option => {
                 const active = deploySortMode === option.value;
                 return (
                   <TouchableOpacity
@@ -811,7 +779,7 @@ export function MyTerritoriesScreen({ navigation }: Props) {
                   marginTop: 10,
                 }}
               >
-                {TYPE_FILTER_OPTIONS.map(option => {
+                {DEPLOY_TYPE_FILTER_OPTIONS.map(option => {
                   const active = deployTypeFilter === option.value;
                   return (
                     <TouchableOpacity

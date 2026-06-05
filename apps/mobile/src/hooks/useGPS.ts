@@ -24,11 +24,17 @@ export function useGPS() {
   useEffect(() => {
     if (Platform.OS !== 'android') return;
     void (async () => {
-      const granted = await PermissionsAndroid.request(
+      const fineLocation = await PermissionsAndroid.request(
         PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
       );
-      if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+      if (fineLocation !== PermissionsAndroid.RESULTS.GRANTED) {
         Alert.alert('위치 권한 필요', 'GPS 사용을 위해 위치 권한을 허용해주세요.');
+      }
+
+      if (Platform.Version >= 33) {
+        await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+        );
       }
     })();
   }, []);

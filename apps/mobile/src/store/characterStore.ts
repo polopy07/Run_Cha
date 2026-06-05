@@ -11,6 +11,9 @@ export type Character = {
   attackLv: number;
   defenseLv: number;
   pointLv: number;
+  level: number;
+  experience: number;
+  nextLevelExperience: number | null;
   isDeployed: boolean;
   deployedTerritoryId: number | null;
 };

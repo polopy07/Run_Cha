@@ -401,13 +401,15 @@ describe('UsersService', () => {
       points: 100,
       stat_points: 3,
       total_distance: 3.5,
-      representative_character: {
-        id: 10,
-        character_id: 5,
-        character: {
-          name: 'FireKnight',
-          type: 'attack',
-          grade: 'rare',
+        representative_character: {
+          id: 10,
+          character_id: 5,
+          level: 3,
+          experience: 40,
+          character: {
+            name: 'FireKnight',
+            type: 'attack',
+            grade: 'rare',
           image_url: null,
         },
       },
@@ -427,6 +429,9 @@ describe('UsersService', () => {
         type: 'attack',
         grade: 'rare',
         imageUrl: null,
+        level: 3,
+        experience: 40,
+        nextLevelExperience: 200,
       },
     });
   });

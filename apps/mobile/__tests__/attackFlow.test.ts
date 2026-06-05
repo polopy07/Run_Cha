@@ -17,6 +17,9 @@ const makeCharacter = (id: number, type: Character['type']): Character => ({
   attackLv: 1,
   defenseLv: 1,
   pointLv: 1,
+  level: 1,
+  experience: 0,
+  nextLevelExperience: 100,
   isDeployed: false,
   deployedTerritoryId: null,
 });

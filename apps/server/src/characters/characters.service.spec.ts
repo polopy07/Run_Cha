@@ -63,6 +63,8 @@ describe('CharactersService', () => {
     attack_lv: 1,
     defense_lv: 2,
     point_lv: 4,
+    level: 1,
+    experience: 0,
     deployed_territory_id: null,
     character: {
       id: 3,
@@ -126,6 +128,9 @@ describe('CharactersService', () => {
         attackLv: 1,
         defenseLv: 2,
         pointLv: 4,
+        level: 1,
+        experience: 0,
+        nextLevelExperience: 100,
         isDeployed: false,
         deployedTerritoryId: null,
       },

@@ -3,6 +3,8 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { DataSource } from 'typeorm';
 
 const SQM_PER_POINT = 1000;
+const POINT_EFFICIENCY_LEVEL_BONUS = 0.05;
+const POINT_EFFICIENCY_MULTIPLIER_CAP = 2;
 
 type TerritoryIncomeResult = {
   affectedRows?: number;
@@ -25,15 +27,34 @@ export class TerritoryIncomeService {
         INNER JOIN (
           SELECT
             user_id,
-            FLOOR(SUM(area_sqm * occupation_rate / 100) / ?) AS points
-          FROM territories
-          WHERE occupation_rate > 0
-          GROUP BY user_id
+            t.user_id,
+            FLOOR(
+              SUM(
+                (t.area_sqm * t.occupation_rate / 100 / ?) *
+                CASE
+                  WHEN c.type = 'buff' THEN LEAST(
+                    COALESCE(c.base_point_rate, 1) +
+                      GREATEST(COALESCE(uc.point_lv, 1) - 1, 0) * ?,
+                    ?
+                  )
+                  ELSE 1
+                END
+              )
+            ) AS points
+          FROM territories t
+          LEFT JOIN user_characters uc ON uc.deployed_territory_id = t.id
+          LEFT JOIN characters c ON c.id = uc.character_id
+          WHERE t.occupation_rate > 0
+          GROUP BY t.user_id
           HAVING points > 0
         ) AS income ON u.id = income.user_id
         SET u.points = u.points + income.points
       `,
-      [SQM_PER_POINT],
+      [
+        SQM_PER_POINT,
+        POINT_EFFICIENCY_LEVEL_BONUS,
+        POINT_EFFICIENCY_MULTIPLIER_CAP,
+      ],
     );
 
     const affectedRows = Number(result?.affectedRows ?? 0);

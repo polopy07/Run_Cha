@@ -23,6 +23,14 @@ import { useTheme } from '../contexts/ThemeContext';
 import { radius, GRADE_LABEL } from '../constants/theme';
 import { formatArea } from '../utils/formatUtils';
 import {
+  canDeployCharacter,
+  DEPLOY_SORT_OPTIONS,
+  DEPLOY_TYPE_FILTER_OPTIONS,
+  GRADE_ORDER,
+  TYPE_ORDER,
+  type DeploySortMode,
+} from '../utils/deployUtils';
+import {
   getCharacterImageSource,
   getCharacterImageTransform,
 } from '../assets/characters/characterImages';
@@ -57,39 +65,6 @@ const TYPE_SHORT: Record<Character['type'], string> = {
   defense: 'DEF',
   buff: 'BUF',
 };
-
-type SortMode = 'recent' | 'grade' | 'type';
-
-const SORT_OPTIONS: { value: SortMode; label: string }[] = [
-  { value: 'recent', label: '최근' },
-  { value: 'grade', label: '등급' },
-  { value: 'type', label: '타입' },
-];
-
-const TYPE_FILTER_OPTIONS: {
-  value: Extract<Character['type'], 'defense' | 'buff'>;
-  label: string;
-}[] = [
-  { value: 'defense', label: '수비형' },
-  { value: 'buff', label: '버프형' },
-];
-
-const GRADE_ORDER: Record<Character['grade'], number> = {
-  legendary: 4,
-  epic: 3,
-  rare: 2,
-  common: 1,
-};
-
-const TYPE_ORDER: Record<Character['type'], number> = {
-  attack: 3,
-  defense: 2,
-  buff: 1,
-};
-
-function canDeploy(character: Character) {
-  return character.type === 'defense' || character.type === 'buff';
-}
 
 function CharacterCard({ char, colors }: { char: TerritoryDeployedCharacter; colors: ReturnType<typeof useTheme>['colors'] }) {
   const gc = gradeColor(char.grade, colors);
@@ -162,7 +137,7 @@ export function TerritoryDetailSheet({ visible, territoryId, territory, onClose,
   const [savingName, setSavingName] = useState(false);
   const [showDeployPicker, setShowDeployPicker] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
-  const [deploySortMode, setDeploySortMode] = useState<SortMode>('recent');
+  const [deploySortMode, setDeploySortMode] = useState<DeploySortMode>('recent');
   const [deployTypeFilter, setDeployTypeFilter] = useState<
     Extract<Character['type'], 'defense' | 'buff'> | null
   >(null);
@@ -206,7 +181,7 @@ export function TerritoryDetailSheet({ visible, territoryId, territory, onClose,
 
   const deployableCharacters = useMemo(() => {
     const visibleCharacters = characters.filter(character => {
-      if (!canDeploy(character) || character.deployedTerritoryId !== null) {
+      if (!canDeployCharacter(character) || character.deployedTerritoryId !== null) {
         return false;
       }
 
@@ -414,7 +389,9 @@ export function TerritoryDetailSheet({ visible, territoryId, territory, onClose,
                   </View>
                 )}
 
-                {detail.isMine && detail.deployedCharacters.length === 0 && (
+                {detail.isMine &&
+                  detail.deployedCharacters.length === 0 &&
+                  !deployedCharacter && (
                   <>
                     <TouchableOpacity
                       onPress={() => setShowDeployPicker(current => !current)}
@@ -435,7 +412,7 @@ export function TerritoryDetailSheet({ visible, territoryId, territory, onClose,
                     {showDeployPicker && (
                       <View style={{ marginBottom: 16 }}>
                         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
-                          {SORT_OPTIONS.map(option => {
+                          {DEPLOY_SORT_OPTIONS.map(option => {
                             const active = deploySortMode === option.value;
                             return (
                               <TouchableOpacity
@@ -474,7 +451,7 @@ export function TerritoryDetailSheet({ visible, territoryId, territory, onClose,
 
                         {deploySortMode === 'type' && (
                           <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
-                            {TYPE_FILTER_OPTIONS.map(option => {
+                            {DEPLOY_TYPE_FILTER_OPTIONS.map(option => {
                               const active = deployTypeFilter === option.value;
                               return (
                                 <TouchableOpacity

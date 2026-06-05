@@ -10,6 +10,10 @@ import {
   CharacterGrade,
   CharacterType,
 } from '../characters/entities/character.entity';
+import {
+  getCharacterMaxLevel,
+  getCharacterNextLevelExperience,
+} from '../characters/characters.service';
 import { UserCharacter } from '../characters/entities/user-character.entity';
 import { User } from './entities/user.entity';
 
@@ -121,7 +125,10 @@ export class UsersService {
   async findByIdWithRepresentative(id: number) {
     const user = await this.usersRepository.findOne({
       where: { id },
-      relations: ['representative_character', 'representative_character.character'],
+      relations: [
+        'representative_character',
+        'representative_character.character',
+      ],
     });
 
     if (!user) {
@@ -159,7 +166,9 @@ export class UsersService {
 
   async setRepresentative(userId: number, userCharacterId: number | null) {
     if (userCharacterId === null) {
-      await this.usersRepository.update(userId, { representative_character_id: null });
+      await this.usersRepository.update(userId, {
+        representative_character_id: null,
+      });
       return this.findByIdWithRepresentative(userId);
     }
 
@@ -172,7 +181,9 @@ export class UsersService {
       throw new BadRequestException('보유하지 않은 캐릭터입니다.');
     }
 
-    await this.usersRepository.update(userId, { representative_character_id: userCharacterId });
+    await this.usersRepository.update(userId, {
+      representative_character_id: userCharacterId,
+    });
     return this.findByIdWithRepresentative(userId);
   }
 
@@ -208,6 +219,12 @@ export class UsersService {
             type: rc.character.type,
             grade: rc.character.grade,
             imageUrl: rc.character.image_url,
+            level: rc.level,
+            experience: rc.experience,
+            nextLevelExperience:
+              rc.level >= getCharacterMaxLevel(rc.character.grade)
+                ? null
+                : getCharacterNextLevelExperience(rc.level),
           }
         : null,
     };

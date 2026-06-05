@@ -43,7 +43,7 @@ const GRADE_LABEL: Record<Character['grade'], string> = {
 
 const TYPE_LABEL: Record<Character['type'], string> = {
   attack: '공격형',
-  defense: '방어형',
+  defense: '수비형',
   buff: '버프형',
 };
 
@@ -129,6 +129,17 @@ function getErr(error: unknown, fallback: string) {
 
 function isDeployed(character: Character) {
   return character.isDeployed || character.deployedTerritoryId !== null;
+}
+
+function getExperienceProgress(character: Character) {
+  if (character.nextLevelExperience === null) {
+    return 1;
+  }
+
+  return Math.min(
+    1,
+    Math.max(0, character.experience / character.nextLevelExperience),
+  );
 }
 
 export function StorageScreen() {
@@ -321,7 +332,7 @@ export function StorageScreen() {
 
   const openDeploy = useCallback((character: Character) => {
     if (character.type === 'attack') {
-      Alert.alert('배치 불가', 'defense와 buff 캐릭터만 배치할 수 있습니다.');
+      Alert.alert('배치 불가', '수비/버프 캐릭터만 영토에 배치할 수 있습니다.');
       return;
     }
 
@@ -380,9 +391,16 @@ export function StorageScreen() {
       return;
     }
 
+    const includesRepresentative =
+      user?.representativeCharacter?.id != null &&
+      selectedDismantleIds.includes(user.representativeCharacter.id);
+    const message = includesRepresentative
+      ? `${selectedDismantleIds.length}개 캐릭터를 분해하고 스탯 포인트 ${expectedStatPoints}개를 얻을까요?\n\n대표 캐릭터가 포함되어 있어 대표 설정이 해제됩니다.`
+      : `${selectedDismantleIds.length}개 캐릭터를 분해하고 스탯 포인트 ${expectedStatPoints}개를 얻을까요?`;
+
     Alert.alert(
       '캐릭터 분해',
-      `${selectedDismantleIds.length}개 캐릭터를 분해하고 스탯 포인트 ${expectedStatPoints}개를 얻을까요?`,
+      message,
       [
         { text: '취소', style: 'cancel' },
         {
@@ -399,6 +417,8 @@ export function StorageScreen() {
     executeDismantle,
     expectedStatPoints,
     selectedDismantleIds.length,
+    selectedDismantleIds,
+    user?.representativeCharacter?.id,
   ]);
 
   const handleUpgrade = useCallback(
@@ -528,18 +548,27 @@ export function StorageScreen() {
             style={{
               position: 'absolute',
               top: 8,
-              left: 8,
-              backgroundColor: colors.gold,
-              borderRadius: 4,
-              paddingHorizontal: 6,
-              paddingVertical: 2,
+              left: 0,
+              right: 0,
+              alignItems: 'center',
+              zIndex: 2,
             }}
+            pointerEvents="none"
           >
-            <Text
-              style={{ color: colors.bg, fontSize: 9, fontWeight: '900' }}
+            <View
+              style={{
+                backgroundColor: colors.gold,
+                borderRadius: 4,
+                paddingHorizontal: 6,
+                paddingVertical: 2,
+              }}
             >
-              대표
-            </Text>
+              <Text
+                style={{ color: colors.bg, fontSize: 9, fontWeight: '900' }}
+              >
+                대표
+              </Text>
+            </View>
           </View>
         )}
 
@@ -1025,6 +1054,16 @@ export function StorageScreen() {
                     >
                       {TYPE_LABEL[detailCharacter.type]} 캐릭터
                     </Text>
+                    <Text
+                      style={{
+                        color: colors.textMuted,
+                        fontSize: 12,
+                        fontWeight: '700',
+                        marginTop: 8,
+                      }}
+                    >
+                      캐릭터 Lv. {detailCharacter.level}
+                    </Text>
                   </View>
                   <View
                     style={{
@@ -1048,6 +1087,77 @@ export function StorageScreen() {
                       {GRADE_LABEL[detailCharacter.grade]}
                     </Text>
                   </View>
+                </View>
+
+                <View
+                  style={{
+                    backgroundColor: colors.card,
+                    borderRadius: radius.sm,
+                    marginTop: 14,
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                  }}
+                >
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: 8,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: colors.text,
+                        fontSize: 13,
+                        fontWeight: '800',
+                      }}
+                    >
+                      경험치
+                    </Text>
+                    <Text
+                      style={{
+                        color: colors.textSecondary,
+                        fontSize: 12,
+                        fontWeight: '700',
+                      }}
+                    >
+                      {detailCharacter.nextLevelExperience === null
+                        ? 'MAX'
+                        : `${detailCharacter.experience} / ${detailCharacter.nextLevelExperience}`}
+                    </Text>
+                  </View>
+                  <View
+                    style={{
+                      height: 9,
+                      backgroundColor: colors.divider,
+                      borderRadius: radius.full,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: `${getExperienceProgress(detailCharacter) * 100}%`,
+                        height: '100%',
+                        backgroundColor: colors.primary,
+                        borderRadius: radius.full,
+                      }}
+                    />
+                  </View>
+                  <Text
+                    style={{
+                      color: colors.textMuted,
+                      fontSize: 11,
+                      marginTop: 7,
+                    }}
+                  >
+                    {detailCharacter.nextLevelExperience === null
+                      ? '최대 레벨입니다.'
+                      : `레벨업까지 ${
+                          detailCharacter.nextLevelExperience -
+                          detailCharacter.experience
+                        } EXP 남음`}
+                  </Text>
                 </View>
 
                 {isDeployed(detailCharacter) && (
@@ -1399,7 +1509,7 @@ export function StorageScreen() {
                             color: colors.text,
                           }}
                         >
-                          {territory.name ?? `Territory #${territory.id}`}
+                          {territory.name ?? `영토 #${territory.id}`}
                         </Text>
                         <Text
                           style={{

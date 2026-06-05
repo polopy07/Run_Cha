@@ -32,6 +32,12 @@ export class UserCharacter {
   @Column({ default: 1 })
   point_lv: number;
 
+  @Column({ default: 1 })
+  level: number;
+
+  @Column({ default: 0 })
+  experience: number;
+
   @Column({ type: 'int', nullable: true, default: null })
   deployed_territory_id: number | null;
 

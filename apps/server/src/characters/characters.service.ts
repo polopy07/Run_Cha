@@ -28,6 +28,9 @@ const DISMANTLE_REWARD_BY_GRADE: Record<CharacterGrade, number> = {
 
 const UPGRADE_COST = 1;
 
+export const CHARACTER_EXP_BASE = 100;
+export const CHARACTER_EXP_LEVEL_STEP = 50;
+
 type StatLevelColumn = 'attack_lv' | 'defense_lv' | 'point_lv';
 
 const STAT_LEVEL_COLUMN: Record<UpgradeStat, StatLevelColumn> = {
@@ -35,6 +38,14 @@ const STAT_LEVEL_COLUMN: Record<UpgradeStat, StatLevelColumn> = {
   defense: 'defense_lv',
   point: 'point_lv',
 };
+
+export function getCharacterMaxLevel(grade: CharacterGrade) {
+  return MAX_LEVEL_BY_GRADE[grade];
+}
+
+export function getCharacterNextLevelExperience(level: number) {
+  return CHARACTER_EXP_BASE + (level - 1) * CHARACTER_EXP_LEVEL_STEP;
+}
 
 @Injectable()
 export class CharactersService {
@@ -275,6 +286,12 @@ export class CharactersService {
       attackLv: userCharacter.attack_lv,
       defenseLv: userCharacter.defense_lv,
       pointLv: userCharacter.point_lv,
+      level: userCharacter.level,
+      experience: userCharacter.experience,
+      nextLevelExperience:
+        userCharacter.level >= MAX_LEVEL_BY_GRADE[userCharacter.character.grade]
+          ? null
+          : getCharacterNextLevelExperience(userCharacter.level),
       isDeployed: deployedTerritoryId !== null,
       deployedTerritoryId,
     };
