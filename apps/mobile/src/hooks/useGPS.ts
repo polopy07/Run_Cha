@@ -10,6 +10,12 @@ export type LatLng = {
   longitude: number;
 };
 
+let lastLocation: LatLng | null = null;
+
+export function getLastLocation() {
+  return lastLocation;
+}
+
 async function requestAndroidRunningPermissions(): Promise<{
   ok: boolean;
   error?: string;
@@ -47,6 +53,7 @@ export function useGPS() {
     (e: { nativeEvent: { coordinate?: LatLng } }) => {
       const coord = e.nativeEvent.coordinate;
       if (!coord) return;
+      lastLocation = coord;
       setCurrentLocation(coord);
     },
     [],

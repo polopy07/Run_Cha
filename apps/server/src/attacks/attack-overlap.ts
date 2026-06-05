@@ -36,7 +36,9 @@ export function calculateAttackOverlap(
     ? turf.area(storableContestedPolygon)
     : 0;
   const remaining = contestedPolygon
-    ? turf.difference(turf.featureCollection([territoryPolygon, contestedPolygon]))
+    ? turf.difference(
+        turf.featureCollection([territoryPolygon, contestedPolygon]),
+      )
     : territoryPolygon;
   const defenderRemainingPolygon = remaining
     ? extractLargestPolygon(remaining)
