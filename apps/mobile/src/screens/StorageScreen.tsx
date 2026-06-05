@@ -416,7 +416,6 @@ export function StorageScreen() {
     characters.length,
     executeDismantle,
     expectedStatPoints,
-    selectedDismantleIds.length,
     selectedDismantleIds,
     user?.representativeCharacter?.id,
   ]);

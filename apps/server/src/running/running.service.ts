@@ -7,10 +7,7 @@ import { Territory } from '../territories/entities/territory.entity';
 import { FinishRunningDto } from './dto/finish-running.dto';
 import { calcCenter } from '../common/utils/geo';
 import { EventsGateway } from '../socket/events.gateway';
-import {
-  CharacterGrade,
-  CharacterType,
-} from '../characters/entities/character.entity';
+import { CharacterType } from '../characters/entities/character.entity';
 import { UserCharacter } from '../characters/entities/user-character.entity';
 import {
   getCharacterMaxLevel,
@@ -116,8 +113,7 @@ export class RunningService {
       : Math.floor(basePoints * NON_CLOSED_BONUS_MULTIPLIER);
 
     const { savedLog, territory, representativeCharacterExp } =
-      await this.dataSource.transaction(
-      async (manager) => {
+      await this.dataSource.transaction(async (manager) => {
         const log = manager.create(RunningLog, {
           user_id: userId,
           path,
@@ -167,8 +163,7 @@ export class RunningService {
         }
 
         return { savedLog, territory, representativeCharacterExp };
-      },
-    );
+      });
 
     this.eventsGateway.broadcastRankingUpdate();
     if (territory) {
@@ -262,12 +257,8 @@ export class RunningService {
     };
   }
 
-  private increaseTypePrimaryStat(
-    userCharacter: UserCharacter,
-  ): IncreasedStat {
-    const maxStatLevel = getCharacterMaxLevel(
-      userCharacter.character.grade as CharacterGrade,
-    );
+  private increaseTypePrimaryStat(userCharacter: UserCharacter): IncreasedStat {
+    const maxStatLevel = getCharacterMaxLevel(userCharacter.character.grade);
 
     if (
       userCharacter.character.type === CharacterType.ATTACK &&

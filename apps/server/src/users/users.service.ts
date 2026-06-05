@@ -211,22 +211,23 @@ export class UsersService {
       points: user.points,
       statPoints: user.stat_points,
       totalDistance: user.total_distance,
-      representativeCharacter: rc && rc.character
-        ? {
-            id: rc.id,
-            characterId: rc.character_id,
-            name: rc.character.name,
-            type: rc.character.type,
-            grade: rc.character.grade,
-            imageUrl: rc.character.image_url,
-            level: rc.level,
-            experience: rc.experience,
-            nextLevelExperience:
-              rc.level >= getCharacterMaxLevel(rc.character.grade)
-                ? null
-                : getCharacterNextLevelExperience(rc.level),
-          }
-        : null,
+      representativeCharacter:
+        rc && rc.character
+          ? {
+              id: rc.id,
+              characterId: rc.character_id,
+              name: rc.character.name,
+              type: rc.character.type,
+              grade: rc.character.grade,
+              imageUrl: rc.character.image_url,
+              level: rc.level,
+              experience: rc.experience,
+              nextLevelExperience:
+                rc.level >= getCharacterMaxLevel(rc.character.grade)
+                  ? null
+                  : getCharacterNextLevelExperience(rc.level),
+            }
+          : null,
     };
   }
 }

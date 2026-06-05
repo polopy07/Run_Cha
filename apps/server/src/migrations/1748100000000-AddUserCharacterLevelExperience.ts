@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddUserCharacterLevelExperience1748100000000
-  implements MigrationInterface
-{
+export class AddUserCharacterLevelExperience1748100000000 implements MigrationInterface {
   name = 'AddUserCharacterLevelExperience1748100000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
