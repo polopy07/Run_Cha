@@ -82,7 +82,13 @@ describe('RunningService', () => {
       providers: [
         RunningService,
         { provide: DataSource, useValue: mockDataSource },
-        { provide: EventsGateway, useValue: { broadcastRankingUpdate: jest.fn(), broadcastTerritoryUpdate: jest.fn() } },
+        {
+          provide: EventsGateway,
+          useValue: {
+            broadcastRankingUpdate: jest.fn(),
+            broadcastTerritoryUpdate: jest.fn(),
+          },
+        },
       ],
     }).compile();
     service = module.get<RunningService>(RunningService);

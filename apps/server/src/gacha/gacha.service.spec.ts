@@ -16,6 +16,7 @@ import { GachaService } from './gacha.service';
 const mockRepository = () => ({
   find: jest.fn(),
   findOne: jest.fn(),
+  count: jest.fn(),
   save: jest.fn((value: unknown) => Promise.resolve(value)),
   insert: jest.fn((value: unknown) => Promise.resolve(value)),
 });
@@ -87,6 +88,7 @@ describe('GachaService', () => {
 
     charactersRepository.find.mockResolvedValue(characters);
     userCharactersRepository.find.mockResolvedValue([]);
+    userCharactersRepository.count.mockResolvedValue(0);
   });
 
   afterEach(() => {
@@ -245,6 +247,34 @@ describe('GachaService', () => {
     });
 
     await expect(service.draw(1, 1)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(userCharactersRepository.insert).not.toHaveBeenCalled();
+    expect(gachaLogsRepository.insert).not.toHaveBeenCalled();
+  });
+
+  it('rejects 1 draw when character storage is full', async () => {
+    usersRepository.findOne.mockResolvedValue({
+      id: 1,
+      points: 500,
+    });
+    userCharactersRepository.count.mockResolvedValue(30);
+
+    await expect(service.draw(1, 1)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(userCharactersRepository.insert).not.toHaveBeenCalled();
+    expect(gachaLogsRepository.insert).not.toHaveBeenCalled();
+  });
+
+  it('rejects 10 draws when character storage would exceed the limit', async () => {
+    usersRepository.findOne.mockResolvedValue({
+      id: 1,
+      points: 1000,
+    });
+    userCharactersRepository.count.mockResolvedValue(25);
+
+    await expect(service.draw(1, 10)).rejects.toBeInstanceOf(
       BadRequestException,
     );
     expect(userCharactersRepository.insert).not.toHaveBeenCalled();

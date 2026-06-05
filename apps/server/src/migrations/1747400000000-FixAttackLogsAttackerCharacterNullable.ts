@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class FixAttackLogsAttackerCharacterNullable1747400000000
-  implements MigrationInterface
-{
+export class FixAttackLogsAttackerCharacterNullable1747400000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
       `ALTER TABLE attack_logs DROP FOREIGN KEY FK_attack_logs_attacker_character`,

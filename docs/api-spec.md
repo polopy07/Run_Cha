@@ -572,7 +572,7 @@ const attackerPolygonAfter = success
 | id | number | 유저 캐릭터 ID |
 | upgradedStat | string | 강화된 스탯 |
 | newLevel | number | 강화 후 레벨 |
-| remainingPoints | number | 강화 후 남은 포인트 |
+| remainingStatPoints | number | 강화 후 남은 스탯 포인트 |
 
 ### PATCH `/characters/:id/deploy`
 

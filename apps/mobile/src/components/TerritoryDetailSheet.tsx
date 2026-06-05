@@ -66,7 +66,6 @@ function CharacterCard({ char, colors }: { char: TerritoryDeployedCharacter; col
       <View style={{ flexDirection: 'row', gap: 12 }}>
         <StatBadge label="ATK" value={char.attackLv} colors={colors} />
         <StatBadge label="DEF" value={char.defenseLv} colors={colors} />
-        <StatBadge label="SPD" value={char.speedLv} colors={colors} />
         <StatBadge label="PNT" value={char.pointLv} colors={colors} />
       </View>
     </View>

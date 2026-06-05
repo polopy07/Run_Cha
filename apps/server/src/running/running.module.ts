@@ -8,7 +8,11 @@ import { UsersModule } from '../users/users.module';
 import { SocketModule } from '../socket/socket.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([RunningLog, User]), UsersModule, SocketModule],
+  imports: [
+    TypeOrmModule.forFeature([RunningLog, User]),
+    UsersModule,
+    SocketModule,
+  ],
   controllers: [RunningController],
   providers: [RunningService],
 })

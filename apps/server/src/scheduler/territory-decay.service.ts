@@ -17,8 +17,8 @@ export class TerritoryDecayService {
   async handleDecay() {
     this.logger.log('땅 자연 감소 배치 시작');
     const now = new Date();
-    const cutoff4  = new Date(now.getTime() -  4 * 86_400_000);
-    const cutoff8  = new Date(now.getTime() -  8 * 86_400_000);
+    const cutoff4 = new Date(now.getTime() - 4 * 86_400_000);
+    const cutoff8 = new Date(now.getTime() - 8 * 86_400_000);
     const cutoff15 = new Date(now.getTime() - 15 * 86_400_000);
     const cutoff22 = new Date(now.getTime() - 22 * 86_400_000);
 
@@ -60,7 +60,8 @@ export class TerritoryDecayService {
     ]);
 
     const neutralized = deleteResult.affected ?? 0;
-    const decayed = (r25.affected ?? 0) + (r50.affected ?? 0) + (r75.affected ?? 0);
+    const decayed =
+      (r25.affected ?? 0) + (r50.affected ?? 0) + (r75.affected ?? 0);
 
     this.logger.log(`완료: ${decayed}개 감소, ${neutralized}개 중립화(삭제)`);
     return { decayed, neutralized };

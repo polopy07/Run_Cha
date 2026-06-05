@@ -194,7 +194,13 @@ describe('AttacksService', () => {
           useValue: userCharacterRepo,
         },
         { provide: getRepositoryToken(AttackLog), useValue: attackLogRepo },
-        { provide: EventsGateway, useValue: { broadcastRankingUpdate: jest.fn(), broadcastTerritoryUpdate: jest.fn() } },
+        {
+          provide: EventsGateway,
+          useValue: {
+            broadcastRankingUpdate: jest.fn(),
+            broadcastTerritoryUpdate: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
