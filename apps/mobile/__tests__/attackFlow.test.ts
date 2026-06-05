@@ -14,6 +14,7 @@ const makeCharacter = (id: number, type: Character['type']): Character => ({
   name: `character-${id}`,
   grade: 'common',
   type,
+  basePointRate: 1,
   attackLv: 1,
   defenseLv: 1,
   pointLv: 1,

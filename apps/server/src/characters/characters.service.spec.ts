@@ -71,6 +71,7 @@ describe('CharactersService', () => {
       name: 'defender',
       grade: CharacterGrade.COMMON,
       type: CharacterType.DEFENSE,
+      base_point_rate: 1,
     },
   } as UserCharacter;
 
@@ -125,6 +126,7 @@ describe('CharactersService', () => {
         grade: CharacterGrade.COMMON,
         type: CharacterType.DEFENSE,
         imageUrl: null,
+        basePointRate: 1,
         attackLv: 1,
         defenseLv: 2,
         pointLv: 4,

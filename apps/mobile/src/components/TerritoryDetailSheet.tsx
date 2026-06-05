@@ -35,6 +35,7 @@ import {
   getCharacterImageTransform,
 } from '../assets/characters/characterImages';
 import useCharacterStore, { type Character } from '../store/characterStore';
+import { getEstimatedTerritoryHourlyIncome } from '../utils/territoryIncomeUtils';
 
 type Props = {
   visible: boolean;
@@ -178,6 +179,22 @@ export function TerritoryDetailSheet({ visible, territoryId, territory, onClose,
       null
     );
   }, [characters, detail]);
+
+  const incomeCharacter = useMemo(() => {
+    if (!detail) return null;
+    return detail.deployedCharacters[0] ?? deployedCharacter;
+  }, [deployedCharacter, detail]);
+
+  const income = useMemo(
+    () =>
+      getEstimatedTerritoryHourlyIncome(
+        displayArea,
+        displayRate,
+        incomeCharacter,
+      ),
+    [displayArea, displayRate, incomeCharacter],
+  );
+  const hasBuffIncome = incomeCharacter?.type === 'buff';
 
   const deployableCharacters = useMemo(() => {
     const visibleCharacters = characters.filter(character => {
@@ -344,6 +361,74 @@ export function TerritoryDetailSheet({ visible, territoryId, territory, onClose,
                 </Text>
               </View>
             </View>
+
+            {detail?.isMine && (
+              <View
+                style={{
+                  backgroundColor: hasBuffIncome ? colors.primaryDim : colors.surface,
+                  borderColor: hasBuffIncome ? colors.primary : colors.divider,
+                  borderRadius: radius.md,
+                  borderWidth: 1,
+                  padding: 14,
+                  marginBottom: 16,
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 12,
+                  }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        color: colors.textMuted,
+                        fontSize: 11,
+                        fontWeight: '700',
+                      }}
+                    >
+                      시간당 예상 수익
+                    </Text>
+                    <Text
+                      style={{
+                        color: colors.text,
+                        fontSize: 20,
+                        fontWeight: '900',
+                        marginTop: 4,
+                      }}
+                    >
+                      +{income.estimatedPoints.toLocaleString()}P
+                    </Text>
+                  </View>
+                  <View
+                    style={{
+                      backgroundColor: colors.card,
+                      borderRadius: radius.full,
+                      paddingHorizontal: 10,
+                      paddingVertical: 6,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: hasBuffIncome ? colors.primary : colors.textSecondary,
+                        fontSize: 12,
+                        fontWeight: '900',
+                      }}
+                    >
+                      {hasBuffIncome
+                        ? `버프 x${income.multiplier.toFixed(2)}`
+                        : '기본 수익'}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 8 }}>
+                  기준 수익 {income.baseIncome.toFixed(2)}P/h
+                  {hasBuffIncome ? '에서 포인트 배율이 적용됩니다.' : ''}
+                </Text>
+              </View>
+            )}
 
             {/* 배치 캐릭터 */}
             {loadingDetail ? (

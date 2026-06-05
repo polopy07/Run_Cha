@@ -283,6 +283,7 @@ export class CharactersService {
       grade: userCharacter.character.grade,
       type: userCharacter.character.type,
       imageUrl: userCharacter.character.image_url ?? null,
+      basePointRate: userCharacter.character.base_point_rate,
       attackLv: userCharacter.attack_lv,
       defenseLv: userCharacter.defense_lv,
       pointLv: userCharacter.point_lv,

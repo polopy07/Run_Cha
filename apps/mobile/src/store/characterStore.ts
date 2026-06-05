@@ -8,6 +8,7 @@ export type Character = {
   grade: 'common' | 'rare' | 'epic' | 'legendary';
   type: 'attack' | 'defense' | 'buff';
   imageUrl?: string | null;
+  basePointRate: number;
   attackLv: number;
   defenseLv: number;
   pointLv: number;

@@ -102,6 +102,7 @@ export class TerritoriesService {
         name: userCharacter.character.name,
         grade: userCharacter.character.grade,
         type: userCharacter.character.type,
+        basePointRate: userCharacter.character.base_point_rate,
         attackLv: userCharacter.attack_lv,
         defenseLv: userCharacter.defense_lv,
         pointLv: userCharacter.point_lv,
