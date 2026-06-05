@@ -314,11 +314,14 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | name | string | 캐릭터 이름 |
 | type | string | 캐릭터 타입. `defense`, `buff` |
 | grade | string | 캐릭터 등급 |
+| basePointRate | number | 버프형 캐릭터의 기본 포인트 수익 배율 |
 | attackLv | number | 공격 레벨 |
 | defenseLv | number | 방어 레벨 |
 | pointLv | number | 포인트 효율 레벨 |
 
 비로그인 사용자도 접근 가능하며, 로그인 사용자인 경우에만 `isMine`을 현재 사용자 기준으로 계산한다. 상세 응답에서는 소유자 ID를 별도 `userId` 필드가 아닌 `owner.id`로 참조한다.
+
+내 영토 상세 화면은 이 응답의 `areaSqm`, `occupationRate`, `deployedCharacters[0].basePointRate`, `deployedCharacters[0].pointLv`를 사용해 시간당 예상 수익과 버프 배율을 표시할 수 있다.
 
 ### GET `/territories/me`
 
@@ -524,6 +527,7 @@ const attackerPolygonAfter = success
 | name | string | 캐릭터 이름 |
 | grade | string | 캐릭터 등급 |
 | type | string | 캐릭터 타입. `attack`, `defense`, `buff` |
+| basePointRate | number | 버프형 캐릭터의 기본 포인트 수익 배율 |
 | attackLv | number | 공격 레벨 |
 | defenseLv | number | 방어 레벨 |
 | pointLv | number | 포인트 효율 레벨 |
@@ -591,6 +595,7 @@ const attackerPolygonAfter = success
 | name | string | 캐릭터 이름 |
 | grade | string | 캐릭터 등급 |
 | type | string | 캐릭터 타입 |
+| basePointRate | number | 버프형 캐릭터의 기본 포인트 수익 배율 |
 | attackLv | number | 공격 레벨 |
 | defenseLv | number | 방어 레벨 |
 | pointLv | number | 포인트 효율 레벨 |
@@ -611,13 +616,15 @@ const attackerPolygonAfter = success
 - 버프형 캐릭터는 영토의 시간당 포인트 수익 증가에 사용한다.
 - 버프형 캐릭터가 배치된 영토의 수익 배율은 `Math.min(base_point_rate + (pointLv - 1) * 0.05, 2.0)`이다.
 - 수비형 캐릭터 또는 미배치 영토는 수익 배율 `1.0`을 사용한다.
+- 시간당 사용자 포인트 수익은 `Math.floor(SUM((area_sqm * occupation_rate / 100 / 1000) * territoryMultiplier))`로 집계한다.
+- 앱의 내 영토 관리와 내 영토 상세 화면은 영토별 `Math.floor((areaSqm * occupationRate / 100 / 1000) * territoryMultiplier)` 기준의 시간당 예상 수익을 표시한다.
 
 #### 현재 구현 기준
 
 - 가챠 비용: 1회 100 포인트, 10회 900 포인트
 - 가챠 확률: common 60%, rare 30%, epic 9%, legendary 1%
 - 천장 보장 시스템은 사용하지 않는다.
-- 강화 비용: `Math.min(Math.floor(100 * 1.5 ** currentLevel), 5000)`
+- 강화 비용: 스탯 포인트 1개
 - 위 수치는 현재 구현 기준이며, 밸런스 검토 후 조정될 수 있다.
 
 ### POST `/characters/dismantle`

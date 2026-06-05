@@ -221,7 +221,10 @@ const earnedPoints = isClosedLoop ? basePoints : Math.floor(basePoints * 1.3);
 - `distanceMultiplier`는 장거리 러닝 보정값이며 현재 구현 기준 `Math.min(1.1 ** distanceKm, 3.0)`을 사용한다.
 - 폐곡선이 아닌 러닝은 영토를 생성하지 않고 즉시 보상에 1.3배를 적용한다.
 - 폐곡선으로 생성된 영토는 매시간 포인트 수익을 만든다.
-- 시간당 수익은 `Math.floor(SUM(area_sqm * occupation_rate / 100) / 1000)`로 사용자별 지급한다.
+- 시간당 수익은 사용자별로 `Math.floor(SUM((area_sqm * occupation_rate / 100 / 1000) * territoryMultiplier))`를 지급한다.
+- `territoryMultiplier`는 버프형 캐릭터가 배치된 영토만 `Math.min(base_point_rate + (point_lv - 1) * 0.05, 2.0)`을 사용한다.
+- 수비형 캐릭터 또는 미배치 영토는 `territoryMultiplier = 1.0`을 사용한다.
+- 앱은 내 영토 관리와 홈 지도 영토 상세에서 영토별 시간당 예상 수익, 기준 수익, 버프 배율을 표시한다.
 
 ### 3.4 가챠 흐름
 
@@ -239,7 +242,7 @@ const earnedPoints = isClosedLoop ? basePoints : Math.floor(basePoints * 1.3);
 - 가챠 비용은 1회 100 포인트, 10회 900 포인트다.
 - 가챠 확률은 common 60%, rare 30%, epic 9%, legendary 1%다.
 - 천장 보장 시스템은 사용하지 않는다.
-- 캐릭터 강화 비용은 `Math.min(Math.floor(100 * 1.5 ** currentLevel), 5000)`을 사용한다.
+- 캐릭터 강화 비용은 스탯 포인트 1개를 사용한다.
 
 ### 3.5 캐릭터 배치 흐름
 
@@ -263,7 +266,8 @@ const earnedPoints = isClosedLoop ? basePoints : Math.floor(basePoints * 1.3);
 - 하나의 영토에는 하나의 수비형/버프형 캐릭터만 배치할 수 있다.
 - 배치 여부는 `deployed_territory_id IS NOT NULL`로 파생한다.
 - 수비형 캐릭터는 침략 방어력 계산에 사용한다.
-- 버프형 캐릭터는 영토의 시간당 포인트 수익 증가 효과로 다룬다. 공격/방어 강화 스탯과는 분리하며, 정확한 배율 공식은 후속 구현에서 확정한다.
+- 버프형 캐릭터는 영토의 시간당 포인트 수익 증가 효과로 다룬다.
+- 버프형 배율은 `Math.min(base_point_rate + (point_lv - 1) * 0.05, 2.0)`이며, 공격/방어 강화 스탯과는 분리한다.
 
 ### 3.6 캐릭터 분해 흐름
 
@@ -377,7 +381,7 @@ const attackerPolygonAfter = success
 - 캐릭터 배치가 스케줄러에 영향을 주는 경우 배치 데이터와 자연 감소 로직을 함께 갱신한다.
 - 영토 점령률은 시간이 지나면 반드시 감소하며, 사용자가 요구량만큼 직접 러닝한 경우 일정 기간 동안 감소량을 줄이는 구조를 전제로 한다.
 - 캐릭터 강화 스탯은 공격, 방어, 포인트 효율 3종을 사용한다. 속도 스탯은 사용하지 않는다.
-- 버프형 캐릭터의 시간당 포인트 수익 증가는 포인트 효율 스탯(`point_lv`, `base_point_rate`) 기반으로 관리하며, 정확한 배율 공식은 후속 구현에서 확정한다.
+- 버프형 캐릭터의 시간당 포인트 수익 증가는 `Math.min(base_point_rate + (point_lv - 1) * 0.05, 2.0)`으로 계산한다.
 - 장시간 연속 러닝은 보상 보정이 증가할 수 있으며, 짧게 끊어 달리는 보상 악용을 줄이는 방향으로 공식 확정이 필요하다.
 - `.env`, Firebase Admin 서비스 키, API Key는 저장소에 포함하지 않는다.
 - Firebase ID Token은 `/auth/login`에서만 사용하고, 이후 보호 API는 서버 JWT를 사용한다.
