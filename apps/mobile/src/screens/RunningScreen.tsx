@@ -4,6 +4,7 @@ import {
   Alert, ActivityIndicator, Platform, StatusBar,
 } from 'react-native';
 import MapView, { Polygon, Polyline, PROVIDER_GOOGLE, PROVIDER_DEFAULT, type Region } from 'react-native-maps';
+import { CharacterMarker } from '../components/CharacterMarker';
 import useRunningStore from '../store/runningStore';
 import { finishRunning as finishRunningAPI } from '../api/running';
 import { useTheme } from '../contexts/ThemeContext';
@@ -48,6 +49,8 @@ export function RunningScreen() {
 
   const fetchMe = useAuthStore(s => s.fetchMe);
   const user = useAuthStore(s => s.user);
+  const rep = user?.representativeCharacter ?? null;
+  const [myLocation, setMyLocation] = useState<{ latitude: number; longitude: number } | null>(getLastLocation());
   const [territories, setTerritories] = useState<Territory[]>([]);
 
   const fetchNearbyTerritories = useCallback(async (region: Region) => {
@@ -96,7 +99,9 @@ export function RunningScreen() {
       const coordinate = e.nativeEvent.coordinate;
       if (!coordinate) return;
 
-      updateSharedLocation({ latitude: coordinate.latitude, longitude: coordinate.longitude });
+      const loc = { latitude: coordinate.latitude, longitude: coordinate.longitude };
+      updateSharedLocation(loc);
+      setMyLocation(loc);
 
       if (!initialMoveDone.current) {
         initialMoveDone.current = true;
@@ -291,6 +296,20 @@ export function RunningScreen() {
         })}
         {polylineCoords.length > 1 && (
           <Polyline coordinates={polylineCoords} strokeColor={colors.primary} strokeWidth={5} />
+        )}
+        {myLocation && user && (
+          <CharacterMarker
+            user={{
+              userId: user.id,
+              nickname: user.nickname,
+              lat: myLocation.latitude,
+              lng: myLocation.longitude,
+              character: rep
+                ? { name: rep.name, type: rep.type, grade: rep.grade, imageUrl: rep.imageUrl }
+                : null,
+            }}
+            isMe
+          />
         )}
       </MapView>
 
