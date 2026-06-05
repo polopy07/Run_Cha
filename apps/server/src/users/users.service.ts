@@ -118,6 +118,19 @@ export class UsersService {
     return user;
   }
 
+  async findByIdWithRepresentative(id: number) {
+    const user = await this.usersRepository.findOne({
+      where: { id },
+      relations: ['representative_character', 'representative_character.character'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('사용자를 찾을 수 없습니다.');
+    }
+
+    return user;
+  }
+
   async findByIdWithRepresentativeCharacter(id: number): Promise<{
     id: number;
     nickname: string;
@@ -128,15 +141,7 @@ export class UsersService {
       imageUrl: string | null;
     } | null;
   }> {
-    const user = await this.usersRepository.findOne({
-      where: { id },
-      relations: ['representative_character', 'representative_character.character'],
-    });
-
-    if (!user) {
-      throw new NotFoundException('사용자를 찾을 수 없습니다.');
-    }
-
+    const user = await this.findByIdWithRepresentative(id);
     const uc = user.representative_character;
     return {
       id: user.id,
@@ -150,6 +155,25 @@ export class UsersService {
           }
         : null,
     };
+  }
+
+  async setRepresentative(userId: number, userCharacterId: number | null) {
+    if (userCharacterId === null) {
+      await this.usersRepository.update(userId, { representative_character_id: null });
+      return this.findByIdWithRepresentative(userId);
+    }
+
+    const userCharacterRepo = this.dataSource.getRepository(UserCharacter);
+    const uc = await userCharacterRepo.findOne({
+      where: { id: userCharacterId, user_id: userId },
+    });
+
+    if (!uc) {
+      throw new BadRequestException('보유하지 않은 캐릭터입니다.');
+    }
+
+    await this.usersRepository.update(userId, { representative_character_id: userCharacterId });
+    return this.findByIdWithRepresentative(userId);
   }
 
   async updateNickname(id: number, nickname: string) {
@@ -168,6 +192,7 @@ export class UsersService {
   }
 
   toResponse(user: User) {
+    const rc = user.representative_character;
     return {
       id: user.id,
       email: user.email,
@@ -175,6 +200,16 @@ export class UsersService {
       points: user.points,
       statPoints: user.stat_points,
       totalDistance: user.total_distance,
+      representativeCharacter: rc && rc.character
+        ? {
+            id: rc.id,
+            characterId: rc.character_id,
+            name: rc.character.name,
+            type: rc.character.type,
+            grade: rc.character.grade,
+            imageUrl: rc.character.image_url,
+          }
+        : null,
     };
   }
 }

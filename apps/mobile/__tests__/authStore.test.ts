@@ -7,6 +7,7 @@ const mockLoginResponse = {
   points: 100,
   statPoints: 3,
   totalDistance: 5.5,
+  representativeCharacter: null,
   accessToken: 'jwt-token-123',
 };
 
@@ -17,6 +18,7 @@ const mockUserResponse = {
   points: 100,
   statPoints: 3,
   totalDistance: 5.5,
+  representativeCharacter: null,
 };
 
 beforeEach(() => {

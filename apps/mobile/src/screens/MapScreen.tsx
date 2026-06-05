@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform, View, Text, TouchableOpacity, Alert } from 'react-native';
+import { Platform, View, Text, TouchableOpacity, Alert, Modal, Pressable } from 'react-native';
 import MapView, { Marker, Polygon, PROVIDER_GOOGLE, PROVIDER_DEFAULT, type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useTheme } from '../contexts/ThemeContext';
-import { radius, mapCardShadow } from '../constants/theme';
+import { radius, mapCardShadow, GRADE_LABEL } from '../constants/theme';
 import { darkMapStyle } from '../constants/mapStyle';
 import useAuthStore from '../store/authStore';
 import { getTerritories, type Territory } from '../api/territory';
@@ -13,6 +13,8 @@ import { TerritoryDetailSheet } from '../components/TerritoryDetailSheet';
 import { AttackTerritoryPanel } from '../components/attack/AttackTerritoryPanel';
 import { getUserColor } from '../utils/colorUtils';
 import { formatAreaCompact } from '../utils/formatUtils';
+import { useSocket } from '../hooks/useSocket';
+import { CharacterMarker } from '../components/CharacterMarker';
 
 function getCentroid(coords: { lat: number; lng: number }[]): { latitude: number; longitude: number } {
   const len = coords.length || 1;
@@ -31,15 +33,21 @@ const INITIAL_REGION = {
 };
 
 export function MapScreen() {
-  const { colors, isDark } = useTheme();
+  const { colors, isDark, gradeColor } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<MapNav>();
   const mapRef = useRef<MapView>(null);
   const regionRef = useRef(INITIAL_REGION);
   const userLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const initialMoveDone = useRef(false);
+  const lastEmitRef = useRef(0);
   const user = useAuthStore(s => s.user);
+  const rep = user?.representativeCharacter ?? null;
+  const { nearbyUsers, emitLocation } = useSocket({
+    onTerritoryUpdate: () => fetchTerritories(regionRef.current),
+  });
   const [territories, setTerritories] = useState<Territory[]>([]);
+  const [showProfile, setShowProfile] = useState(false);
   const [selectedTerritoryId, setSelectedTerritoryId] = useState<number | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
   const [attackTerritoryId, setAttackTerritoryId] = useState<number | null>(null);
@@ -125,6 +133,11 @@ export function MapScreen() {
             mapRef.current?.animateToRegion(region, 500);
             fetchTerritories(region);
           }
+          const now = Date.now();
+          if (now - lastEmitRef.current >= 3000) {
+            lastEmitRef.current = now;
+            emitLocation(c.latitude, c.longitude);
+          }
         }}
         showsUserLocation
         showsMyLocationButton={false}
@@ -167,6 +180,13 @@ export function MapScreen() {
             </React.Fragment>
           );
         })}
+        {nearbyUsers.map((u) => (
+          <CharacterMarker
+            key={u.userId}
+            user={u}
+            isMe={u.userId === user?.id}
+          />
+        ))}
       </MapView>
 
       {/* 상단 헤더 */}
@@ -177,16 +197,33 @@ export function MapScreen() {
         paddingHorizontal: 16, paddingBottom: 12, paddingTop: insets.top + 8,
         ...mapCardShadow(isDark),
       }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <View style={{
-            width: 36, height: 36, borderRadius: 12,
-            backgroundColor: colors.primary,
-            justifyContent: 'center', alignItems: 'center',
-          }}>
-            <Text style={{ color: colors.bg, fontSize: 15, fontWeight: '800' }}>{user?.nickname?.[0] ?? '?'}</Text>
-          </View>
+        <TouchableOpacity
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}
+          activeOpacity={0.7}
+          onPress={() => setShowProfile(true)}
+        >
+          {rep ? (
+            <View style={{
+              width: 36, height: 36, borderRadius: 12,
+              backgroundColor: `${gradeColor[rep.grade]}20`,
+              borderWidth: 2, borderColor: gradeColor[rep.grade],
+              justifyContent: 'center', alignItems: 'center',
+            }}>
+              <Text style={{ color: gradeColor[rep.grade], fontSize: 12, fontWeight: '800' }}>
+                {rep.type === 'attack' ? 'ATK' : rep.type === 'defense' ? 'DEF' : 'BUF'}
+              </Text>
+            </View>
+          ) : (
+            <View style={{
+              width: 36, height: 36, borderRadius: 12,
+              backgroundColor: colors.primary,
+              justifyContent: 'center', alignItems: 'center',
+            }}>
+              <Text style={{ color: colors.bg, fontSize: 15, fontWeight: '800' }}>{user?.nickname?.[0] ?? '?'}</Text>
+            </View>
+          )}
           <Text style={{ color: colors.text, fontSize: 14, fontWeight: '700' }}>{user?.nickname ?? '유저'}</Text>
-        </View>
+        </TouchableOpacity>
         <View style={{
           flexDirection: 'row', alignItems: 'center', gap: 6,
           backgroundColor: colors.goldDim,
@@ -196,6 +233,70 @@ export function MapScreen() {
           <Text style={{ fontSize: 13, fontWeight: '700', color: colors.gold }}>{(user?.points ?? 0).toLocaleString()}</Text>
         </View>
       </View>
+
+      {/* 프로필 팝업 */}
+      <Modal transparent visible={showProfile} animationType="fade" onRequestClose={() => setShowProfile(false)}>
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }} onPress={() => setShowProfile(false)}>
+          <Pressable style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: 24, width: '80%', alignItems: 'center', gap: 12 }}>
+            {rep ? (
+              <View style={{
+                width: 56, height: 56, borderRadius: 20,
+                backgroundColor: `${gradeColor[rep.grade]}20`,
+                borderWidth: 2, borderColor: gradeColor[rep.grade],
+                justifyContent: 'center', alignItems: 'center',
+              }}>
+                <Text style={{ color: gradeColor[rep.grade], fontSize: 18, fontWeight: '800' }}>
+                  {rep.type === 'attack' ? 'ATK' : rep.type === 'defense' ? 'DEF' : 'BUF'}
+                </Text>
+              </View>
+            ) : (
+              <View style={{
+                width: 56, height: 56, borderRadius: 20,
+                backgroundColor: colors.primary,
+                justifyContent: 'center', alignItems: 'center',
+              }}>
+                <Text style={{ color: colors.bg, fontSize: 22, fontWeight: '800' }}>{user?.nickname?.[0] ?? '?'}</Text>
+              </View>
+            )}
+
+            <Text style={{ fontSize: 18, fontWeight: '800', color: colors.text }}>{user?.nickname ?? '유저'}</Text>
+            <Text style={{ fontSize: 12, color: colors.textMuted }}>{user?.email}</Text>
+
+            {rep && (
+              <View style={{
+                flexDirection: 'row', alignItems: 'center', gap: 6,
+                backgroundColor: `${gradeColor[rep.grade]}15`,
+                borderRadius: radius.sm, paddingHorizontal: 10, paddingVertical: 5,
+              }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: gradeColor[rep.grade] }}>
+                  {GRADE_LABEL[rep.grade]}
+                </Text>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: colors.text }}>{rep.name}</Text>
+              </View>
+            )}
+
+            <View style={{ width: '100%', backgroundColor: colors.card, borderRadius: radius.md, padding: 14, gap: 10, marginTop: 4 }}>
+              {[
+                { label: '포인트', value: (user?.points ?? 0).toLocaleString(), color: colors.gold },
+                { label: '스탯 포인트', value: String(user?.statPoints ?? 0), color: colors.primary },
+                { label: '총 거리', value: `${(user?.totalDistance ?? 0).toFixed(1)} km`, color: colors.accent },
+              ].map((row) => (
+                <View key={row.label} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 13, color: colors.textSecondary }}>{row.label}</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: row.color }}>{row.value}</Text>
+                </View>
+              ))}
+            </View>
+
+            <TouchableOpacity
+              style={{ marginTop: 4, paddingVertical: 10, paddingHorizontal: 24, backgroundColor: colors.card, borderRadius: radius.full }}
+              onPress={() => setShowProfile(false)}
+            >
+              <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textSecondary }}>닫기</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* 맵 컨트롤 */}
       <View style={{ position: 'absolute', right: 12, top: '42%' }}>

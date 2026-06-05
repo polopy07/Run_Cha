@@ -7,6 +7,15 @@ import {
 import { auth } from '../api/firebase';
 import { apiFetch, saveToken, getToken, removeToken } from '../api/client';
 
+export type RepresentativeCharacter = {
+  id: number;
+  characterId: number;
+  name: string;
+  type: 'attack' | 'defense' | 'buff';
+  grade: 'common' | 'rare' | 'epic' | 'legendary';
+  imageUrl: string | null;
+};
+
 export type User = {
   id: number;
   email: string;
@@ -14,6 +23,7 @@ export type User = {
   points: number;
   statPoints: number;
   totalDistance: number;
+  representativeCharacter: RepresentativeCharacter | null;
 };
 
 type LoginResponse = User & { accessToken: string };
@@ -29,6 +39,7 @@ type AuthState = {
   logout: () => Promise<void>;
   restoreSession: () => Promise<void>;
   fetchMe: () => Promise<void>;
+  setRepresentative: (userCharacterId: number | null) => Promise<void>;
 };
 
 async function authenticateWithServer(
@@ -99,6 +110,14 @@ const useAuthStore = create<AuthState>((set) => ({
 
   fetchMe: async () => {
     const data = await apiFetch<User>('/users/me');
+    set({ user: data });
+  },
+
+  setRepresentative: async (userCharacterId) => {
+    const data = await apiFetch<User>('/users/me/representative', {
+      method: 'PUT',
+      body: JSON.stringify({ userCharacterId }),
+    });
     set({ user: data });
   },
 }));

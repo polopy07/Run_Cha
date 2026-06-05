@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { MoreThan } from 'typeorm';
 import { TerritoriesService } from './territories.service';
 import { Territory } from './entities/territory.entity';
 import { GetTerritoriesDto } from './dto/get-territories.dto';
@@ -86,7 +87,11 @@ describe('TerritoriesService', () => {
       const result = await service.findMine(1);
 
       expect(mockRepo.find).toHaveBeenCalledWith({
-        where: { user_id: 1 },
+        where: {
+          user_id: 1,
+          area_sqm: MoreThan(0),
+          occupation_rate: MoreThan(0),
+        },
         order: { id: 'ASC' },
         relations: ['user'],
         select: {
@@ -142,6 +147,13 @@ describe('TerritoriesService', () => {
         expect.stringContaining('center_lng BETWEEN'),
         expect.objectContaining({ minLng: 126.0, maxLng: 128.0 }),
       );
+    });
+
+    it('filters out empty or neutralized territories from map bounds', async () => {
+      await service.findInBounds(BOUNDS);
+
+      expect(mockQb.andWhere).toHaveBeenCalledWith('t.area_sqm > 0');
+      expect(mockQb.andWhere).toHaveBeenCalledWith('t.occupation_rate > 0');
     });
 
     it('maps ownerNickname from joined user relation', async () => {
