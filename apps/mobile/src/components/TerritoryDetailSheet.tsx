@@ -35,6 +35,7 @@ import {
   getCharacterImageTransform,
 } from '../assets/characters/characterImages';
 import useCharacterStore, { type Character } from '../store/characterStore';
+import { getEstimatedTerritoryHourlyIncome } from '../utils/territoryIncomeUtils';
 
 type Props = {
   visible: boolean;
@@ -43,16 +44,6 @@ type Props = {
   onClose: () => void;
   onAttack?: (territoryId: number) => void;
 };
-
-function gradeColor(grade: string, colors: ReturnType<typeof useTheme>['colors']): string {
-  const map: Record<string, string> = {
-    common: colors.gradeCommon,
-    rare: colors.gradeRare,
-    epic: colors.gradeEpic,
-    legendary: colors.gradeLegendary,
-  };
-  return map[grade] ?? colors.textMuted;
-}
 
 const TYPE_LABEL: Record<Character['type'], string> = {
   attack: '공격형',
@@ -66,8 +57,16 @@ const TYPE_SHORT: Record<Character['type'], string> = {
   buff: 'BUF',
 };
 
-function CharacterCard({ char, colors }: { char: TerritoryDeployedCharacter; colors: ReturnType<typeof useTheme>['colors'] }) {
-  const gc = gradeColor(char.grade, colors);
+function CharacterCard({
+  char,
+  colors,
+  gradeColor,
+}: {
+  char: TerritoryDeployedCharacter;
+  colors: ReturnType<typeof useTheme>['colors'];
+  gradeColor: ReturnType<typeof useTheme>['gradeColor'];
+}) {
+  const gc = gradeColor[char.grade] ?? colors.textMuted;
   const typeLabel = char.type === 'defense' ? '수비' : char.type === 'buff' ? '버프' : '공격';
 
   return (
@@ -128,7 +127,7 @@ function StatBadge({ label, value, colors }: { label: string; value: number; col
 }
 
 export function TerritoryDetailSheet({ visible, territoryId, territory, onClose, onAttack }: Props) {
-  const { colors } = useTheme();
+  const { colors, gradeColor } = useTheme();
   const { characters, fetchCharacters, updateCharacter } = useCharacterStore();
   const [detail, setDetail] = useState<TerritoryDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -178,6 +177,22 @@ export function TerritoryDetailSheet({ visible, territoryId, territory, onClose,
       null
     );
   }, [characters, detail]);
+
+  const incomeCharacter = useMemo(() => {
+    if (!detail) return null;
+    return detail.deployedCharacters[0] ?? deployedCharacter;
+  }, [deployedCharacter, detail]);
+
+  const income = useMemo(
+    () =>
+      getEstimatedTerritoryHourlyIncome(
+        displayArea,
+        displayRate,
+        incomeCharacter,
+      ),
+    [displayArea, displayRate, incomeCharacter],
+  );
+  const hasBuffIncome = incomeCharacter?.type === 'buff';
 
   const deployableCharacters = useMemo(() => {
     const visibleCharacters = characters.filter(character => {
@@ -345,6 +360,74 @@ export function TerritoryDetailSheet({ visible, territoryId, territory, onClose,
               </View>
             </View>
 
+            {detail?.isMine && (
+              <View
+                style={{
+                  backgroundColor: hasBuffIncome ? colors.primaryDim : colors.surface,
+                  borderColor: hasBuffIncome ? colors.primary : colors.divider,
+                  borderRadius: radius.md,
+                  borderWidth: 1,
+                  padding: 14,
+                  marginBottom: 16,
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 12,
+                  }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        color: colors.textMuted,
+                        fontSize: 11,
+                        fontWeight: '700',
+                      }}
+                    >
+                      시간당 예상 수익
+                    </Text>
+                    <Text
+                      style={{
+                        color: colors.text,
+                        fontSize: 20,
+                        fontWeight: '900',
+                        marginTop: 4,
+                      }}
+                    >
+                      +{income.estimatedPoints.toLocaleString()}P
+                    </Text>
+                  </View>
+                  <View
+                    style={{
+                      backgroundColor: colors.card,
+                      borderRadius: radius.full,
+                      paddingHorizontal: 10,
+                      paddingVertical: 6,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: hasBuffIncome ? colors.primary : colors.textSecondary,
+                        fontSize: 12,
+                        fontWeight: '900',
+                      }}
+                    >
+                      {hasBuffIncome
+                        ? `버프 x${income.multiplier.toFixed(2)}`
+                        : '기본 수익'}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 8 }}>
+                  기준 수익 {income.baseIncome.toFixed(2)}P/h
+                  {hasBuffIncome ? '에서 포인트 배율이 적용됩니다.' : ''}
+                </Text>
+              </View>
+            )}
+
             {/* 배치 캐릭터 */}
             {loadingDetail ? (
               <View style={{ paddingVertical: 20, alignItems: 'center' }}>
@@ -366,7 +449,12 @@ export function TerritoryDetailSheet({ visible, territoryId, territory, onClose,
                 ) : (
                   <View style={{ marginBottom: 16 }}>
                     {detail.deployedCharacters.map(c => (
-                      <CharacterCard key={c.id} char={c} colors={colors} />
+                      <CharacterCard
+                        key={c.id}
+                        char={c}
+                        colors={colors}
+                        gradeColor={gradeColor}
+                      />
                     ))}
                     {detail.isMine && deployedCharacter && (
                       <TouchableOpacity
@@ -502,7 +590,7 @@ export function TerritoryDetailSheet({ visible, territoryId, territory, onClose,
                           </View>
                         ) : (
                           deployableCharacters.map(character => {
-                            const gc = gradeColor(character.grade, colors);
+                            const gc = gradeColor[character.grade] ?? colors.textMuted;
                             return (
                               <TouchableOpacity
                                 key={character.id}

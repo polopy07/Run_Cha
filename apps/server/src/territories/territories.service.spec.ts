@@ -202,6 +202,7 @@ describe('TerritoriesService', () => {
         name: 'defender',
         grade: CharacterGrade.COMMON,
         type: CharacterType.DEFENSE,
+        base_point_rate: 1,
       } as Character;
       const userCharacter = {
         id: 10,
@@ -251,6 +252,7 @@ describe('TerritoriesService', () => {
             name: 'defender',
             grade: CharacterGrade.COMMON,
             type: CharacterType.DEFENSE,
+            basePointRate: 1,
             attackLv: 1,
             defenseLv: 2,
             pointLv: 3,

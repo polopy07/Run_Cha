@@ -38,6 +38,7 @@ import {
   getCharacterImageTransform,
 } from '../assets/characters/characterImages';
 import useCharacterStore, { type Character } from '../store/characterStore';
+import { getEstimatedTerritoryHourlyIncome } from '../utils/territoryIncomeUtils';
 
 type Props = StackScreenProps<MenuStackParamList, 'MyTerritories'>;
 
@@ -103,6 +104,27 @@ export function MyTerritoriesScreen({ navigation }: Props) {
   const totalArea = useMemo(
     () => territories.reduce((sum, territory) => sum + territory.areaSqm, 0),
     [territories],
+  );
+
+  const totalEstimatedHourlyIncome = useMemo(
+    () => {
+      const rawIncome = territories.reduce((sum, territory) => {
+        const deployedCharacter =
+          characters.find(
+            character => character.deployedTerritoryId === territory.id,
+          ) ?? null;
+        const income = getEstimatedTerritoryHourlyIncome(
+          territory.areaSqm,
+          territory.occupationRate,
+          deployedCharacter,
+        );
+
+        return sum + income.rawIncome;
+      }, 0);
+
+      return Math.floor(rawIncome);
+    },
+    [characters, territories],
   );
 
   const deployableCharacters = useMemo(() => {
@@ -265,6 +287,12 @@ export function MyTerritoriesScreen({ navigation }: Props) {
 
   const renderTerritory = ({ item }: { item: Territory }) => {
     const deployedCharacter = getDeployedCharacter(item.id);
+    const income = getEstimatedTerritoryHourlyIncome(
+      item.areaSqm,
+      item.occupationRate,
+      deployedCharacter,
+    );
+    const hasBuffIncome = deployedCharacter?.type === 'buff';
 
     return (
       <View
@@ -361,6 +389,56 @@ export function MyTerritoriesScreen({ navigation }: Props) {
               {formatDate(item.lastActiveAt)}
             </Text>
           </View>
+        </View>
+
+        <View
+          style={{
+            backgroundColor: hasBuffIncome ? colors.primaryDim : colors.card,
+            borderColor: hasBuffIncome ? colors.primary : colors.divider,
+            borderRadius: radius.sm,
+            borderWidth: 1,
+            marginTop: spacing.md,
+            padding: spacing.md,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: spacing.md,
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.textMuted, fontSize: 11 }}>
+                시간당 예상 수익
+              </Text>
+              <Text
+                style={{
+                  color: colors.text,
+                  fontSize: 17,
+                  fontWeight: '900',
+                  marginTop: 4,
+                }}
+              >
+                +{income.estimatedPoints.toLocaleString()}P
+              </Text>
+            </View>
+            <Text
+              style={{
+                color: hasBuffIncome ? colors.primary : colors.textSecondary,
+                fontSize: 12,
+                fontWeight: '800',
+              }}
+            >
+              {hasBuffIncome
+                ? `버프 x${income.multiplier.toFixed(2)}`
+                : '기본 수익'}
+            </Text>
+          </View>
+          <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 6 }}>
+            기준 수익 {income.baseIncome.toFixed(2)}P/h
+          </Text>
         </View>
 
         <View
@@ -562,6 +640,16 @@ export function MyTerritoriesScreen({ navigation }: Props) {
                 }}
               >
                 총 면적 {formatArea(totalArea)}
+              </Text>
+              <Text
+                style={{
+                  color: colors.primary,
+                  fontSize: 13,
+                  fontWeight: '800',
+                  marginTop: 6,
+                }}
+              >
+                시간당 예상 수익 +{totalEstimatedHourlyIncome.toLocaleString()}P
               </Text>
             </View>
           }

@@ -6,6 +6,12 @@ import { RunningService } from './running.service';
 import { RunningLog } from './entities/running-log.entity';
 import { Territory } from '../territories/entities/territory.entity';
 import { EventsGateway } from '../socket/events.gateway';
+import { User } from '../users/entities/user.entity';
+import {
+  CharacterGrade,
+  CharacterType,
+} from '../characters/entities/character.entity';
+import { UserCharacter } from '../characters/entities/user-character.entity';
 
 const CLOSED_LOOP = [
   { lat: 37.5, lng: 127.0 },
@@ -55,11 +61,18 @@ describe('RunningService', () => {
     execute: jest.fn().mockResolvedValue({ affected: 1 }),
   };
 
+  const mockUserCharacterRepo = {
+    findOne: jest.fn(),
+    save: jest.fn((data: Record<string, unknown>) => Promise.resolve(data)),
+  };
+
   const mockEntityManager = {
     create: jest.fn((_entity: unknown, data: Record<string, unknown>) => data),
     save: jest.fn((data: Record<string, unknown>) =>
       Promise.resolve({ id: 1, ...data }),
     ),
+    findOne: jest.fn(),
+    getRepository: jest.fn(),
     createQueryBuilder: jest.fn(() => mockUserQb),
   };
 
@@ -77,6 +90,24 @@ describe('RunningService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockEntityManager.findOne.mockImplementation((entity: unknown) => {
+      if (entity === User) {
+        return Promise.resolve({
+          id: 1,
+          representative_character_id: null,
+        });
+      }
+
+      return Promise.resolve(null);
+    });
+    mockEntityManager.getRepository.mockImplementation((entity: unknown) => {
+      if (entity === UserCharacter) {
+        return mockUserCharacterRepo;
+      }
+
+      return {};
+    });
+    mockUserCharacterRepo.findOne.mockResolvedValue(null);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -311,6 +342,53 @@ describe('RunningService', () => {
             territory: null,
             earned_points: expect.any(Number) as unknown,
             area_sqm: expect.any(Number) as unknown,
+            representativeCharacterExp: null,
+          }),
+        );
+      });
+
+      it('대표 캐릭터가 있으면 러닝 경험치를 지급하고 타입 주 스탯을 성장시킨다', async () => {
+        mockEntityManager.findOne.mockImplementation((entity: unknown) => {
+          if (entity === User) {
+            return Promise.resolve({
+              id: 1,
+              representative_character_id: 10,
+            });
+          }
+
+          return Promise.resolve(null);
+        });
+        mockUserCharacterRepo.findOne.mockResolvedValue({
+          id: 10,
+          user_id: 1,
+          character_id: 3,
+          attack_lv: 1,
+          defense_lv: 1,
+          point_lv: 1,
+          level: 1,
+          experience: 99,
+          character: {
+            grade: CharacterGrade.COMMON,
+            type: CharacterType.ATTACK,
+          },
+        });
+
+        const result = await service.finish(1, createFinishDto(OPEN_PATH));
+
+        expect(mockUserCharacterRepo.save).toHaveBeenCalledWith(
+          expect.objectContaining({
+            id: 10,
+            level: 2,
+            attack_lv: 2,
+          }),
+        );
+        expect(result.representativeCharacterExp).toEqual(
+          expect.objectContaining({
+            userCharacterId: 10,
+            level: 2,
+            levelUps: 1,
+            increasedStat: 'attack',
+            nextLevelExperience: 150,
           }),
         );
       });

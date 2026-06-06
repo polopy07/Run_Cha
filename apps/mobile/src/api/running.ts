@@ -36,6 +36,15 @@ export type FinishRunningResponse = {
   } | null;
   earned_points: number;
   area_sqm: number;
+  representativeCharacterExp: {
+    userCharacterId: number;
+    gainedExp: number;
+    level: number;
+    experience: number;
+    nextLevelExperience: number | null;
+    levelUps: number;
+    increasedStat: 'attack' | 'defense' | 'point' | null;
+  } | null;
 };
 
 export async function getRunningLogs() {

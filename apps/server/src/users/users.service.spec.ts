@@ -413,6 +413,8 @@ describe('UsersService', () => {
       representative_character: {
         id: 10,
         character_id: 5,
+        level: 3,
+        experience: 40,
         character: {
           name: 'FireKnight',
           type: 'attack',
@@ -436,6 +438,9 @@ describe('UsersService', () => {
         type: 'attack',
         grade: 'rare',
         imageUrl: null,
+        level: 3,
+        experience: 40,
+        nextLevelExperience: 200,
       },
     });
   });

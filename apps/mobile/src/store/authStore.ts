@@ -14,6 +14,9 @@ export type RepresentativeCharacter = {
   type: 'attack' | 'defense' | 'buff';
   grade: 'common' | 'rare' | 'epic' | 'legendary';
   imageUrl: string | null;
+  level: number;
+  experience: number;
+  nextLevelExperience: number | null;
 };
 
 export type User = {

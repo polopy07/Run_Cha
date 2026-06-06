@@ -11,13 +11,11 @@ import { CharacterGrade, CharacterType } from './entities/character.entity';
 import { UserCharacter } from './entities/user-character.entity';
 import { UpgradeStat } from './dto/upgrade-character.dto';
 import { DISMANTLE_MAX_COUNT } from './dto/dismantle-characters.dto';
-
-const MAX_LEVEL_BY_GRADE: Record<CharacterGrade, number> = {
-  [CharacterGrade.COMMON]: 10,
-  [CharacterGrade.RARE]: 15,
-  [CharacterGrade.EPIC]: 20,
-  [CharacterGrade.LEGENDARY]: 30,
-};
+import {
+  getCharacterMaxLevel,
+  getCharacterNextLevelExperience,
+  getCharacterStatMaxLevel,
+} from './character-level.util';
 
 const DISMANTLE_REWARD_BY_GRADE: Record<CharacterGrade, number> = {
   [CharacterGrade.COMMON]: 1,
@@ -73,7 +71,7 @@ export class CharactersService {
 
       const levelColumn: StatLevelColumn = STAT_LEVEL_COLUMN[stat];
       const currentLevel = userCharacter[levelColumn];
-      const maxLevel = MAX_LEVEL_BY_GRADE[userCharacter.character.grade];
+      const maxLevel = getCharacterStatMaxLevel(userCharacter.character.grade);
 
       if (currentLevel >= maxLevel) {
         throw new BadRequestException('이미 최대 레벨입니다.');
@@ -272,9 +270,17 @@ export class CharactersService {
       grade: userCharacter.character.grade,
       type: userCharacter.character.type,
       imageUrl: userCharacter.character.image_url ?? null,
+      basePointRate: userCharacter.character.base_point_rate,
       attackLv: userCharacter.attack_lv,
       defenseLv: userCharacter.defense_lv,
       pointLv: userCharacter.point_lv,
+      level: userCharacter.level,
+      experience: userCharacter.experience,
+      nextLevelExperience:
+        userCharacter.level >=
+        getCharacterMaxLevel(userCharacter.character.grade)
+          ? null
+          : getCharacterNextLevelExperience(userCharacter.level),
       isDeployed: deployedTerritoryId !== null,
       deployedTerritoryId,
     };
