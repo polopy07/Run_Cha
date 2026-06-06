@@ -16,6 +16,10 @@ export function getLastLocation() {
   return lastLocation;
 }
 
+export function updateSharedLocation(loc: LatLng) {
+  lastLocation = loc;
+}
+
 export function useGPS() {
   const [currentLocation, setCurrentLocation] = useState<LatLng | null>(null);
   const [isTracking, setIsTracking] = useState(false);

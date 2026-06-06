@@ -714,11 +714,11 @@ export function StorageScreen() {
           marginBottom: 16,
         }}
       >
-        <View>
+        <View style={{ flex: 1, marginRight: 8 }}>
           <Text style={{ fontSize: 20, fontWeight: '800', color: colors.text }}>
             캐릭터 보관함
           </Text>
-          <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+          <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }} numberOfLines={1}>
             보유 {characters.length}/30 / 스탯 포인트 {user?.statPoints ?? 0}
             {!isDismantleMode ? ' / 길게 눌러 대표 설정' : ''}
           </Text>

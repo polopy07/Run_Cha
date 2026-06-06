@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform, View, Text, TouchableOpacity, Alert, Modal, Pressable } from 'react-native';
+import { Platform, View, Text, Image, TouchableOpacity, Alert, Modal, Pressable } from 'react-native';
+import { getCharacterImageSource, getCharacterImageTransform } from '../assets/characters/characterImages';
 import MapView, { Marker, Polygon, PROVIDER_GOOGLE, PROVIDER_DEFAULT, type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -15,6 +16,7 @@ import { getUserColor } from '../utils/colorUtils';
 import { formatAreaCompact } from '../utils/formatUtils';
 import { useSocket } from '../hooks/useSocket';
 import { CharacterMarker } from '../components/CharacterMarker';
+import { getLastLocation, updateSharedLocation } from '../hooks/useGPS';
 
 function getCentroid(coords: { lat: number; lng: number }[]): { latitude: number; longitude: number } {
   const len = coords.length || 1;
@@ -46,6 +48,7 @@ export function MapScreen() {
   const { nearbyUsers, emitLocation } = useSocket({
     onTerritoryUpdate: () => fetchTerritories(regionRef.current),
   });
+  const [myLocation, setMyLocation] = useState<{ latitude: number; longitude: number } | null>(getLastLocation());
   const [territories, setTerritories] = useState<Territory[]>([]);
   const [showProfile, setShowProfile] = useState(false);
   const [selectedTerritoryId, setSelectedTerritoryId] = useState<number | null>(null);
@@ -100,7 +103,7 @@ export function MapScreen() {
   };
 
   const goToMyLocation = () => {
-    const loc = userLocationRef.current;
+    const loc = userLocationRef.current ?? myLocation ?? getLastLocation();
     if (!loc) {
       Alert.alert('위치 오류', '현재 위치를 확인할 수 없습니다.');
       return;
@@ -126,7 +129,10 @@ export function MapScreen() {
         onUserLocationChange={(e) => {
           const c = e.nativeEvent.coordinate;
           if (!c) return;
-          userLocationRef.current = { latitude: c.latitude, longitude: c.longitude };
+          const loc = { latitude: c.latitude, longitude: c.longitude };
+          updateSharedLocation(loc);
+          userLocationRef.current = loc;
+          setMyLocation(loc);
           if (!initialMoveDone.current) {
             initialMoveDone.current = true;
             const region = { latitude: c.latitude, longitude: c.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 };
@@ -139,7 +145,7 @@ export function MapScreen() {
             emitLocation(c.latitude, c.longitude);
           }
         }}
-        showsUserLocation
+        showsUserLocation={!(user && myLocation)}
         showsMyLocationButton={false}
       >
         {territories.map((t) => {
@@ -187,6 +193,21 @@ export function MapScreen() {
             isMe={u.userId === user?.id}
           />
         ))}
+        {myLocation && user && (
+          <CharacterMarker
+            key={rep ? `${rep.grade}-${rep.type}` : 'no-rep'}
+            user={{
+              userId: user.id,
+              nickname: user.nickname,
+              lat: myLocation.latitude,
+              lng: myLocation.longitude,
+              character: rep
+                ? { name: rep.name, type: rep.type, grade: rep.grade, imageUrl: rep.imageUrl }
+                : null,
+            }}
+            isMe
+          />
+        )}
       </MapView>
 
       {/* 상단 헤더 */}
@@ -207,11 +228,16 @@ export function MapScreen() {
               width: 36, height: 36, borderRadius: 12,
               backgroundColor: `${gradeColor[rep.grade]}20`,
               borderWidth: 2, borderColor: gradeColor[rep.grade],
-              justifyContent: 'center', alignItems: 'center',
+              overflow: 'hidden',
             }}>
-              <Text style={{ color: gradeColor[rep.grade], fontSize: 12, fontWeight: '800' }}>
-                {rep.type === 'attack' ? 'ATK' : rep.type === 'defense' ? 'DEF' : 'BUF'}
-              </Text>
+              <Image
+                source={getCharacterImageSource(rep.grade, rep.type)}
+                style={{
+                  width: 36, height: 36,
+                  transform: getCharacterImageTransform(rep.grade, rep.type, 36),
+                }}
+                resizeMode="contain"
+              />
             </View>
           ) : (
             <View style={{
@@ -243,11 +269,16 @@ export function MapScreen() {
                 width: 56, height: 56, borderRadius: 20,
                 backgroundColor: `${gradeColor[rep.grade]}20`,
                 borderWidth: 2, borderColor: gradeColor[rep.grade],
-                justifyContent: 'center', alignItems: 'center',
+                overflow: 'hidden',
               }}>
-                <Text style={{ color: gradeColor[rep.grade], fontSize: 18, fontWeight: '800' }}>
-                  {rep.type === 'attack' ? 'ATK' : rep.type === 'defense' ? 'DEF' : 'BUF'}
-                </Text>
+                <Image
+                  source={getCharacterImageSource(rep.grade, rep.type)}
+                  style={{
+                    width: 56, height: 56,
+                    transform: getCharacterImageTransform(rep.grade, rep.type, 56),
+                  }}
+                  resizeMode="contain"
+                />
               </View>
             ) : (
               <View style={{

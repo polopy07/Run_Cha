@@ -4,12 +4,13 @@ import {
   Alert, ActivityIndicator, Platform, StatusBar,
 } from 'react-native';
 import MapView, { Polygon, Polyline, PROVIDER_GOOGLE, PROVIDER_DEFAULT, type Region } from 'react-native-maps';
+import { CharacterMarker } from '../components/CharacterMarker';
 import useRunningStore from '../store/runningStore';
 import { finishRunning as finishRunningAPI } from '../api/running';
 import { useTheme } from '../contexts/ThemeContext';
 import { radius, mapCardShadow } from '../constants/theme';
 import { darkMapStyle } from '../constants/mapStyle';
-import { useGPS, getLastLocation } from '../hooks/useGPS';
+import { useGPS, getLastLocation, updateSharedLocation } from '../hooks/useGPS';
 import { getTerritories, type Territory } from '../api/territory';
 import useAuthStore from '../store/authStore';
 import { getUserColor } from '../utils/colorUtils';
@@ -53,6 +54,8 @@ export function RunningScreen() {
 
   const fetchMe = useAuthStore(s => s.fetchMe);
   const user = useAuthStore(s => s.user);
+  const rep = user?.representativeCharacter ?? null;
+  const [myLocation, setMyLocation] = useState<{ latitude: number; longitude: number } | null>(getLastLocation());
   const [territories, setTerritories] = useState<Territory[]>([]);
 
   const fetchNearbyTerritories = useCallback(async (region: Region) => {
@@ -94,11 +97,16 @@ export function RunningScreen() {
     }
   }, [phase, lastCoord]);
 
+  const { handleLocationChange } = gps;
   const handleUserLocationChange = useCallback(
     (e: { nativeEvent: { coordinate?: { latitude: number; longitude: number } } }) => {
-      gps.handleLocationChange(e);
+      handleLocationChange(e);
       const coordinate = e.nativeEvent.coordinate;
       if (!coordinate) return;
+
+      const loc = { latitude: coordinate.latitude, longitude: coordinate.longitude };
+      updateSharedLocation(loc);
+      setMyLocation(loc);
 
       if (!initialMoveDone.current) {
         initialMoveDone.current = true;
@@ -112,7 +120,7 @@ export function RunningScreen() {
         updatePosition({ latitude: coordinate.latitude, longitude: coordinate.longitude });
       }
     },
-    [gps, isRunning, updatePosition],
+    [handleLocationChange, isRunning, updatePosition],
   );
 
   const handleStart = async () => {
@@ -312,7 +320,7 @@ export function RunningScreen() {
             : DEFAULT_REGION;
         })()}
         customMapStyle={Platform.OS === 'android' && isDark ? darkMapStyle : undefined}
-        showsUserLocation showsMyLocationButton={false}
+        showsUserLocation={!(user && myLocation)} showsMyLocationButton={false}
         followsUserLocation={Platform.OS === 'ios'}
         onUserLocationChange={handleUserLocationChange}
         onRegionChangeComplete={(r) => fetchNearbyTerritories(r)}
@@ -332,6 +340,21 @@ export function RunningScreen() {
         })}
         {polylineCoords.length > 1 && (
           <Polyline coordinates={polylineCoords} strokeColor={colors.primary} strokeWidth={5} />
+        )}
+        {myLocation && user && (
+          <CharacterMarker
+            key={rep ? `${rep.grade}-${rep.type}` : 'no-rep'}
+            user={{
+              userId: user.id,
+              nickname: user.nickname,
+              lat: myLocation.latitude,
+              lng: myLocation.longitude,
+              character: rep
+                ? { name: rep.name, type: rep.type, grade: rep.grade, imageUrl: rep.imageUrl }
+                : null,
+            }}
+            isMe
+          />
         )}
       </MapView>
 
@@ -372,6 +395,29 @@ export function RunningScreen() {
             달린 경로가 폐곡선을 이루면{'\n'}영토가 생성됩니다!
           </Text>
         </View>
+      )}
+
+      {phase !== 'result' && (
+        <TouchableOpacity
+          style={{
+            position: 'absolute', right: 12, top: '42%',
+            width: 40, height: 40, backgroundColor: colors.overlayLight,
+            borderRadius: radius.sm, justifyContent: 'center', alignItems: 'center',
+            ...mapCardShadow(isDark),
+          }}
+          onPress={() => {
+            const loc = gps.currentLocation ?? getLastLocation();
+            if (!loc) {
+              Alert.alert('위치 오류', '현재 위치를 확인할 수 없습니다.');
+              return;
+            }
+            mapRef.current?.animateToRegion(
+              { latitude: loc.latitude, longitude: loc.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 500,
+            );
+          }}
+        >
+          <Text style={{ fontSize: 20, color: colors.text, fontWeight: '600' }}>◎</Text>
+        </TouchableOpacity>
       )}
 
       <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, alignItems: 'center', paddingHorizontal: 24, paddingBottom: 28 }}>
