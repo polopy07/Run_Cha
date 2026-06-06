@@ -14,6 +14,7 @@ import {
   getCharacterNextLevelExperience,
   getCharacterStatMaxLevel,
 } from '../characters/character-level.util';
+import { NEW_TERRITORY_PROTECTION_MS } from '../attacks/attack-timing.constants';
 
 const PACE_MULTIPLIER: Record<string, number> = {
   fast_walk: 0.6,
@@ -158,6 +159,9 @@ export class RunningService {
               occupation_rate: 100,
               center_lat: center.lat,
               center_lng: center.lng,
+              protected_until: new Date(
+                endedAt.getTime() + NEW_TERRITORY_PROTECTION_MS,
+              ),
             }),
           );
         }
