@@ -548,7 +548,7 @@ const attackerPolygonAfter = success
 
 - 대표 캐릭터 경험치는 러닝 거리(`distanceKm`)가 0보다 클 때 `Math.max(1, Math.floor(distanceKm * 20))`만큼 지급한다.
 - 다음 레벨 필요 경험치는 `100 + (현재 레벨 - 1) * 50`이다.
-- 캐릭터 최대 레벨과 스탯 레벨 상한은 별도 개념으로 관리한다. 구체 수치는 PR #68 성장 로직 확정 후 최종 반영한다.
+- 캐릭터 최대 레벨은 common 10, rare 15, epic 20, legendary 30을 사용한다. 현재 스탯 레벨 상한도 동일한 등급별 수치를 사용한다.
 - 캐릭터 레벨업 시 타입별 주 스탯이 1 증가한다.
   - 공격형: `attackLv + 1`
   - 수비형: `defenseLv + 1`
