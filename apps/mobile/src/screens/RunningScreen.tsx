@@ -24,6 +24,11 @@ type RunResult = {
   distanceKm: number;
   durationSec: number;
   territory: boolean;
+  representativeCharacterExp: {
+    gainedExp: number;
+    level: number;
+    levelUps: number;
+  } | null;
 };
 
 const DEFAULT_REGION = {
@@ -119,18 +124,26 @@ export function RunningScreen() {
   );
 
   const handleStart = async () => {
-    if (!gps.currentLocation && Platform.OS === 'android') {
-      Alert.alert('위치 오류', '현재 위치를 확인할 수 없습니다.\n위치 권한을 허용해주세요.');
-      return;
+    try {
+      if (!gps.currentLocation && Platform.OS === 'android') {
+        Alert.alert('위치 오류', '현재 위치를 확인할 수 없습니다.\n위치 권한을 허용해주세요.');
+        return;
+      }
+
+      const bgResult = await gps.start();
+      if (!bgResult.ok) {
+        Alert.alert('백그라운드 GPS 실패', bgResult.error ?? '알 수 없는 에러');
+        return;
+      }
+
+      startRunning();
+      setElapsed(0);
+      setPhase('running');
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : '러닝을 시작하지 못했습니다.';
+      Alert.alert('러닝 시작 실패', message);
     }
-    const bgResult = await gps.start();
-    if (!bgResult.ok) {
-      Alert.alert('백그라운드 GPS 실패', bgResult.error ?? '알 수 없는 에러');
-      return;
-    }
-    startRunning();
-    setElapsed(0);
-    setPhase('running');
   };
 
   const handleFinish = () => {
@@ -143,7 +156,13 @@ export function RunningScreen() {
           const data = finishRunning();
 
           if (data.path.length < 2 || data.distance < 10) {
-            setResult({ earnedPoints: 0, distanceKm: data.distance / 1000, durationSec: elapsed, territory: false });
+            setResult({
+              earnedPoints: 0,
+              distanceKm: data.distance / 1000,
+              durationSec: elapsed,
+              territory: false,
+              representativeCharacterExp: null,
+            });
             setPhase('result');
             return;
           }
@@ -160,12 +179,25 @@ export function RunningScreen() {
               distanceKm: data.distance / 1000,
               durationSec: elapsed,
               territory: !!(res.territory),
+              representativeCharacterExp: res.representativeCharacterExp
+                ? {
+                    gainedExp: res.representativeCharacterExp.gainedExp,
+                    level: res.representativeCharacterExp.level,
+                    levelUps: res.representativeCharacterExp.levelUps,
+                  }
+                : null,
             });
             void fetchMe().catch(() => {});
           } catch (error: unknown) {
             const msg = error instanceof Error ? error.message : '서버 오류가 발생했습니다.';
             Alert.alert('전송 실패', msg);
-            setResult({ earnedPoints: 0, distanceKm: data.distance / 1000, durationSec: elapsed, territory: false });
+            setResult({
+              earnedPoints: 0,
+              distanceKm: data.distance / 1000,
+              durationSec: elapsed,
+              territory: false,
+              representativeCharacterExp: null,
+            });
           } finally {
             setSubmitting(false);
             setPhase('result');
@@ -232,6 +264,18 @@ export function RunningScreen() {
           <ResultRow colors={colors} label="페이스" value={formatPace(result.distanceKm * 1000, result.durationSec)} />
           <View style={{ height: 1, backgroundColor: colors.divider, marginVertical: 4 }} />
           <ResultRow colors={colors} label="획득 포인트" value={`+${result.earnedPoints.toLocaleString()}P`} highlight={!noDistance} />
+          {result.representativeCharacterExp && (
+            <ResultRow
+              colors={colors}
+              label="대표 캐릭터 EXP"
+              value={
+                result.representativeCharacterExp.levelUps > 0
+                  ? `+${result.representativeCharacterExp.gainedExp} EXP · Lv.${result.representativeCharacterExp.level}`
+                  : `+${result.representativeCharacterExp.gainedExp} EXP`
+              }
+              highlight
+            />
+          )}
           {result.territory && <ResultRow colors={colors} label="영토" value="새 영토 생성됨" highlight />}
         </View>
 

@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
 import { TerritoryIncomeService } from './territory-income.service';
 
+const INCOME_PARAMS = [1000, 0.05, 2];
+
 describe('TerritoryIncomeService', () => {
   let service: TerritoryIncomeService;
 
@@ -30,19 +32,27 @@ describe('TerritoryIncomeService', () => {
     expect(mockDataSource.query).toHaveBeenCalledTimes(1);
     expect(mockDataSource.query).toHaveBeenCalledWith(
       expect.stringContaining('UPDATE users u'),
-      [1000],
+      INCOME_PARAMS,
     );
     expect(mockDataSource.query).toHaveBeenCalledWith(
       expect.stringContaining('INNER JOIN'),
-      [1000],
+      INCOME_PARAMS,
     );
     expect(mockDataSource.query).toHaveBeenCalledWith(
-      expect.stringContaining('SUM(area_sqm * occupation_rate / 100)'),
-      [1000],
+      expect.stringContaining('t.area_sqm * t.occupation_rate / 100 / ?'),
+      INCOME_PARAMS,
+    );
+    expect(mockDataSource.query).toHaveBeenCalledWith(
+      expect.stringContaining("WHEN c.type = 'buff'"),
+      INCOME_PARAMS,
+    );
+    expect(mockDataSource.query).toHaveBeenCalledWith(
+      expect.stringContaining('COALESCE(c.base_point_rate, 1)'),
+      INCOME_PARAMS,
     );
     expect(mockDataSource.query).toHaveBeenCalledWith(
       expect.stringContaining('SET u.points = u.points + income.points'),
-      [1000],
+      INCOME_PARAMS,
     );
     expect(result).toEqual({ affectedRows: 2, changedRows: 2 });
   });

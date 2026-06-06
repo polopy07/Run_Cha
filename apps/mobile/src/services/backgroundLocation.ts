@@ -3,6 +3,10 @@ import { Platform } from 'react-native';
 const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
 export async function startBackgroundTracking(): Promise<{ ok: boolean; error?: string }> {
+  if (__DEV__) {
+    return { ok: true };
+  }
+
   if (Platform.OS === 'ios') {
     // iOS는 UIBackgroundModes: location으로 백그라운드 GPS 처리
     return { ok: true };

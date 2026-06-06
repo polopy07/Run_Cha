@@ -23,6 +23,7 @@ export type TerritoryDeployedCharacter = {
   name: string;
   grade: 'common' | 'rare' | 'epic' | 'legendary';
   type: 'attack' | 'defense' | 'buff';
+  basePointRate: number;
   attackLv: number;
   defenseLv: number;
   pointLv: number;

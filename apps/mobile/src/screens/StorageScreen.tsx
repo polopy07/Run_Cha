@@ -131,6 +131,17 @@ function isDeployed(character: Character) {
   return character.isDeployed || character.deployedTerritoryId !== null;
 }
 
+function getExperienceProgress(character: Character) {
+  if (character.nextLevelExperience === null) {
+    return 1;
+  }
+
+  return Math.min(
+    1,
+    Math.max(0, character.experience / character.nextLevelExperience),
+  );
+}
+
 export function StorageScreen() {
   const { colors, gradeColor } = useTheme();
   const insets = useSafeAreaInsets();
@@ -539,18 +550,27 @@ export function StorageScreen() {
             style={{
               position: 'absolute',
               top: 8,
-              left: 8,
-              backgroundColor: colors.gold,
-              borderRadius: 4,
-              paddingHorizontal: 6,
-              paddingVertical: 2,
+              left: 0,
+              right: 0,
+              alignItems: 'center',
+              zIndex: 2,
             }}
+            pointerEvents="none"
           >
-            <Text
-              style={{ color: colors.bg, fontSize: 9, fontWeight: '900' }}
+            <View
+              style={{
+                backgroundColor: colors.gold,
+                borderRadius: 4,
+                paddingHorizontal: 6,
+                paddingVertical: 2,
+              }}
             >
-              대표
-            </Text>
+              <Text
+                style={{ color: colors.bg, fontSize: 9, fontWeight: '900' }}
+              >
+                대표
+              </Text>
+            </View>
           </View>
         )}
 
@@ -1036,6 +1056,16 @@ export function StorageScreen() {
                     >
                       {TYPE_LABEL[detailCharacter.type]} 캐릭터
                     </Text>
+                    <Text
+                      style={{
+                        color: colors.textMuted,
+                        fontSize: 12,
+                        fontWeight: '700',
+                        marginTop: 8,
+                      }}
+                    >
+                      캐릭터 Lv. {detailCharacter.level}
+                    </Text>
                   </View>
                   <View
                     style={{
@@ -1059,6 +1089,77 @@ export function StorageScreen() {
                       {GRADE_LABEL[detailCharacter.grade]}
                     </Text>
                   </View>
+                </View>
+
+                <View
+                  style={{
+                    backgroundColor: colors.card,
+                    borderRadius: radius.sm,
+                    marginTop: 14,
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                  }}
+                >
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: 8,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: colors.text,
+                        fontSize: 13,
+                        fontWeight: '800',
+                      }}
+                    >
+                      경험치
+                    </Text>
+                    <Text
+                      style={{
+                        color: colors.textSecondary,
+                        fontSize: 12,
+                        fontWeight: '700',
+                      }}
+                    >
+                      {detailCharacter.nextLevelExperience === null
+                        ? 'MAX'
+                        : `${detailCharacter.experience} / ${detailCharacter.nextLevelExperience}`}
+                    </Text>
+                  </View>
+                  <View
+                    style={{
+                      height: 9,
+                      backgroundColor: colors.divider,
+                      borderRadius: radius.full,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: `${getExperienceProgress(detailCharacter) * 100}%`,
+                        height: '100%',
+                        backgroundColor: colors.primary,
+                        borderRadius: radius.full,
+                      }}
+                    />
+                  </View>
+                  <Text
+                    style={{
+                      color: colors.textMuted,
+                      fontSize: 11,
+                      marginTop: 7,
+                    }}
+                  >
+                    {detailCharacter.nextLevelExperience === null
+                      ? '최대 레벨입니다.'
+                      : `레벨업까지 ${
+                          detailCharacter.nextLevelExperience -
+                          detailCharacter.experience
+                        } EXP 남음`}
+                  </Text>
                 </View>
 
                 {isDeployed(detailCharacter) && (

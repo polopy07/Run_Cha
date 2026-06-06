@@ -10,6 +10,10 @@ import {
   CharacterGrade,
   CharacterType,
 } from '../characters/entities/character.entity';
+import {
+  getCharacterMaxLevel,
+  getCharacterNextLevelExperience,
+} from '../characters/character-level.util';
 import { UserCharacter } from '../characters/entities/user-character.entity';
 import { User } from './entities/user.entity';
 
@@ -216,6 +220,12 @@ export class UsersService {
               type: rc.character.type,
               grade: rc.character.grade,
               imageUrl: rc.character.image_url,
+              level: rc.level,
+              experience: rc.experience,
+              nextLevelExperience:
+                rc.level >= getCharacterMaxLevel(rc.character.grade)
+                  ? null
+                  : getCharacterNextLevelExperience(rc.level),
             }
           : null,
     };

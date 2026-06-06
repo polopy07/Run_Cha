@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import * as turf from '@turf/turf';
 import { RunningLog } from './entities/running-log.entity';
 import { User } from '../users/entities/user.entity';
@@ -7,6 +7,13 @@ import { Territory } from '../territories/entities/territory.entity';
 import { FinishRunningDto } from './dto/finish-running.dto';
 import { calcCenter } from '../common/utils/geo';
 import { EventsGateway } from '../socket/events.gateway';
+import { CharacterType } from '../characters/entities/character.entity';
+import { UserCharacter } from '../characters/entities/user-character.entity';
+import {
+  getCharacterMaxLevel,
+  getCharacterNextLevelExperience,
+  getCharacterStatMaxLevel,
+} from '../characters/character-level.util';
 
 const PACE_MULTIPLIER: Record<string, number> = {
   fast_walk: 0.6,
@@ -23,6 +30,19 @@ const DISTANCE_BONUS_CAP = 3.0;
 const MIN_VALID_SPEED_KMH = 4;
 const MAX_VALID_SPEED_KMH = 20;
 const RUNNING_LOG_LIST_LIMIT = 20;
+const REPRESENTATIVE_CHARACTER_EXP_PER_KM = 20;
+
+type IncreasedStat = 'attack' | 'defense' | 'point' | null;
+
+type RepresentativeCharacterExpResult = {
+  userCharacterId: number;
+  gainedExp: number;
+  level: number;
+  experience: number;
+  nextLevelExperience: number | null;
+  levelUps: number;
+  increasedStat: IncreasedStat;
+} | null;
 
 type RunningLogSummary = {
   id: number;
@@ -93,8 +113,8 @@ export class RunningService {
       ? basePoints
       : Math.floor(basePoints * NON_CLOSED_BONUS_MULTIPLIER);
 
-    const { savedLog, territory } = await this.dataSource.transaction(
-      async (manager) => {
+    const { savedLog, territory, representativeCharacterExp } =
+      await this.dataSource.transaction(async (manager) => {
         const log = manager.create(RunningLog, {
           user_id: userId,
           path,
@@ -119,6 +139,13 @@ export class RunningService {
           .setParameter('pts', earned_points)
           .execute();
 
+        const representativeCharacterExp =
+          await this.grantRepresentativeCharacterExp(
+            manager,
+            userId,
+            distanceKm,
+          );
+
         let territory: Territory | null = null;
         if (area_sqm > 0) {
           const center = calcCenter(path);
@@ -135,9 +162,8 @@ export class RunningService {
           );
         }
 
-        return { savedLog, territory };
-      },
-    );
+        return { savedLog, territory, representativeCharacterExp };
+      });
 
     this.eventsGateway.broadcastRankingUpdate();
     if (territory) {
@@ -152,7 +178,114 @@ export class RunningService {
       territory: territory ?? null,
       earned_points,
       area_sqm,
+      representativeCharacterExp,
     };
+  }
+
+  private async grantRepresentativeCharacterExp(
+    manager: EntityManager,
+    userId: number,
+    distanceKm: number,
+  ): Promise<RepresentativeCharacterExpResult> {
+    if (distanceKm <= 0) {
+      return null;
+    }
+
+    const gainedExp = Math.max(
+      1,
+      Math.floor(distanceKm * REPRESENTATIVE_CHARACTER_EXP_PER_KM),
+    );
+    const user = await manager.findOne(User, {
+      where: { id: userId },
+      lock: { mode: 'pessimistic_write' },
+    });
+
+    if (!user?.representative_character_id) {
+      return null;
+    }
+
+    const userCharacter = await manager.getRepository(UserCharacter).findOne({
+      where: {
+        id: user.representative_character_id,
+        user_id: userId,
+      },
+      relations: { character: true },
+      lock: { mode: 'pessimistic_write' },
+    });
+
+    if (!userCharacter?.character) {
+      return null;
+    }
+
+    const maxLevel = getCharacterMaxLevel(userCharacter.character.grade);
+    let levelUps = 0;
+    let increasedStat: IncreasedStat = null;
+
+    userCharacter.experience += gainedExp;
+
+    while (
+      userCharacter.level < maxLevel &&
+      userCharacter.experience >=
+        getCharacterNextLevelExperience(userCharacter.level)
+    ) {
+      userCharacter.experience -= getCharacterNextLevelExperience(
+        userCharacter.level,
+      );
+      userCharacter.level += 1;
+      levelUps += 1;
+      increasedStat = this.increaseTypePrimaryStat(userCharacter);
+    }
+
+    if (userCharacter.level >= maxLevel) {
+      userCharacter.experience = 0;
+    }
+
+    await manager.getRepository(UserCharacter).save(userCharacter);
+
+    return {
+      userCharacterId: userCharacter.id,
+      gainedExp,
+      level: userCharacter.level,
+      experience: userCharacter.experience,
+      nextLevelExperience:
+        userCharacter.level >= maxLevel
+          ? null
+          : getCharacterNextLevelExperience(userCharacter.level),
+      levelUps,
+      increasedStat,
+    };
+  }
+
+  private increaseTypePrimaryStat(userCharacter: UserCharacter): IncreasedStat {
+    const maxStatLevel = getCharacterStatMaxLevel(
+      userCharacter.character.grade,
+    );
+
+    if (
+      userCharacter.character.type === CharacterType.ATTACK &&
+      userCharacter.attack_lv < maxStatLevel
+    ) {
+      userCharacter.attack_lv += 1;
+      return 'attack';
+    }
+
+    if (
+      userCharacter.character.type === CharacterType.DEFENSE &&
+      userCharacter.defense_lv < maxStatLevel
+    ) {
+      userCharacter.defense_lv += 1;
+      return 'defense';
+    }
+
+    if (
+      userCharacter.character.type === CharacterType.BUFF &&
+      userCharacter.point_lv < maxStatLevel
+    ) {
+      userCharacter.point_lv += 1;
+      return 'point';
+    }
+
+    return null;
   }
 
   private validatePath(path: { lat: number; lng: number }[]): void {
