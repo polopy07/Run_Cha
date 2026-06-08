@@ -153,7 +153,7 @@ export class AttacksService {
           await territoryRepo.save(territory);
         }
 
-        await attackLogRepo.save(
+        const savedAttackLog = await attackLogRepo.save(
           attackLogRepo.create({
             attacker_id: userId,
             defender_id: territory.user_id,
@@ -166,12 +166,11 @@ export class AttacksService {
               : AttackResult.DEFENDER_WIN,
             occupation_rate_before: outcome.occupationRateBefore,
             occupation_rate_after: outcome.occupationRateAfter,
-            created_at: now,
           }),
         );
 
         nextAttackAvailableAt = new Date(
-          now.getTime() + ATTACK_COOLDOWN_MS,
+          savedAttackLog.created_at.getTime() + ATTACK_COOLDOWN_MS,
         ).toISOString();
         remainingDailyAttacks = Math.max(
           0,

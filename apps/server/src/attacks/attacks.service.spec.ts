@@ -169,6 +169,9 @@ describe('AttacksService', () => {
     userCharacterRepo.findOne.mockResolvedValue(attackerCharacter);
     userCharacterRepo.find.mockResolvedValue([]);
     transactionAttackLogRepo.count.mockResolvedValue(0);
+    transactionAttackLogRepo.save.mockImplementation((value: unknown) =>
+      Promise.resolve({ ...(value as object), created_at: new Date() }),
+    );
     transactionTerritoryRepo.findOne.mockResolvedValue({
       ...attackerOwnedTerritory,
     });
