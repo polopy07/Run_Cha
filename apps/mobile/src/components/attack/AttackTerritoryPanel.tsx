@@ -363,7 +363,7 @@ export function AttackTerritoryPanel({
                               { color: colors.textSecondary },
                             ]}
                           >
-                            공격형 · 캐릭터 Lv.{character.level}
+                            공격형 · 캐릭터 Lv.{character.level ?? 1}
                           </Text>
                           <View style={styles.characterStats}>
                             <StatPill
