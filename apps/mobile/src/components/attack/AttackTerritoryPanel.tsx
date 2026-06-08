@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -16,12 +17,20 @@ import {
 } from '../../api/territory';
 import { useTheme } from '../../contexts/ThemeContext';
 import useCharacterStore from '../../store/characterStore';
-import { radius } from '../../constants/theme';
+import { GRADE_LABEL, radius } from '../../constants/theme';
 import {
+  getCharacterImageSource,
+  getCharacterImageTransform,
+} from '../../assets/characters/characterImages';
+import { formatAreaCompact } from '../../utils/formatUtils';
+import {
+  ATTACK_CHARACTER_SORT_OPTIONS,
   canSubmitAttack,
+  formatAttackAvailableAt,
   formatRunningLogLabel,
-  getAttackCharacters,
+  getSortedAttackCharacters,
   resolveSelectedAttackCharacterId,
+  type AttackCharacterSortMode,
 } from '../../utils/attackFlow';
 
 type AttackTerritoryPanelProps = {
@@ -39,7 +48,7 @@ export function AttackTerritoryPanel({
   onClose,
   onCompleted,
 }: AttackTerritoryPanelProps) {
-  const { colors } = useTheme();
+  const { colors, gradeColor } = useTheme();
   const characters = useCharacterStore(state => state.characters);
   const fetchCharacters = useCharacterStore(state => state.fetchCharacters);
   const [runningLogs, setRunningLogs] = useState<RunningLogSummary[]>([]);
@@ -52,10 +61,12 @@ export function AttackTerritoryPanel({
   const [result, setResult] = useState<AttackTerritoryResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [attackSortMode, setAttackSortMode] =
+    useState<AttackCharacterSortMode>('recent');
 
   const attackCharacters = useMemo(
-    () => getAttackCharacters(characters),
-    [characters],
+    () => getSortedAttackCharacters(characters, attackSortMode),
+    [attackSortMode, characters],
   );
 
   const resetPanelState = useCallback(() => {
@@ -231,18 +242,62 @@ export function AttackTerritoryPanel({
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>
                   공격 캐릭터
                 </Text>
+                {attackCharacters.length > 0 ? (
+                  <View style={styles.sortBar}>
+                    {ATTACK_CHARACTER_SORT_OPTIONS.map(option => {
+                      const selected = attackSortMode === option.value;
+
+                      return (
+                        <Pressable
+                          key={option.value}
+                          style={[
+                            styles.sortButton,
+                            {
+                              backgroundColor: selected
+                                ? colors.danger
+                                : colors.card,
+                              borderColor: selected
+                                ? colors.danger
+                                : colors.divider,
+                            },
+                          ]}
+                          onPress={() => setAttackSortMode(option.value)}
+                          disabled={result !== null}
+                        >
+                          <Text
+                            style={[
+                              styles.sortButtonText,
+                              {
+                                color: selected ? colors.bg : colors.textSecondary,
+                              },
+                            ]}
+                          >
+                            {option.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ) : null}
                 {attackCharacters.length === 0 ? (
-                  <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-                    보유한 공격형 캐릭터가 없습니다.
-                  </Text>
+                  <View style={[styles.emptyBox, { borderColor: colors.divider }]}>
+                    <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                      공격형 캐릭터가 없습니다
+                    </Text>
+                    <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+                      침략에는 공격형 캐릭터가 필요합니다. 캐릭터 뽑기에서
+                      공격형 캐릭터를 획득해주세요.
+                    </Text>
+                  </View>
                 ) : (
                   attackCharacters.map(character => {
                     const selected = selectedCharacterId === character.id;
+                    const gc = gradeColor[character.grade] ?? colors.textMuted;
                     return (
                       <Pressable
                         key={character.id}
                         style={[
-                          styles.option,
+                          styles.characterOption,
                           {
                             backgroundColor: selected
                               ? colors.dangerDim
@@ -255,17 +310,79 @@ export function AttackTerritoryPanel({
                         onPress={() => setSelectedCharacterId(character.id)}
                         disabled={result !== null}
                       >
-                        <Text style={[styles.optionTitle, { color: colors.text }]}>
-                          {character.name}
-                        </Text>
-                        <Text
+                        <View
                           style={[
-                            styles.optionMeta,
-                            { color: colors.textSecondary },
+                            styles.characterImageBox,
+                            { backgroundColor: colors.surface },
                           ]}
                         >
-                          {character.grade} · 공격 Lv.{character.attackLv}
-                        </Text>
+                          <Image
+                            source={getCharacterImageSource(
+                              character.grade,
+                              character.type,
+                            )}
+                            style={[
+                              styles.characterImage,
+                              {
+                                transform: getCharacterImageTransform(
+                                  character.grade,
+                                  character.type,
+                                  74,
+                                ),
+                              },
+                            ]}
+                            resizeMode="contain"
+                          />
+                        </View>
+                        <View style={styles.characterInfo}>
+                          <View style={styles.characterTitleRow}>
+                            <Text
+                              style={[
+                                styles.characterName,
+                                { color: colors.text },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {character.name}
+                            </Text>
+                            <View
+                              style={[
+                                styles.gradeBadge,
+                                { backgroundColor: `${gc}20` },
+                              ]}
+                            >
+                              <Text style={[styles.gradeText, { color: gc }]}>
+                                {GRADE_LABEL[character.grade] ??
+                                  character.grade}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text
+                            style={[
+                              styles.characterMeta,
+                              { color: colors.textSecondary },
+                            ]}
+                          >
+                            공격형 · 캐릭터 Lv.{character.level}
+                          </Text>
+                          <View style={styles.characterStats}>
+                            <StatPill
+                              label="공격"
+                              value={character.attackLv}
+                              colors={colors}
+                            />
+                            <StatPill
+                              label="방어"
+                              value={character.defenseLv}
+                              colors={colors}
+                            />
+                            <StatPill
+                              label="포인트"
+                              value={character.pointLv}
+                              colors={colors}
+                            />
+                          </View>
+                        </View>
                       </Pressable>
                     );
                   })
@@ -289,13 +406,33 @@ export function AttackTerritoryPanel({
                     점령률 {result.occupationRateBefore}% →{' '}
                     {result.occupationRateAfter}%
                   </Text>
-                  <Text style={[styles.resultText, { color: colors.textSecondary }]}>
-                    획득 면적{' '}
-                    {Math.round(result.acquiredAreaSqm).toLocaleString()}㎡
-                  </Text>
-                  <Text style={[styles.resultText, { color: colors.textSecondary }]}>
-                    남은 침략 횟수 {result.remainingDailyAttacks}회
-                  </Text>
+                  <ResultRow
+                    label="피해량"
+                    value={Math.round(result.damage).toLocaleString()}
+                    colors={colors}
+                  />
+                  <ResultRow
+                    label="겹침 비율"
+                    value={`${result.overlapRate.toFixed(1)}%`}
+                    colors={colors}
+                  />
+                  <ResultRow
+                    label="획득 면적"
+                    value={formatAreaCompact(result.acquiredAreaSqm)}
+                    colors={colors}
+                  />
+                  <ResultRow
+                    label="남은 침략 횟수"
+                    value={`${result.remainingDailyAttacks}회`}
+                    colors={colors}
+                  />
+                  <ResultRow
+                    label="다음 침략 가능"
+                    value={formatAttackAvailableAt(
+                      result.nextAttackAvailableAt,
+                    )}
+                    colors={colors}
+                  />
                 </View>
               ) : null}
             </>
@@ -325,6 +462,44 @@ export function AttackTerritoryPanel({
         </View>
       </View>
     </Modal>
+  );
+}
+
+function StatPill({
+  label,
+  value,
+  colors,
+}: {
+  label: string;
+  value: number;
+  colors: ReturnType<typeof useTheme>['colors'];
+}) {
+  return (
+    <View style={[styles.statPill, { backgroundColor: colors.surface }]}>
+      <Text style={[styles.statLabel, { color: colors.textMuted }]}>
+        {label}
+      </Text>
+      <Text style={[styles.statValue, { color: colors.text }]}>Lv.{value}</Text>
+    </View>
+  );
+}
+
+function ResultRow({
+  label,
+  value,
+  colors,
+}: {
+  label: string;
+  value: string;
+  colors: ReturnType<typeof useTheme>['colors'];
+}) {
+  return (
+    <View style={styles.resultRow}>
+      <Text style={[styles.resultLabel, { color: colors.textSecondary }]}>
+        {label}
+      </Text>
+      <Text style={[styles.resultValue, { color: colors.text }]}>{value}</Text>
+    </View>
   );
 }
 
@@ -379,8 +554,38 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
+  sortBar: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 10,
+  },
+  sortButton: {
+    minWidth: 58,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderRadius: radius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  sortButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  emptyBox: {
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    padding: 14,
+    marginBottom: 8,
+  },
+  emptyTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
   emptyText: {
+    marginTop: 4,
     paddingVertical: 12,
+    lineHeight: 19,
   },
   option: {
     padding: 12,
@@ -396,6 +601,76 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 12,
   },
+  characterOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderRadius: radius.md,
+  },
+  characterImageBox: {
+    width: 72,
+    height: 72,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.sm,
+  },
+  characterImage: {
+    width: 82,
+    height: 82,
+  },
+  characterInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  characterTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  characterName: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  gradeBadge: {
+    borderRadius: radius.full,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  gradeText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  characterMeta: {
+    marginTop: 4,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  characterStats: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 9,
+  },
+  statPill: {
+    borderRadius: radius.full,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  statLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  statValue: {
+    marginTop: 1,
+    fontSize: 11,
+    fontWeight: '800',
+  },
   resultBox: {
     marginTop: 12,
     padding: 12,
@@ -409,6 +684,21 @@ const styles = StyleSheet.create({
   },
   resultText: {
     marginTop: 3,
+  },
+  resultRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 7,
+  },
+  resultLabel: {
+    fontSize: 13,
+  },
+  resultValue: {
+    flexShrink: 1,
+    textAlign: 'right',
+    fontSize: 13,
+    fontWeight: '700',
   },
   submitButton: {
     marginTop: 12,

@@ -1,14 +1,20 @@
 import {
+  formatAttackAvailableAt,
   canSubmitAttack,
   formatRunningLogDate,
   formatRunningLogDistance,
   formatRunningLogLabel,
   getAttackCharacters,
+  getSortedAttackCharacters,
   resolveSelectedAttackCharacterId,
 } from '../src/utils/attackFlow';
 import type { Character } from '../src/store/characterStore';
 
-const makeCharacter = (id: number, type: Character['type']): Character => ({
+const makeCharacter = (
+  id: number,
+  type: Character['type'],
+  overrides: Partial<Character> = {},
+): Character => ({
   id,
   characterId: id + 100,
   name: `character-${id}`,
@@ -23,6 +29,7 @@ const makeCharacter = (id: number, type: Character['type']): Character => ({
   nextLevelExperience: 100,
   isDeployed: false,
   deployedTerritoryId: null,
+  ...overrides,
 });
 
 describe('attackFlow', () => {
@@ -44,6 +51,25 @@ describe('attackFlow', () => {
     expect(formatRunningLogDistance(3.456)).toBe('3.46km');
   });
 
+  it('sorts attack characters by recent id, grade, and attack stat', () => {
+    const characters = [
+      makeCharacter(1, 'attack', { grade: 'common', attackLv: 5 }),
+      makeCharacter(2, 'defense', { grade: 'legendary', attackLv: 99 }),
+      makeCharacter(3, 'attack', { grade: 'rare', attackLv: 2 }),
+      makeCharacter(4, 'attack', { grade: 'epic', attackLv: 4 }),
+    ];
+
+    expect(
+      getSortedAttackCharacters(characters, 'recent').map(character => character.id),
+    ).toEqual([4, 3, 1]);
+    expect(
+      getSortedAttackCharacters(characters, 'grade').map(character => character.id),
+    ).toEqual([4, 3, 1]);
+    expect(
+      getSortedAttackCharacters(characters, 'attack').map(character => character.id),
+    ).toEqual([1, 4, 3]);
+  });
+
   it('builds a running log label with date and distance', () => {
     const label = formatRunningLogLabel({
       id: 1,
@@ -60,6 +86,11 @@ describe('attackFlow', () => {
 
   it('keeps invalid running log date text as-is', () => {
     expect(formatRunningLogDate('invalid-date')).toBe('invalid-date');
+  });
+
+  it('formats next attack available time fallback', () => {
+    expect(formatAttackAvailableAt(null)).toBe('바로 가능');
+    expect(formatAttackAvailableAt('invalid-date')).toBe('invalid-date');
   });
 
   it('allows attack submit only when both selections exist', () => {
