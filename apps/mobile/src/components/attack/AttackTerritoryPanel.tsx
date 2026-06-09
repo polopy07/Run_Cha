@@ -209,7 +209,7 @@ export function AttackTerritoryPanel({
                       <Pressable
                         key={log.id}
                         style={[
-                          styles.option,
+                          styles.runningLogOption,
                           {
                             backgroundColor: selected
                               ? colors.dangerDim
@@ -222,12 +222,14 @@ export function AttackTerritoryPanel({
                         onPress={() => setSelectedRunningLogId(log.id)}
                         disabled={result !== null}
                       >
-                        <Text style={[styles.optionTitle, { color: colors.text }]}>
+                        <Text
+                          style={[styles.runningLogTitle, { color: colors.text }]}
+                        >
                           {formatRunningLogLabel(log)}
                         </Text>
                         <Text
                           style={[
-                            styles.optionMeta,
+                            styles.runningLogMeta,
                             { color: colors.textSecondary },
                           ]}
                         >
@@ -242,43 +244,6 @@ export function AttackTerritoryPanel({
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>
                   공격 캐릭터
                 </Text>
-                {attackCharacters.length > 0 ? (
-                  <View style={styles.sortBar}>
-                    {ATTACK_CHARACTER_SORT_OPTIONS.map(option => {
-                      const selected = attackSortMode === option.value;
-
-                      return (
-                        <Pressable
-                          key={option.value}
-                          style={[
-                            styles.sortButton,
-                            {
-                              backgroundColor: selected
-                                ? colors.danger
-                                : colors.card,
-                              borderColor: selected
-                                ? colors.danger
-                                : colors.divider,
-                            },
-                          ]}
-                          onPress={() => setAttackSortMode(option.value)}
-                          disabled={result !== null}
-                        >
-                          <Text
-                            style={[
-                              styles.sortButtonText,
-                              {
-                                color: selected ? colors.bg : colors.textSecondary,
-                              },
-                            ]}
-                          >
-                            {option.label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                ) : null}
                 {attackCharacters.length === 0 ? (
                   <View style={[styles.emptyBox, { borderColor: colors.divider }]}>
                     <Text style={[styles.emptyTitle, { color: colors.text }]}>
@@ -290,102 +255,141 @@ export function AttackTerritoryPanel({
                     </Text>
                   </View>
                 ) : (
-                  attackCharacters.map(character => {
-                    const selected = selectedCharacterId === character.id;
-                    const gc = gradeColor[character.grade] ?? colors.textMuted;
-                    return (
-                      <Pressable
-                        key={character.id}
-                        style={[
-                          styles.characterOption,
-                          {
-                            backgroundColor: selected
-                              ? colors.dangerDim
-                              : colors.card,
-                            borderColor: selected
-                              ? colors.danger
-                              : colors.divider,
-                          },
-                        ]}
-                        onPress={() => setSelectedCharacterId(character.id)}
-                        disabled={result !== null}
-                      >
-                        <View
-                          style={[
-                            styles.characterImageBox,
-                            { backgroundColor: colors.surface },
-                          ]}
-                        >
-                          <Image
-                            source={getCharacterImageSource(
-                              character.grade,
-                              character.type,
-                            )}
+                  <>
+                    <View style={styles.sortBar}>
+                      {ATTACK_CHARACTER_SORT_OPTIONS.map(option => {
+                        const selected = attackSortMode === option.value;
+
+                        return (
+                          <Pressable
+                            key={option.value}
                             style={[
-                              styles.characterImage,
+                              styles.sortButton,
                               {
-                                transform: getCharacterImageTransform(
-                                  character.grade,
-                                  character.type,
-                                  74,
-                                ),
+                                backgroundColor: selected
+                                  ? colors.danger
+                                  : colors.card,
+                                borderColor: selected
+                                  ? colors.danger
+                                  : colors.divider,
                               },
                             ]}
-                            resizeMode="contain"
-                          />
-                        </View>
-                        <View style={styles.characterInfo}>
-                          <View style={styles.characterTitleRow}>
+                            onPress={() => setAttackSortMode(option.value)}
+                            disabled={result !== null}
+                          >
                             <Text
                               style={[
-                                styles.characterName,
-                                { color: colors.text },
+                                styles.sortButtonText,
+                                {
+                                  color: selected
+                                    ? colors.bg
+                                    : colors.textSecondary,
+                                },
                               ]}
-                              numberOfLines={1}
                             >
-                              {character.name}
+                              {option.label}
                             </Text>
-                            <View
-                              style={[
-                                styles.gradeBadge,
-                                { backgroundColor: `${gc}20` },
-                              ]}
-                            >
-                              <Text style={[styles.gradeText, { color: gc }]}>
-                                {GRADE_LABEL[character.grade] ??
-                                  character.grade}
-                              </Text>
-                            </View>
-                          </View>
-                          <Text
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                    {attackCharacters.map(character => {
+                      const selected = selectedCharacterId === character.id;
+                      const gc = gradeColor[character.grade] ?? colors.textMuted;
+                      return (
+                        <Pressable
+                          key={character.id}
+                          style={[
+                            styles.characterOption,
+                            {
+                              backgroundColor: selected
+                                ? colors.dangerDim
+                                : colors.card,
+                              borderColor: selected
+                                ? colors.danger
+                                : colors.divider,
+                            },
+                          ]}
+                          onPress={() => setSelectedCharacterId(character.id)}
+                          disabled={result !== null}
+                        >
+                          <View
                             style={[
-                              styles.characterMeta,
-                              { color: colors.textSecondary },
+                              styles.characterImageBox,
+                              { backgroundColor: colors.surface },
                             ]}
                           >
-                            공격형 · 캐릭터 Lv.{character.level ?? 1}
-                          </Text>
-                          <View style={styles.characterStats}>
-                            <StatPill
-                              label="공격"
-                              value={character.attackLv}
-                              colors={colors}
-                            />
-                            <StatPill
-                              label="방어"
-                              value={character.defenseLv}
-                              colors={colors}
-                            />
-                            <StatPill
-                              label="포인트"
-                              value={character.pointLv}
-                              colors={colors}
+                            <Image
+                              source={getCharacterImageSource(
+                                character.grade,
+                                character.type,
+                              )}
+                              style={[
+                                styles.characterImage,
+                                {
+                                  transform: getCharacterImageTransform(
+                                    character.grade,
+                                    character.type,
+                                    74,
+                                  ),
+                                },
+                              ]}
+                              resizeMode="contain"
                             />
                           </View>
-                        </View>
-                      </Pressable>
-                    );
-                  })
+                          <View style={styles.characterInfo}>
+                            <View style={styles.characterTitleRow}>
+                              <Text
+                                style={[
+                                  styles.characterName,
+                                  { color: colors.text },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {character.name}
+                              </Text>
+                              <View
+                                style={[
+                                  styles.gradeBadge,
+                                  { backgroundColor: `${gc}20` },
+                                ]}
+                              >
+                                <Text style={[styles.gradeText, { color: gc }]}>
+                                  {GRADE_LABEL[character.grade] ??
+                                    character.grade}
+                                </Text>
+                              </View>
+                            </View>
+                            <Text
+                              style={[
+                                styles.characterMeta,
+                                { color: colors.textSecondary },
+                              ]}
+                            >
+                              공격형 · 캐릭터 Lv.{character.level ?? 1}
+                            </Text>
+                            <View style={styles.characterStats}>
+                              <StatPill
+                                label="공격"
+                                value={character.attackLv ?? 1}
+                                colors={colors}
+                              />
+                              <StatPill
+                                label="방어"
+                                value={character.defenseLv ?? 1}
+                                colors={colors}
+                              />
+                              <StatPill
+                                label="포인트"
+                                value={character.pointLv ?? 1}
+                                colors={colors}
+                              />
+                            </View>
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </>
                 )}
               </ScrollView>
 
@@ -402,7 +406,12 @@ export function AttackTerritoryPanel({
                   <Text style={[styles.resultTitle, { color: colors.text }]}>
                     {result.message}
                   </Text>
-                  <Text style={[styles.resultText, { color: colors.textSecondary }]}>
+                  <Text
+                    style={[
+                      styles.resultSummary,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
                     점령률 {result.occupationRateBefore}% →{' '}
                     {result.occupationRateAfter}%
                   </Text>
@@ -587,17 +596,17 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     lineHeight: 19,
   },
-  option: {
+  runningLogOption: {
     padding: 12,
     marginBottom: 8,
     borderWidth: 1,
     borderRadius: radius.sm,
   },
-  optionTitle: {
+  runningLogTitle: {
     fontSize: 14,
     fontWeight: '700',
   },
-  optionMeta: {
+  runningLogMeta: {
     marginTop: 4,
     fontSize: 12,
   },
@@ -682,7 +691,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  resultText: {
+  resultSummary: {
     marginTop: 3,
   },
   resultRow: {
