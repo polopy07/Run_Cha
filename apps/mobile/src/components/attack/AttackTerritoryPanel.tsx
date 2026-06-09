@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -63,6 +63,7 @@ export function AttackTerritoryPanel({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [attackSortMode, setAttackSortMode] =
     useState<AttackCharacterSortMode>('recent');
+  const attackSortModeRef = useRef<AttackCharacterSortMode>(attackSortMode);
 
   const attackCharacters = useMemo(
     () => getSortedAttackCharacters(characters, attackSortMode),
@@ -78,6 +79,10 @@ export function AttackTerritoryPanel({
     setIsLoading(false);
   }, []);
 
+  useEffect(() => {
+    attackSortModeRef.current = attackSortMode;
+  }, [attackSortMode]);
+
   const loadAttackOptions = useCallback(async () => {
     setIsLoading(true);
 
@@ -89,6 +94,17 @@ export function AttackTerritoryPanel({
 
       setRunningLogs(logs);
       setSelectedRunningLogId(logs[0]?.id ?? null);
+      setSelectedCharacterId(current => {
+        const latestAttackCharacters = getSortedAttackCharacters(
+          useCharacterStore.getState().characters,
+          attackSortModeRef.current,
+        );
+
+        return resolveSelectedAttackCharacterId(
+          latestAttackCharacters,
+          current,
+        );
+      });
     } catch (error) {
       const message =
         error instanceof Error
@@ -199,7 +215,13 @@ export function AttackTerritoryPanel({
                   러닝 기록
                 </Text>
                 {runningLogs.length === 0 ? (
-                  <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+                  <Text
+                    style={[
+                      styles.emptyText,
+                      styles.runningLogEmptyText,
+                      { color: colors.textMuted },
+                    ]}
+                  >
                     침략에 사용할 러닝 기록이 없습니다.
                   </Text>
                 ) : (
@@ -593,8 +615,10 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     marginTop: 4,
-    paddingVertical: 12,
     lineHeight: 19,
+  },
+  runningLogEmptyText: {
+    paddingVertical: 12,
   },
   runningLogOption: {
     padding: 12,

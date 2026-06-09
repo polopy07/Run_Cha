@@ -1,5 +1,6 @@
 import type { Character } from '../store/characterStore';
 import type { RunningLogSummary } from '../api/running';
+import { GRADE_ORDER } from './deployUtils';
 
 export type AttackCharacterSortMode = 'recent' | 'grade' | 'attack';
 
@@ -11,13 +12,6 @@ export const ATTACK_CHARACTER_SORT_OPTIONS: {
   { label: '등급', value: 'grade' },
   { label: '공격력', value: 'attack' },
 ];
-
-const GRADE_ORDER: Record<Character['grade'], number> = {
-  common: 1,
-  rare: 2,
-  epic: 3,
-  legendary: 4,
-};
 
 export function getAttackCharacters(characters: Character[]) {
   return characters.filter((character) => character.type === 'attack');
@@ -70,11 +64,11 @@ export function formatRunningLogDistance(distanceKm: number) {
   return `${distanceKm.toFixed(2)}km`;
 }
 
-export function formatRunningLogDate(startedAt: string) {
-  const date = new Date(startedAt);
+function formatKoreanDateTime(value: string) {
+  const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return startedAt;
+    return value;
   }
 
   return date.toLocaleString('ko-KR', {
@@ -96,18 +90,11 @@ export function formatAttackAvailableAt(value: string | null) {
     return '바로 가능';
   }
 
-  const date = new Date(value);
+  return formatKoreanDateTime(value);
+}
 
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleString('ko-KR', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+export function formatRunningLogDate(startedAt: string) {
+  return formatKoreanDateTime(startedAt);
 }
 
 export function canSubmitAttack(
