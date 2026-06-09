@@ -22,6 +22,7 @@ import { calcCenter } from '../common/utils/geo';
 import { RunningLog } from '../running/entities/running-log.entity';
 import { Territory } from '../territories/entities/territory.entity';
 import { EventsGateway } from '../socket/events.gateway';
+import { ATTACK_COOLDOWN_MS } from './attack-timing.constants';
 
 const MIN_ATTACK_OVERLAP_RATE = 30;
 const DAILY_ATTACK_LIMIT = 5;
@@ -70,6 +71,7 @@ export class AttacksService {
     if (territory.user_id === userId) {
       throw new BadRequestException('자신의 영토는 침략할 수 없습니다.');
     }
+    this.assertTerritoryNotProtected(territory);
 
     const overlap = this.calculateOverlapOrThrow(runningLog, territory);
     const { overlapRate, contestedAreaSqm } = overlap;
@@ -97,6 +99,7 @@ export class AttacksService {
     }
 
     let remainingDailyAttacks = 0;
+    let nextAttackAvailableAt: string | null = null;
 
     await this.dataSource.transaction(async (manager) => {
       const territoryRepo = manager.getRepository(Territory);
@@ -113,6 +116,18 @@ export class AttacksService {
         if (dailyAttackCount >= DAILY_ATTACK_LIMIT) {
           throw new BadRequestException(
             '오늘의 침략 가능 횟수를 모두 사용했습니다.',
+          );
+        }
+
+        const now = new Date();
+        const cooldownUntil = await this.findAttackCooldownUntil(
+          attackLogRepo,
+          userId,
+          now,
+        );
+        if (cooldownUntil) {
+          throw new BadRequestException(
+            `침략 쿨타임 중입니다. ${cooldownUntil.toISOString()} 이후 다시 시도해주세요.`,
           );
         }
 
@@ -138,7 +153,7 @@ export class AttacksService {
           await territoryRepo.save(territory);
         }
 
-        await attackLogRepo.save(
+        const savedAttackLog = await attackLogRepo.save(
           attackLogRepo.create({
             attacker_id: userId,
             defender_id: territory.user_id,
@@ -154,6 +169,9 @@ export class AttacksService {
           }),
         );
 
+        nextAttackAvailableAt = new Date(
+          savedAttackLog.created_at.getTime() + ATTACK_COOLDOWN_MS,
+        ).toISOString();
         remainingDailyAttacks = Math.max(
           0,
           DAILY_ATTACK_LIMIT - dailyAttackCount - 1,
@@ -179,7 +197,7 @@ export class AttacksService {
       occupationRateAfter: outcome.occupationRateAfter,
       acquiredAreaSqm: outcome.success ? contestedAreaSqm : 0,
       neutralAreaSqm: NEUTRAL_AREA_SQM_PENDING_POLICY,
-      nextAttackAvailableAt: null,
+      nextAttackAvailableAt,
       remainingDailyAttacks,
       message: outcome.success
         ? '침략에 성공했습니다.'
@@ -197,6 +215,14 @@ export class AttacksService {
     }
 
     return territory;
+  }
+
+  private assertTerritoryNotProtected(territory: Territory, now = new Date()) {
+    if (territory.protected_until && territory.protected_until > now) {
+      throw new BadRequestException(
+        `새로 생성된 영토는 ${territory.protected_until.toISOString()}까지 침략할 수 없습니다.`,
+      );
+    }
   }
 
   private calculateOverlapOrThrow(
@@ -350,6 +376,27 @@ export class AttacksService {
         created_at: Between(start, end),
       },
     });
+  }
+
+  private async findAttackCooldownUntil(
+    attackLogRepo: Repository<AttackLog>,
+    userId: number,
+    now: Date,
+  ) {
+    const latestAttack = await attackLogRepo.findOne({
+      where: { attacker_id: userId },
+      order: { created_at: 'DESC' },
+    });
+
+    if (!latestAttack) {
+      return null;
+    }
+
+    const cooldownUntil = new Date(
+      latestAttack.created_at.getTime() + ATTACK_COOLDOWN_MS,
+    );
+
+    return cooldownUntil > now ? cooldownUntil : null;
   }
 
   private buildDailyAttackLockKey(userId: number) {

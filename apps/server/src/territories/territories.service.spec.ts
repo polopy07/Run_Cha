@@ -30,6 +30,7 @@ function makeTerritory(lat: number, lng: number): Territory {
     center_lat: lat,
     center_lng: lng,
     last_active_at: new Date(),
+    protected_until: null,
     user: { id: 1, nickname: 'tester' } as unknown as User,
   };
 }

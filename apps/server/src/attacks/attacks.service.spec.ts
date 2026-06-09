@@ -169,6 +169,9 @@ describe('AttacksService', () => {
     userCharacterRepo.findOne.mockResolvedValue(attackerCharacter);
     userCharacterRepo.find.mockResolvedValue([]);
     transactionAttackLogRepo.count.mockResolvedValue(0);
+    transactionAttackLogRepo.save.mockImplementation((value: unknown) =>
+      Promise.resolve({ ...(value as object), created_at: new Date() }),
+    );
     transactionTerritoryRepo.findOne.mockResolvedValue({
       ...attackerOwnedTerritory,
     });
@@ -224,7 +227,7 @@ describe('AttacksService', () => {
     expect(result.acquiredAreaSqm).toBeGreaterThan(9000);
     expect(result.neutralAreaSqm).toBe(0);
     expect(result.remainingDailyAttacks).toBe(4);
-    expect(result.nextAttackAvailableAt).toBeNull();
+    expect(result.nextAttackAvailableAt).toEqual(expect.any(String));
     expect(result.message).toBe('침략에 성공했습니다.');
     expect(transactionTerritoryRepo.save).toHaveBeenNthCalledWith(
       1,
@@ -384,6 +387,7 @@ describe('AttacksService', () => {
     expect(result.damage).toBe(0);
     expect(result.occupationRateAfter).toBe(100);
     expect(result.acquiredAreaSqm).toBe(0);
+    expect(result.nextAttackAvailableAt).toEqual(expect.any(String));
     expect(result.message).toBe('방어력이 높아 점령률이 감소하지 않았습니다.');
     expect(transactionAttackLogRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -404,6 +408,18 @@ describe('AttacksService', () => {
     expect(dataSource.transaction).not.toHaveBeenCalled();
   });
 
+  it('rejects protected newly created territory', async () => {
+    territoryRepo.findOne.mockResolvedValue({
+      ...territory,
+      protected_until: new Date(Date.now() + 60_000),
+    });
+
+    await expect(
+      service.attack(1, 10, { runningLogId: 20, attackerCharacterId: 30 }),
+    ).rejects.toThrow('새로 생성된 영토는');
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+  });
+
   it('rejects when daily attack limit is reached', async () => {
     transactionAttackLogRepo.count.mockResolvedValueOnce(5);
 
@@ -411,6 +427,19 @@ describe('AttacksService', () => {
       service.attack(1, 10, { runningLogId: 20, attackerCharacterId: 30 }),
     ).rejects.toThrow('오늘의 침략 가능 횟수를 모두 사용했습니다.');
     expect(transactionTerritoryRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('rejects when attack cooldown is active', async () => {
+    transactionAttackLogRepo.findOne.mockResolvedValue({
+      attacker_id: 1,
+      created_at: new Date(Date.now() - 60_000),
+    });
+
+    await expect(
+      service.attack(1, 10, { runningLogId: 20, attackerCharacterId: 30 }),
+    ).rejects.toThrow('침략 쿨타임 중입니다.');
+    expect(transactionTerritoryRepo.save).not.toHaveBeenCalled();
+    expect(transactionAttackLogRepo.create).not.toHaveBeenCalled();
   });
 
   it('rejects when running log was already used for attack', async () => {

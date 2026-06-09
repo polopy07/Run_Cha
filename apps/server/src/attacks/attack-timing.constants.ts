@@ -1,0 +1,2 @@
+export const ATTACK_COOLDOWN_MS = 5 * 60 * 1000;
+export const NEW_TERRITORY_PROTECTION_MS = 5 * 60 * 1000;

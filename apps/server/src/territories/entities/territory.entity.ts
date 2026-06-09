@@ -41,6 +41,10 @@ export class Territory {
   @UpdateDateColumn()
   last_active_at: Date;
 
+  @Index('IDX_territories_protected_until')
+  @Column({ type: 'datetime', nullable: true, default: null })
+  protected_until: Date | null;
+
   @ManyToOne(() => User, (user) => user.territories, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: User;

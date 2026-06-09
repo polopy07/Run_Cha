@@ -181,6 +181,7 @@ describe('RunningService', () => {
             occupation_rate: 100,
             center_lat: expect.any(Number) as unknown,
             center_lng: expect.any(Number) as unknown,
+            protected_until: expect.any(Date) as unknown,
           }),
         );
       });
