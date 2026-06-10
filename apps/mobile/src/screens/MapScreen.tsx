@@ -145,7 +145,7 @@ export function MapScreen() {
             emitLocation(c.latitude, c.longitude);
           }
         }}
-        showsUserLocation={!(user && myLocation)}
+        showsUserLocation
         showsMyLocationButton={false}
       >
         {territories.map((t) => {

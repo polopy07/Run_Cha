@@ -320,7 +320,7 @@ export function RunningScreen() {
             : DEFAULT_REGION;
         })()}
         customMapStyle={Platform.OS === 'android' && isDark ? darkMapStyle : undefined}
-        showsUserLocation={!(user && myLocation)} showsMyLocationButton={false}
+        showsUserLocation showsMyLocationButton={false}
         followsUserLocation={Platform.OS === 'ios'}
         onUserLocationChange={handleUserLocationChange}
         onRegionChangeComplete={(r) => fetchNearbyTerritories(r)}
