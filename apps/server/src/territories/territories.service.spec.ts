@@ -219,7 +219,11 @@ describe('TerritoriesService', () => {
       const result = await service.findOne(1, 1);
 
       expect(mockRepo.findOne).toHaveBeenCalledWith({
-        where: { id: 1 },
+        where: {
+          id: 1,
+          area_sqm: MoreThan(0),
+          occupation_rate: MoreThan(0),
+        },
         relations: ['user'],
         select: {
           id: true,
@@ -284,6 +288,22 @@ describe('TerritoriesService', () => {
         '영토를 찾을 수 없습니다.',
       );
       expect(mockUserCharactersRepo.find).not.toHaveBeenCalled();
+    });
+
+    it('guards detail lookup with active territory filters', async () => {
+      await expect(service.findOne(1, 1)).rejects.toThrow(
+        '영토를 찾을 수 없습니다.',
+      );
+
+      expect(mockRepo.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: 1,
+            area_sqm: MoreThan(0),
+            occupation_rate: MoreThan(0),
+          },
+        }),
+      );
     });
   });
 
