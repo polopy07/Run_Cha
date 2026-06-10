@@ -993,19 +993,26 @@ export function StorageScreen() {
         animationType="fade"
         onRequestClose={() => setDetailCharacter(null)}
       >
-        <Pressable
-          style={{
-            flex: 1,
-            justifyContent: 'center',
-            backgroundColor: 'rgba(0,0,0,0.58)',
-            paddingHorizontal: 18,
-            paddingTop: insets.top + 12,
-            paddingBottom: insets.bottom + 12,
-          }}
-          onPress={() => setDetailCharacter(null)}
-        >
+        <View style={{ flex: 1 }}>
+          <Pressable
+            style={{
+              position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.58)',
+            }}
+            onPress={() => setDetailCharacter(null)}
+          />
+          <View
+            pointerEvents="box-none"
+            style={{
+              flex: 1,
+              justifyContent: 'center',
+              paddingHorizontal: 18,
+              paddingTop: insets.top + 12,
+              paddingBottom: insets.bottom + 12,
+            }}
+          >
           {detailCharacter && (
-            <Pressable
+            <View
               style={{
                 backgroundColor: colors.surface,
                 borderColor: colors.cardBorder,
@@ -1333,9 +1340,10 @@ export function StorageScreen() {
                   </TouchableOpacity>
                 </View>
               </ScrollView>
-            </Pressable>
+            </View>
           )}
-        </Pressable>
+          </View>
+        </View>
       </Modal>
 
       <Modal
