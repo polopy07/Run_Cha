@@ -47,4 +47,16 @@ describe('territoryIncomeUtils', () => {
       }),
     ).toBe(2);
   });
+
+  it('uses safe defaults when buff income fields are missing', () => {
+    const income = getEstimatedTerritoryHourlyIncome(2352, 75, {
+      type: 'buff',
+      pointLv: undefined as unknown as number,
+      basePointRate: undefined as unknown as number,
+    });
+
+    expect(income.multiplier).toBe(1);
+    expect(income.rawIncome).toBe(1.764);
+    expect(income.estimatedPoints).toBe(1);
+  });
 });

@@ -1,8 +1,45 @@
 import type { Character } from '../store/characterStore';
 import type { RunningLogSummary } from '../api/running';
+import { GRADE_ORDER } from './deployUtils';
+
+export type AttackCharacterSortMode = 'recent' | 'grade' | 'attack';
+
+export const ATTACK_CHARACTER_SORT_OPTIONS: {
+  label: string;
+  value: AttackCharacterSortMode;
+}[] = [
+  { label: '최근', value: 'recent' },
+  { label: '등급', value: 'grade' },
+  { label: '공격력', value: 'attack' },
+];
 
 export function getAttackCharacters(characters: Character[]) {
   return characters.filter((character) => character.type === 'attack');
+}
+
+export function getSortedAttackCharacters(
+  characters: Character[],
+  sortMode: AttackCharacterSortMode,
+) {
+  return [...getAttackCharacters(characters)].sort((a, b) => {
+    if (sortMode === 'grade') {
+      return (
+        GRADE_ORDER[b.grade] - GRADE_ORDER[a.grade] ||
+        b.attackLv - a.attackLv ||
+        b.id - a.id
+      );
+    }
+
+    if (sortMode === 'attack') {
+      return (
+        b.attackLv - a.attackLv ||
+        GRADE_ORDER[b.grade] - GRADE_ORDER[a.grade] ||
+        b.id - a.id
+      );
+    }
+
+    return b.id - a.id;
+  });
 }
 
 export function resolveSelectedAttackCharacterId(
@@ -27,11 +64,11 @@ export function formatRunningLogDistance(distanceKm: number) {
   return `${distanceKm.toFixed(2)}km`;
 }
 
-export function formatRunningLogDate(startedAt: string) {
-  const date = new Date(startedAt);
+function formatKoreanDateTime(value: string) {
+  const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return startedAt;
+    return value;
   }
 
   return date.toLocaleString('ko-KR', {
@@ -46,6 +83,18 @@ export function formatRunningLogLabel(log: RunningLogSummary) {
   return `${formatRunningLogDate(log.startedAt)} · ${formatRunningLogDistance(
     log.distanceKm,
   )}`;
+}
+
+export function formatAttackAvailableAt(value: string | null) {
+  if (!value) {
+    return '바로 가능';
+  }
+
+  return formatKoreanDateTime(value);
+}
+
+export function formatRunningLogDate(startedAt: string) {
+  return formatKoreanDateTime(startedAt);
 }
 
 export function canSubmitAttack(

@@ -31,9 +31,12 @@ export function getTerritoryBuffMultiplier(character: IncomeCharacter) {
     return 1;
   }
 
+  const basePointRate = Number.isFinite(character.basePointRate)
+    ? character.basePointRate
+    : 1;
+  const pointLv = Number.isFinite(character.pointLv) ? character.pointLv : 1;
   const multiplier =
-    character.basePointRate +
-    Math.max(character.pointLv - 1, 0) * POINT_EFFICIENCY_LEVEL_BONUS;
+    basePointRate + Math.max(pointLv - 1, 0) * POINT_EFFICIENCY_LEVEL_BONUS;
 
   return Math.min(multiplier, POINT_EFFICIENCY_MULTIPLIER_CAP);
 }
