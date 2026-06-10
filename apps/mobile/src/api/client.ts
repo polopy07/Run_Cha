@@ -78,7 +78,7 @@ export async function apiFetch<T = unknown>(
       const retry = await fetch(buildUrl(path), { ...options, headers });
       if (retry.ok) return retry.json();
 
-      let retryMessage = `Request failed: ${path}`;
+      let retryMessage = `Request failed (${retry.status}): ${path}`;
       try {
         const error = await retry.json();
         if (error?.message) retryMessage = error.message;
@@ -88,7 +88,7 @@ export async function apiFetch<T = unknown>(
   }
 
   if (!response.ok) {
-    let message = `Request failed: ${path}`;
+    let message = `Request failed (${response.status}): ${path}`;
     try {
       const error = await response.json();
       if (error?.message) {

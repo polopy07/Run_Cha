@@ -236,17 +236,13 @@ export function StorageScreen() {
       getMyTerritories(),
     ]);
 
+    setTerritories(
+      territoryResult.status === 'fulfilled' ? territoryResult.value : [],
+    );
+
     if (characterResult.status === 'rejected') {
-      setTerritories([]);
       throw characterResult.reason;
     }
-
-    if (territoryResult.status === 'rejected') {
-      setTerritories([]);
-      throw territoryResult.reason;
-    }
-
-    setTerritories(territoryResult.value);
   }, [fetchCharacters]);
 
   useEffect(() => {
@@ -368,8 +364,8 @@ export function StorageScreen() {
     setIsDismantling(true);
     try {
       const result = await dismantleCharacters(selectedDismantleIds);
-      resetDismantleMode();
       await Promise.all([fetchCharacters(), fetchMe()]);
+      resetDismantleMode();
       Alert.alert(
         '분해 완료',
         `${result.dismantledCount}개 캐릭터를 분해했습니다. 스탯 포인트 +${result.earnedStatPoints}`,

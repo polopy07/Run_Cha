@@ -253,8 +253,7 @@ export function GachaScreen() {
         setResults(data.results ?? []);
         if (data.remainingPoints != null)
           setRemainingPoints(data.remainingPoints);
-        void fetchMe().catch(() => {});
-        void fetchCharacters().catch(() => {});
+        await Promise.allSettled([fetchMe(), fetchCharacters()]);
       } catch (error: unknown) {
         const msg =
           error instanceof Error ? error.message : '서버 오류가 발생했습니다.';

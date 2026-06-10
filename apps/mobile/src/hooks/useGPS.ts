@@ -28,7 +28,7 @@ export function useGPS() {
     (e: { nativeEvent: { coordinate?: LatLng } }) => {
       const coord = e.nativeEvent.coordinate;
       if (!coord) return;
-      lastLocation = coord;
+      updateSharedLocation(coord);
       setCurrentLocation(coord);
     },
     [],

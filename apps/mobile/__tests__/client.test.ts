@@ -87,7 +87,7 @@ describe('apiFetch', () => {
       json: () => Promise.reject(new Error('not json')),
     });
 
-    await expect(apiFetch('/crash')).rejects.toThrow('Request failed: /crash');
+    await expect(apiFetch('/crash')).rejects.toThrow('Request failed (500): /crash');
   });
 
   it('401 응답 후 토큰 갱신 성공 시 원래 요청 재시도', async () => {

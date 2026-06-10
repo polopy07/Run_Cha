@@ -72,8 +72,12 @@ export function MapScreen() {
     };
     try {
       const data = await getTerritories(bounds, { signal: controller.signal });
-      if (!controller.signal.aborted) setTerritories(data);
-    } catch {}
+      if (!controller.signal.aborted && isMountedRef.current) setTerritories(data);
+    } catch (e) {
+      if (e instanceof Error && e.name !== 'AbortError') {
+        console.warn('fetchTerritories error:', e.message);
+      }
+    }
   }, []);
 
   useEffect(() => {
