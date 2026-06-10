@@ -54,6 +54,7 @@ export function MapScreen() {
   const [selectedTerritoryId, setSelectedTerritoryId] = useState<number | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
   const [attackTerritoryId, setAttackTerritoryId] = useState<number | null>(null);
+  const [attackTerritoryName, setAttackTerritoryName] = useState<string | undefined>();
   const [attackVisible, setAttackVisible] = useState(false);
 
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -378,8 +379,10 @@ export function MapScreen() {
         territory={territories.find(t => t.id === selectedTerritoryId) ?? null}
         onClose={() => { setDetailVisible(false); setSelectedTerritoryId(null); }}
         onAttack={(id) => {
+          const target = territories.find(t => t.id === id);
           setDetailVisible(false);
           setAttackTerritoryId(id);
+          setAttackTerritoryName(target?.name ?? (target ? `영토 #${target.id}` : undefined));
           setAttackVisible(true);
         }}
       />
@@ -387,11 +390,14 @@ export function MapScreen() {
       <AttackTerritoryPanel
         visible={attackVisible}
         territoryId={attackTerritoryId}
-        onClose={() => { setAttackVisible(false); setAttackTerritoryId(null); }}
-        onCompleted={() => {
+        territoryName={attackTerritoryName}
+        onClose={() => {
           setAttackVisible(false);
           setAttackTerritoryId(null);
-          fetchTerritories(regionRef.current);
+          setAttackTerritoryName(undefined);
+        }}
+        onCompleted={() => {
+          void fetchTerritories(regionRef.current);
         }}
       />
     </View>
