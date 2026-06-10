@@ -3,7 +3,7 @@ import { API_URL } from '@env';
 import { auth } from './firebase';
 
 const TOKEN_KEY = 'accessToken';
-let isRefreshing = false;
+let refreshPromise: Promise<string | null> | null = null;
 const BASE_URL = (API_URL ?? 'http://localhost:3000').replace(/\/+$/, '');
 
 function buildUrl(path: string) {
@@ -20,6 +20,35 @@ export async function getToken(): Promise<string | null> {
 
 export async function removeToken() {
   await AsyncStorage.removeItem(TOKEN_KEY);
+}
+
+async function refreshAccessToken(): Promise<string | null> {
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = (async () => {
+    try {
+      const firebaseUser = auth.currentUser;
+      if (!firebaseUser) return null;
+
+      const idToken = await firebaseUser.getIdToken(true);
+      const res = await fetch(buildUrl('/auth/login'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      });
+      if (!res.ok) return null;
+
+      const data = await res.json();
+      await saveToken(data.accessToken);
+      return data.accessToken as string;
+    } catch {
+      return null;
+    }
+  })().finally(() => {
+    refreshPromise = null;
+  });
+
+  return refreshPromise;
 }
 
 export async function apiFetch<T = unknown>(
@@ -42,29 +71,19 @@ export async function apiFetch<T = unknown>(
     headers,
   });
 
-  if (response.status === 401 && !isRefreshing) {
-    isRefreshing = true;
-    try {
-      const firebaseUser = auth.currentUser;
-      if (firebaseUser) {
-        const idToken = await firebaseUser.getIdToken(true);
-        const loginRes = await fetch(buildUrl('/auth/login'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ idToken }),
-        });
-        if (loginRes.ok) {
-          const data = await loginRes.json();
-          await saveToken(data.accessToken);
-          headers.Authorization = `Bearer ${data.accessToken}`;
-          const retry = await fetch(buildUrl(path), { ...options, headers });
-          if (retry.ok) {
-            return retry.json();
-          }
-        }
-      }
-    } finally {
-      isRefreshing = false;
+  if (response.status === 401) {
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      headers.Authorization = `Bearer ${newToken}`;
+      const retry = await fetch(buildUrl(path), { ...options, headers });
+      if (retry.ok) return retry.json();
+
+      let retryMessage = `Request failed: ${path}`;
+      try {
+        const error = await retry.json();
+        if (error?.message) retryMessage = error.message;
+      } catch {}
+      throw new Error(retryMessage);
     }
   }
 
