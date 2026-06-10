@@ -58,6 +58,7 @@ export function MapScreen() {
 
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const isMountedRef = useRef(true);
 
   const fetchTerritories = useCallback(async (region: Region) => {
     abortRef.current?.abort();
@@ -76,7 +77,9 @@ export function MapScreen() {
   }, []);
 
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       if (fetchTimer.current) clearTimeout(fetchTimer.current);
       abortRef.current?.abort();
     };
@@ -127,6 +130,7 @@ export function MapScreen() {
           fetchTimer.current = setTimeout(() => fetchTerritories(r), 300);
         }}
         onUserLocationChange={(e) => {
+          if (!isMountedRef.current) return;
           const c = e.nativeEvent.coordinate;
           if (!c) return;
           const loc = { latitude: c.latitude, longitude: c.longitude };

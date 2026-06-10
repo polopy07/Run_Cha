@@ -41,6 +41,7 @@ export function RunningScreen() {
   const mapRef = useRef<MapView>(null);
   const gps = useGPS();
   const initialMoveDone = useRef(false);
+  const isMountedRef = useRef(true);
 
   const [phase, setPhase] = useState<Phase>('ready');
   const [elapsed, setElapsed] = useState(0);
@@ -68,6 +69,11 @@ export function RunningScreen() {
       });
       setTerritories(data);
     } catch {}
+  }, []);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
   }, []);
 
   useEffect(() => {
@@ -100,6 +106,7 @@ export function RunningScreen() {
   const { handleLocationChange } = gps;
   const handleUserLocationChange = useCallback(
     (e: { nativeEvent: { coordinate?: { latitude: number; longitude: number } } }) => {
+      if (!isMountedRef.current) return;
       handleLocationChange(e);
       const coordinate = e.nativeEvent.coordinate;
       if (!coordinate) return;
