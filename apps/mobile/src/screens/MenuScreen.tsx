@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Alert, Switch } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, Switch, Image } from 'react-native';
+import { getCharacterImageSource } from '../assets/characters/characterImages';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { StackScreenProps } from '@react-navigation/stack';
 import useAuthStore from '../store/authStore';
@@ -34,8 +35,20 @@ export function MenuScreen({ navigation }: Props) {
             width: 60, height: 60, borderRadius: 20,
             backgroundColor: colors.primary,
             justifyContent: 'center', alignItems: 'center', marginBottom: 12,
+            overflow: 'hidden',
           }}>
-            <Text style={{ fontSize: 24, fontWeight: '800', color: colors.bg }}>{user.nickname[0]}</Text>
+            {user.representativeCharacter ? (
+              <Image
+                source={getCharacterImageSource(
+                  user.representativeCharacter.grade,
+                  user.representativeCharacter.type,
+                )}
+                style={{ width: 60, height: 60 }}
+                resizeMode="contain"
+              />
+            ) : (
+              <Text style={{ fontSize: 24, fontWeight: '800', color: colors.bg }}>{user.nickname[0]}</Text>
+            )}
           </View>
           <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text }}>{user.nickname}</Text>
           <Text style={{ fontSize: 13, color: colors.textMuted, marginTop: 2 }}>{user.email}</Text>
