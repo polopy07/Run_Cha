@@ -110,7 +110,7 @@ export function RunningScreen() {
   useEffect(() => {
     if (phase === 'running' && lastCoord) {
       mapRef.current?.animateToRegion(
-        { latitude: lastCoord.latitude, longitude: lastCoord.longitude, latitudeDelta: 0.005, longitudeDelta: 0.005 },
+        { latitude: lastCoord.latitude, longitude: lastCoord.longitude, latitudeDelta: 0.002, longitudeDelta: 0.002 },
         300,
       );
     }
@@ -132,6 +132,12 @@ export function RunningScreen() {
       startRunning();
       setElapsed(0);
       setPhase('running');
+      if (gps.currentLocation) {
+        mapRef.current?.animateToRegion(
+          { ...gps.currentLocation, latitudeDelta: 0.002, longitudeDelta: 0.002 },
+          500,
+        );
+      }
     } catch (error) {
       const message =
         error instanceof Error ? error.message : '러닝을 시작하지 못했습니다.';
@@ -405,7 +411,9 @@ export function RunningScreen() {
               return;
             }
             mapRef.current?.animateToRegion(
-              { latitude: loc.latitude, longitude: loc.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 500,
+              { latitude: loc.latitude, longitude: loc.longitude,
+                latitudeDelta: phase === 'running' ? 0.002 : 0.01,
+                longitudeDelta: phase === 'running' ? 0.002 : 0.01 }, 500,
             );
           }}
         >
