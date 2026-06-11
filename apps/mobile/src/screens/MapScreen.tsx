@@ -397,6 +397,7 @@ export function MapScreen() {
           setAttackTerritoryName(undefined);
         }}
         onCompleted={() => {
+          // 소켓 territory:update가 늦거나 끊긴 경우에도 결과 확인 후 지도 상태를 즉시 맞춘다.
           void fetchTerritories(regionRef.current);
         }}
       />
