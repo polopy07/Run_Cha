@@ -10,7 +10,7 @@ import { finishRunning as finishRunningAPI } from '../api/running';
 import { useTheme } from '../contexts/ThemeContext';
 import { radius, mapCardShadow } from '../constants/theme';
 import { darkMapStyle } from '../constants/mapStyle';
-import { useGPS, getLastLocation, updateSharedLocation } from '../hooks/useGPS';
+import { useGPS, getLastLocation } from '../hooks/useGPS';
 import { getTerritories, type Territory } from '../api/territory';
 import useAuthStore from '../store/authStore';
 import { getUserColor } from '../utils/colorUtils';
@@ -41,7 +41,6 @@ export function RunningScreen() {
   const mapRef = useRef<MapView>(null);
   const gps = useGPS();
   const initialMoveDone = useRef(false);
-  const isMountedRef = useRef(true);
 
   const [phase, setPhase] = useState<Phase>('ready');
   const [elapsed, setElapsed] = useState(0);
@@ -71,11 +70,7 @@ export function RunningScreen() {
     } catch {}
   }, []);
 
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => { isMountedRef.current = false; };
-  }, []);
-
+  // Initial camera position from cached location on mount
   useEffect(() => {
     const last = getLastLocation();
     if (!last) return;
@@ -86,6 +81,24 @@ export function RunningScreen() {
     }, 300);
     return () => clearTimeout(id);
   }, [fetchNearbyTerritories]);
+
+  // Sync location state and update running position from independent GPS watcher
+  useEffect(() => {
+    if (!gps.currentLocation) return;
+    setMyLocation(gps.currentLocation);
+
+    if (!initialMoveDone.current) {
+      initialMoveDone.current = true;
+      mapRef.current?.animateToRegion(
+        { ...gps.currentLocation, latitudeDelta: 0.01, longitudeDelta: 0.01 },
+        500,
+      );
+    }
+
+    if (isRunning) {
+      updatePosition(gps.currentLocation);
+    }
+  }, [gps.currentLocation, isRunning, updatePosition]);
 
   useEffect(() => {
     if (phase !== 'running') return;
@@ -102,33 +115,6 @@ export function RunningScreen() {
       );
     }
   }, [phase, lastCoord]);
-
-  const { handleLocationChange } = gps;
-  const handleUserLocationChange = useCallback(
-    (e: { nativeEvent: { coordinate?: { latitude: number; longitude: number } } }) => {
-      if (!isMountedRef.current) return;
-      handleLocationChange(e);
-      const coordinate = e.nativeEvent.coordinate;
-      if (!coordinate) return;
-
-      const loc = { latitude: coordinate.latitude, longitude: coordinate.longitude };
-      updateSharedLocation(loc);
-      setMyLocation(loc);
-
-      if (!initialMoveDone.current) {
-        initialMoveDone.current = true;
-        mapRef.current?.animateToRegion(
-          { latitude: coordinate.latitude, longitude: coordinate.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 },
-          500,
-        );
-      }
-
-      if (isRunning) {
-        updatePosition({ latitude: coordinate.latitude, longitude: coordinate.longitude });
-      }
-    },
-    [handleLocationChange, isRunning, updatePosition],
-  );
 
   const handleStart = async () => {
     try {
@@ -327,9 +313,9 @@ export function RunningScreen() {
             : DEFAULT_REGION;
         })()}
         customMapStyle={Platform.OS === 'android' && isDark ? darkMapStyle : undefined}
-        showsUserLocation showsMyLocationButton={false}
+        showsUserLocation={!(user && myLocation)}
+        showsMyLocationButton={false}
         followsUserLocation={Platform.OS === 'ios'}
-        onUserLocationChange={handleUserLocationChange}
         onRegionChangeComplete={(r) => fetchNearbyTerritories(r)}
       >
         {territories.map((t) => {
