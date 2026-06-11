@@ -60,7 +60,11 @@ export class TerritoriesService {
 
   async findOne(id: number, currentUserId: number | null) {
     const territory = await this.territoryRepo.findOne({
-      where: { id },
+      where: {
+        id,
+        area_sqm: MoreThan(0),
+        occupation_rate: MoreThan(0),
+      },
       relations: ['user'],
       select: {
         id: true,
