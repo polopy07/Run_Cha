@@ -16,7 +16,7 @@ import { getUserColor } from '../utils/colorUtils';
 import { formatAreaCompact } from '../utils/formatUtils';
 import { useSocket } from '../hooks/useSocket';
 import { CharacterMarker } from '../components/CharacterMarker';
-import { getLastLocation, updateSharedLocation } from '../hooks/useGPS';
+import { useGPS, getLastLocation } from '../hooks/useGPS';
 
 function getCentroid(coords: { lat: number; lng: number }[]): { latitude: number; longitude: number } {
   const len = coords.length || 1;
@@ -40,15 +40,14 @@ export function MapScreen() {
   const navigation = useNavigation<MapNav>();
   const mapRef = useRef<MapView>(null);
   const regionRef = useRef(INITIAL_REGION);
-  const userLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const initialMoveDone = useRef(false);
   const lastEmitRef = useRef(0);
   const user = useAuthStore(s => s.user);
   const rep = user?.representativeCharacter ?? null;
+  const gps = useGPS();
   const { nearbyUsers, emitLocation } = useSocket({
     onTerritoryUpdate: () => fetchTerritories(regionRef.current),
   });
-  const [myLocation, setMyLocation] = useState<{ latitude: number; longitude: number } | null>(getLastLocation());
   const [territories, setTerritories] = useState<Territory[]>([]);
   const [showProfile, setShowProfile] = useState(false);
   const [selectedTerritoryId, setSelectedTerritoryId] = useState<number | null>(null);
@@ -96,6 +95,30 @@ export function MapScreen() {
     }, [fetchTerritories]),
   );
 
+  // Initial camera move to GPS location (once)
+  useEffect(() => {
+    if (!gps.currentLocation || initialMoveDone.current) return;
+    initialMoveDone.current = true;
+    const region = {
+      latitude: gps.currentLocation.latitude,
+      longitude: gps.currentLocation.longitude,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    };
+    mapRef.current?.animateToRegion(region, 500);
+    fetchTerritories(region);
+  }, [gps.currentLocation, fetchTerritories]);
+
+  // Emit socket location with 3-second throttle
+  useEffect(() => {
+    if (!gps.currentLocation) return;
+    const now = Date.now();
+    if (now - lastEmitRef.current >= 3000) {
+      lastEmitRef.current = now;
+      emitLocation(gps.currentLocation.latitude, gps.currentLocation.longitude);
+    }
+  }, [gps.currentLocation, emitLocation]);
+
   const zoomIn = () => {
     const r = regionRef.current;
     mapRef.current?.animateToRegion(
@@ -111,7 +134,7 @@ export function MapScreen() {
   };
 
   const goToMyLocation = () => {
-    const loc = userLocationRef.current ?? myLocation ?? getLastLocation();
+    const loc = gps.currentLocation ?? getLastLocation();
     if (!loc) {
       Alert.alert('위치 오류', '현재 위치를 확인할 수 없습니다.');
       return;
@@ -134,27 +157,7 @@ export function MapScreen() {
           if (fetchTimer.current) clearTimeout(fetchTimer.current);
           fetchTimer.current = setTimeout(() => fetchTerritories(r), 300);
         }}
-        onUserLocationChange={(e) => {
-          if (!isMountedRef.current) return;
-          const c = e.nativeEvent.coordinate;
-          if (!c) return;
-          const loc = { latitude: c.latitude, longitude: c.longitude };
-          updateSharedLocation(loc);
-          userLocationRef.current = loc;
-          setMyLocation(loc);
-          if (!initialMoveDone.current) {
-            initialMoveDone.current = true;
-            const region = { latitude: c.latitude, longitude: c.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 };
-            mapRef.current?.animateToRegion(region, 500);
-            fetchTerritories(region);
-          }
-          const now = Date.now();
-          if (now - lastEmitRef.current >= 3000) {
-            lastEmitRef.current = now;
-            emitLocation(c.latitude, c.longitude);
-          }
-        }}
-        showsUserLocation
+        showsUserLocation={!(user && gps.currentLocation)}
         showsMyLocationButton={false}
       >
         {territories.map((t) => {
@@ -202,14 +205,14 @@ export function MapScreen() {
             isMe={u.userId === user?.id}
           />
         ))}
-        {myLocation && user && (
+        {gps.currentLocation && user && (
           <CharacterMarker
             key={rep ? `${rep.grade}-${rep.type}` : 'no-rep'}
             user={{
               userId: user.id,
               nickname: user.nickname,
-              lat: myLocation.latitude,
-              lng: myLocation.longitude,
+              lat: gps.currentLocation.latitude,
+              lng: gps.currentLocation.longitude,
               character: rep
                 ? { name: rep.name, type: rep.type, grade: rep.grade, imageUrl: rep.imageUrl }
                 : null,
