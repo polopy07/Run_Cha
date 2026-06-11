@@ -82,7 +82,7 @@ export function MenuScreen({ navigation }: Props) {
             )}
           </View>
           {isEditingNickname ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginBottom: 2 }}>
               <TextInput
                 value={nicknameInput}
                 onChangeText={setNicknameInput}
@@ -112,23 +112,23 @@ export function MenuScreen({ navigation }: Props) {
           ) : (
             <TouchableOpacity
               onPress={handleNicknameEdit}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
+              style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6 }}
             >
-              <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text }}>{user.nickname}</Text>
+              <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text, textAlign: 'center' }}>{user.nickname}</Text>
               <Text style={{ fontSize: 12, color: colors.primary }}>✎</Text>
             </TouchableOpacity>
           )}
-          <Text style={{ fontSize: 13, color: colors.textMuted, marginTop: 2 }}>{user.email}</Text>
+          <Text style={{ fontSize: 13, color: colors.textMuted, marginTop: 2, textAlign: 'center' }}>{user.email}</Text>
 
-          <View style={{ flexDirection: 'row', marginTop: 20, gap: 24 }}>
-            <View style={{ alignItems: 'center' }}>
-              <Text style={{ fontSize: 16, fontWeight: '800', color: colors.text }}>{user.points.toLocaleString()}</Text>
-              <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>포인트</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 20 }}>
+            <View style={{ flex: 1, alignItems: 'center' }}>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: colors.text, textAlign: 'center' }}>{user.points.toLocaleString()}</Text>
+              <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 2, textAlign: 'center' }}>포인트</Text>
             </View>
-            <View style={{ width: 1, backgroundColor: colors.divider }} />
-            <View style={{ alignItems: 'center' }}>
-              <Text style={{ fontSize: 16, fontWeight: '800', color: colors.text }}>{user.totalDistance.toFixed(1)} km</Text>
-              <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>총 거리</Text>
+            <View style={{ width: 1, height: 32, backgroundColor: colors.divider }} />
+            <View style={{ flex: 1, alignItems: 'center' }}>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: colors.text, textAlign: 'center' }}>{user.totalDistance.toFixed(1)} km</Text>
+              <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 2, textAlign: 'center' }}>총 거리</Text>
             </View>
           </View>
         </View>
