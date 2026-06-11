@@ -1,3 +1,5 @@
+// Keep inactiveDays in descending order.
+// TerritoryDecayService uses the previous item as the upper boundary.
 export const TERRITORY_DECAY_TIERS = [
   { inactiveDays: 22, occupationRate: 0 },
   { inactiveDays: 15, occupationRate: 25 },

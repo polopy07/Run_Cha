@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { DataSource, MoreThan } from 'typeorm';
 import { AttacksService, getKstDayRange } from './attacks.service';
 import { AttackLog } from './entities/attack-log.entity';
 import { AttackResult } from './enums/attack-result.enum';
@@ -229,6 +229,13 @@ describe('AttacksService', () => {
     expect(result.remainingDailyAttacks).toBe(4);
     expect(result.nextAttackAvailableAt).toEqual(expect.any(String));
     expect(result.message).toBe('침략에 성공했습니다.');
+    expect(territoryRepo.findOne).toHaveBeenCalledWith({
+      where: {
+        id: 10,
+        area_sqm: MoreThan(0),
+        occupation_rate: MoreThan(0),
+      },
+    });
     expect(transactionTerritoryRepo.save).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({ area_sqm: 0, occupation_rate: 0 }),

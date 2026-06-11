@@ -207,7 +207,11 @@ export class AttacksService {
 
   private async findTargetTerritory(territoryId: number) {
     const territory = await this.territoriesRepository.findOne({
-      where: { id: territoryId },
+      where: {
+        id: territoryId,
+        area_sqm: MoreThan(0),
+        occupation_rate: MoreThan(0),
+      },
     });
 
     if (!territory) {
