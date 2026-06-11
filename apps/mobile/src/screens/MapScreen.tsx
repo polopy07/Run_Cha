@@ -58,6 +58,7 @@ export function MapScreen() {
 
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const isMountedRef = useRef(true);
 
   const fetchTerritories = useCallback(async (region: Region) => {
     abortRef.current?.abort();
@@ -71,12 +72,18 @@ export function MapScreen() {
     };
     try {
       const data = await getTerritories(bounds, { signal: controller.signal });
-      if (!controller.signal.aborted) setTerritories(data);
-    } catch {}
+      if (!controller.signal.aborted && isMountedRef.current) setTerritories(data);
+    } catch (e) {
+      if (e instanceof Error && e.name !== 'AbortError') {
+        console.warn('fetchTerritories error:', e.message);
+      }
+    }
   }, []);
 
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       if (fetchTimer.current) clearTimeout(fetchTimer.current);
       abortRef.current?.abort();
     };
@@ -127,6 +134,7 @@ export function MapScreen() {
           fetchTimer.current = setTimeout(() => fetchTerritories(r), 300);
         }}
         onUserLocationChange={(e) => {
+          if (!isMountedRef.current) return;
           const c = e.nativeEvent.coordinate;
           if (!c) return;
           const loc = { latitude: c.latitude, longitude: c.longitude };
@@ -145,7 +153,7 @@ export function MapScreen() {
             emitLocation(c.latitude, c.longitude);
           }
         }}
-        showsUserLocation={!(user && myLocation)}
+        showsUserLocation
         showsMyLocationButton={false}
       >
         {territories.map((t) => {

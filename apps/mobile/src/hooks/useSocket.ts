@@ -106,6 +106,7 @@ export function useSocket(options?: SocketOptions) {
     })();
 
     staleTimerRef.current = setInterval(() => {
+      if (!mounted) return;
       const now = Date.now();
       setNearbyUsers(prev => {
         let changed = false;

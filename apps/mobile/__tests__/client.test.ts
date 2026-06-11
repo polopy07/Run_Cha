@@ -87,6 +87,47 @@ describe('apiFetch', () => {
       json: () => Promise.reject(new Error('not json')),
     });
 
-    await expect(apiFetch('/crash')).rejects.toThrow('Request failed: /crash');
+    await expect(apiFetch('/crash')).rejects.toThrow('Request failed (500): /crash');
+  });
+
+  it('401 응답 후 토큰 갱신 성공 시 원래 요청 재시도', async () => {
+    const { getAuth } = require('firebase/auth');
+    const mockAuthInstance = getAuth();
+    mockAuthInstance.currentUser = { getIdToken: jest.fn(() => Promise.resolve('new-id-token')) };
+
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce({ ok: false, status: 401, json: () => Promise.resolve({ message: 'Unauthorized' }) })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ accessToken: 'new-access-token' }) })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ id: 1 }) });
+
+    const data = await apiFetch('/protected');
+    expect(data).toEqual({ id: 1 });
+    expect(global.fetch).toHaveBeenCalledTimes(3);
+
+    mockAuthInstance.currentUser = null;
+  });
+
+  it('동시 401 요청에 대해 토큰 갱신은 한 번만 실행', async () => {
+    const { getAuth } = require('firebase/auth');
+    const mockAuthInstance = getAuth();
+    mockAuthInstance.currentUser = { getIdToken: jest.fn(() => Promise.resolve('new-id-token')) };
+
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce({ ok: false, status: 401, json: () => Promise.resolve({ message: 'Unauthorized' }) })
+      .mockResolvedValueOnce({ ok: false, status: 401, json: () => Promise.resolve({ message: 'Unauthorized' }) })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ accessToken: 'new-token' }) })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ data: 'A' }) })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ data: 'B' }) });
+
+    const [a, b] = await Promise.all([apiFetch('/a'), apiFetch('/b')]);
+
+    const loginCalls = (global.fetch as jest.Mock).mock.calls.filter(
+      ([url]: [string]) => url.includes('/auth/login'),
+    );
+    expect(loginCalls).toHaveLength(1);
+    expect(a).toEqual({ data: 'A' });
+    expect(b).toEqual({ data: 'B' });
+
+    mockAuthInstance.currentUser = null;
   });
 });

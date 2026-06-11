@@ -90,16 +90,16 @@ const useAuthStore = create<AuthState>((set) => ({
   restoreSession: async () => {
     try {
       const token = await getToken();
-      const firebaseUser = auth.currentUser;
-
-      if (!firebaseUser) {
-        return;
-      }
 
       if (token) {
+        // JWT가 있으면 Firebase 초기화 여부와 무관하게 바로 /users/me 시도
+        // 만료된 경우 apiFetch 401 인터셉터가 Firebase로 갱신 처리
         const data = await apiFetch<User>('/users/me');
         set({ user: data, accessToken: token, isLoggedIn: true });
       } else {
+        // JWT 없음 — Firebase로 새 토큰 발급 필요 (첫 로그인 또는 로그아웃 후)
+        const firebaseUser = auth.currentUser;
+        if (!firebaseUser) return;
         const idToken = await firebaseUser.getIdToken(true);
         await authenticateWithServer(idToken, set);
       }

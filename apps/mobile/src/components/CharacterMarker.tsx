@@ -20,17 +20,22 @@ type Props = {
   isMe?: boolean;
 };
 
+// 원형 아이콘 중심이 GPS 좌표와 일치하도록 앵커 계산
+// 전체 높이 = 원(size) + marginTop(2) + 라벨(fontSize9 + paddingVertical2 + 여유3 ≈ 14)
+const LABEL_HEIGHT = 16;
+
 export function CharacterMarker({ user, isMe }: Props) {
   const { colors } = useTheme();
   const char = user.character;
   const size = isMe ? 24 : 40;
   const borderColor = char ? GRADE_BORDER[char.grade] ?? colors.textMuted : colors.textMuted;
   const [imageLoaded, setImageLoaded] = useState(false);
+  const anchorY = (size / 2) / (size + LABEL_HEIGHT);
 
   return (
     <Marker
       coordinate={{ latitude: user.lat, longitude: user.lng }}
-      anchor={{ x: 0.5, y: 1 }}
+      anchor={{ x: 0.5, y: anchorY }}
       tracksViewChanges={char ? !imageLoaded : false}
     >
       <View style={{ alignItems: 'center' }}>

@@ -10,6 +10,7 @@ import {
   ScrollView,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -135,7 +136,9 @@ function getExperienceProgress(character: Character) {
   if (character.nextLevelExperience === null) {
     return 1;
   }
-
+  if (character.experience == null || character.nextLevelExperience == null) {
+    return 0;
+  }
   return Math.min(
     1,
     Math.max(0, character.experience / character.nextLevelExperience),
@@ -145,6 +148,7 @@ function getExperienceProgress(character: Character) {
 export function StorageScreen() {
   const { colors, gradeColor } = useTheme();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const navigation = useNavigation<Nav>();
   const { characters, isLoading, fetchCharacters, updateCharacter } =
     useCharacterStore();
@@ -232,17 +236,13 @@ export function StorageScreen() {
       getMyTerritories(),
     ]);
 
+    setTerritories(
+      territoryResult.status === 'fulfilled' ? territoryResult.value : [],
+    );
+
     if (characterResult.status === 'rejected') {
-      setTerritories([]);
       throw characterResult.reason;
     }
-
-    if (territoryResult.status === 'rejected') {
-      setTerritories([]);
-      throw territoryResult.reason;
-    }
-
-    setTerritories(territoryResult.value);
   }, [fetchCharacters]);
 
   useEffect(() => {
@@ -364,8 +364,8 @@ export function StorageScreen() {
     setIsDismantling(true);
     try {
       const result = await dismantleCharacters(selectedDismantleIds);
-      resetDismantleMode();
       await Promise.all([fetchCharacters(), fetchMe()]);
+      resetDismantleMode();
       Alert.alert(
         '분해 완료',
         `${result.dismantledCount}개 캐릭터를 분해했습니다. 스탯 포인트 +${result.earnedStatPoints}`,
@@ -989,27 +989,39 @@ export function StorageScreen() {
         animationType="fade"
         onRequestClose={() => setDetailCharacter(null)}
       >
-        <Pressable
-          style={{
-            flex: 1,
-            justifyContent: 'center',
-            backgroundColor: 'rgba(0,0,0,0.58)',
-            paddingHorizontal: 18,
-          }}
-          onPress={() => setDetailCharacter(null)}
-        >
+        <View style={{ flex: 1 }}>
+          <Pressable
+            style={{
+              position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.58)',
+            }}
+            onPress={() => setDetailCharacter(null)}
+          />
+          <View
+            pointerEvents="box-none"
+            style={{
+              flex: 1,
+              justifyContent: 'center',
+              paddingHorizontal: 18,
+              paddingTop: insets.top + 12,
+              paddingBottom: insets.bottom + 12,
+            }}
+          >
           {detailCharacter && (
-            <Pressable
+            <View
               style={{
                 backgroundColor: colors.surface,
                 borderColor: colors.cardBorder,
                 borderRadius: radius.xl,
                 borderWidth: 1,
-                padding: 18,
-                maxHeight: '88%',
+                overflow: 'hidden',
               }}
             >
-              <ScrollView showsVerticalScrollIndicator={false}>
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                style={{ maxHeight: windowHeight - insets.top - insets.bottom - 60 }}
+                contentContainerStyle={{ padding: 18 }}
+              >
                 <View style={{ alignItems: 'center', marginBottom: 14 }}>
                   <Image
                     source={getCharacterImageSource(
@@ -1064,7 +1076,7 @@ export function StorageScreen() {
                         marginTop: 8,
                       }}
                     >
-                      캐릭터 Lv. {detailCharacter.level}
+                      캐릭터 Lv. {detailCharacter.level ?? '-'}
                     </Text>
                   </View>
                   <View
@@ -1124,9 +1136,11 @@ export function StorageScreen() {
                         fontWeight: '700',
                       }}
                     >
-                      {detailCharacter.nextLevelExperience === null
-                        ? 'MAX'
-                        : `${detailCharacter.experience} / ${detailCharacter.nextLevelExperience}`}
+                      {detailCharacter.experience == null
+                        ? '-'
+                        : detailCharacter.nextLevelExperience === null
+                          ? 'MAX'
+                          : `${detailCharacter.experience} / ${detailCharacter.nextLevelExperience}`}
                     </Text>
                   </View>
                   <View
@@ -1155,10 +1169,12 @@ export function StorageScreen() {
                   >
                     {detailCharacter.nextLevelExperience === null
                       ? '최대 레벨입니다.'
-                      : `레벨업까지 ${
-                          detailCharacter.nextLevelExperience -
-                          detailCharacter.experience
-                        } EXP 남음`}
+                      : detailCharacter.experience == null
+                        ? '-'
+                        : `레벨업까지 ${
+                            detailCharacter.nextLevelExperience -
+                            detailCharacter.experience
+                          } EXP 남음`}
                   </Text>
                 </View>
 
@@ -1320,9 +1336,10 @@ export function StorageScreen() {
                   </TouchableOpacity>
                 </View>
               </ScrollView>
-            </Pressable>
+            </View>
           )}
-        </Pressable>
+          </View>
+        </View>
       </Modal>
 
       <Modal

@@ -87,12 +87,32 @@ describe('authStore', () => {
   });
 
   describe('restoreSession', () => {
-    it('firebaseUser 없으면 로그인 상태 변경 없이 종료', async () => {
+    it('토큰 없고 firebaseUser도 없으면 로그인 상태 변경 없이 종료', async () => {
       await useAuthStore.getState().restoreSession();
 
       const state = useAuthStore.getState();
       expect(state.isLoggedIn).toBe(false);
       expect(state.isLoading).toBe(false);
+    });
+
+    it('토큰 있으면 Firebase null이어도 /users/me로 세션 복원', async () => {
+      const { saveToken } = require('../src/api/client');
+      await saveToken('existing-jwt');
+
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(mockUserResponse),
+      });
+
+      await useAuthStore.getState().restoreSession();
+
+      const state = useAuthStore.getState();
+      expect(state.isLoggedIn).toBe(true);
+      expect(state.user).toEqual(mockUserResponse);
+      expect(state.isLoading).toBe(false);
+
+      const { removeToken } = require('../src/api/client');
+      await removeToken();
     });
 
     it('복원 실패 시 로그아웃 상태로 전환', async () => {
