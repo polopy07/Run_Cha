@@ -70,6 +70,10 @@ export function useGPS() {
 
     return () => {
       locationListeners.delete(setCurrentLocation);
+      if (locationListeners.size === 0 && watchId !== null) {
+        Geolocation.clearWatch(watchId);
+        watchId = null;
+      }
     };
   }, []);
 
@@ -79,6 +83,8 @@ export function useGPS() {
       setIsTracking(false);
       return permissionResult;
     }
+    // Ensure watcher is running after Android permissions are granted
+    startWatcher();
     const result = await startBackgroundTracking();
     setIsTracking(result.ok);
     return result;
