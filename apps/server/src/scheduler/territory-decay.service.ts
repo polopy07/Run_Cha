@@ -22,9 +22,9 @@ export class TerritoryDecayService {
     const [neutralizedResult, ...decayResults] = await Promise.all(
       TERRITORY_DECAY_TIERS.map((tier, index) => {
         const cutoff = new Date(now.getTime() - tier.inactiveDays * DAY_IN_MS);
-        const nextTier = TERRITORY_DECAY_TIERS[index - 1];
-        const previousCutoff = nextTier
-          ? new Date(now.getTime() - nextTier.inactiveDays * DAY_IN_MS)
+        const longerInactiveTier = TERRITORY_DECAY_TIERS[index - 1];
+        const previousCutoff = longerInactiveTier
+          ? new Date(now.getTime() - longerInactiveTier.inactiveDays * DAY_IN_MS)
           : null;
 
         const query = this.territoryRepo
