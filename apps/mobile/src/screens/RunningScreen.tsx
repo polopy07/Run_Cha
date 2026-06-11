@@ -14,6 +14,7 @@ import { useGPS, getLastLocation } from '../hooks/useGPS';
 import { getTerritories, type Territory } from '../api/territory';
 import useAuthStore from '../store/authStore';
 import { getUserColor } from '../utils/colorUtils';
+import { estimateRunningPoints } from '../utils/runningPointUtils';
 
 const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 
@@ -358,24 +359,32 @@ export function RunningScreen() {
       {phase === 'running' && (
         <View style={{
           position: 'absolute', top: 0, left: 0, right: 0,
-          flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center',
           backgroundColor: colors.overlay,
-          paddingBottom: 16, paddingHorizontal: 16, paddingTop: STATUS_BAR_HEIGHT + 12,
+          paddingBottom: 14, paddingHorizontal: 16, paddingTop: STATUS_BAR_HEIGHT + 12,
           ...mapCardShadow(isDark),
         }}>
-          <View style={{ alignItems: 'center', flex: 1 }}>
-            <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>시간</Text>
-            <Text style={{ color: colors.text, fontSize: 24, fontWeight: '800' }}>{formatTime(elapsed)}</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' }}>
+            <View style={{ alignItems: 'center', flex: 1 }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>시간</Text>
+              <Text style={{ color: colors.text, fontSize: 24, fontWeight: '800' }}>{formatTime(elapsed)}</Text>
+            </View>
+            <View style={{ width: 1, height: 36, backgroundColor: colors.divider }} />
+            <View style={{ alignItems: 'center', flex: 1 }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>거리</Text>
+              <Text style={{ color: colors.text, fontSize: 24, fontWeight: '800' }}>{formatDist(distance)}</Text>
+            </View>
+            <View style={{ width: 1, height: 36, backgroundColor: colors.divider }} />
+            <View style={{ alignItems: 'center', flex: 1 }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>페이스</Text>
+              <Text style={{ color: colors.text, fontSize: 24, fontWeight: '800' }}>{formatPace(distance, elapsed)}</Text>
+            </View>
           </View>
-          <View style={{ width: 1, height: 36, backgroundColor: colors.divider }} />
-          <View style={{ alignItems: 'center', flex: 1 }}>
-            <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>거리</Text>
-            <Text style={{ color: colors.text, fontSize: 24, fontWeight: '800' }}>{formatDist(distance)}</Text>
-          </View>
-          <View style={{ width: 1, height: 36, backgroundColor: colors.divider }} />
-          <View style={{ alignItems: 'center', flex: 1 }}>
-            <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>페이스</Text>
-            <Text style={{ color: colors.text, fontSize: 24, fontWeight: '800' }}>{formatPace(distance, elapsed)}</Text>
+          <View style={{ height: 1, backgroundColor: colors.divider, marginTop: 12, marginBottom: 8 }} />
+          <View style={{ alignItems: 'center' }}>
+            <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 2 }}>예상 포인트</Text>
+            <Text style={{ color: colors.primary, fontSize: 18, fontWeight: '800' }}>
+              +{estimateRunningPoints(distance, elapsed).toLocaleString()} P
+            </Text>
           </View>
         </View>
       )}
