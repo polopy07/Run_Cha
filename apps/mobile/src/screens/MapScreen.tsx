@@ -348,20 +348,20 @@ export function MapScreen() {
           { label: '−', onPress: zoomOut },
         ].map((btn) => (
           <TouchableOpacity key={btn.label} onPress={btn.onPress} style={{
-            width: 40, height: 40, backgroundColor: colors.overlayLight,
+            width: 36, height: 36, backgroundColor: colors.overlayLight, opacity: 0.75,
             borderRadius: radius.sm, justifyContent: 'center', alignItems: 'center', marginBottom: 4,
             ...mapCardShadow(isDark),
           }}>
-            <Text style={{ fontSize: 20, color: colors.text, fontWeight: '600' }}>{btn.label}</Text>
+            <Text style={{ fontSize: 17, color: colors.text, fontWeight: '600' }}>{btn.label}</Text>
           </TouchableOpacity>
         ))}
         <View style={{ height: 8 }} />
         <TouchableOpacity onPress={goToMyLocation} style={{
-          width: 40, height: 40, backgroundColor: colors.overlayLight,
+          width: 36, height: 36, backgroundColor: colors.overlayLight, opacity: 0.75,
           borderRadius: radius.sm, justifyContent: 'center', alignItems: 'center',
           ...mapCardShadow(isDark),
         }}>
-          <Text style={{ fontSize: 20, color: colors.text, fontWeight: '600' }}>◎</Text>
+          <Text style={{ fontSize: 17, color: colors.text, fontWeight: '600' }}>◎</Text>
         </TouchableOpacity>
       </View>
 
