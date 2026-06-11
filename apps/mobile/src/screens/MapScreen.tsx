@@ -368,19 +368,19 @@ export function MapScreen() {
       {/* 하단 액션 */}
       <View style={{
         position: 'absolute', bottom: 0, left: 0, right: 0,
-        paddingHorizontal: 12,
+        paddingHorizontal: 24,
         paddingBottom: insets.bottom + 8,
       }}>
         <TouchableOpacity
           onPress={() => navigation.navigate('러닝')}
           activeOpacity={0.85}
           style={{
-            flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-            backgroundColor: colors.primary, borderRadius: radius.lg,
+            alignItems: 'center',
+            backgroundColor: colors.primary, borderRadius: radius.xl,
             paddingVertical: 16,
           }}
         >
-          <Text style={{ color: colors.bg, fontSize: 16, fontWeight: '800' }}>러닝 시작</Text>
+          <Text style={{ color: colors.bg, fontSize: 18, fontWeight: '800' }}>러닝 시작</Text>
         </TouchableOpacity>
       </View>
 
