@@ -380,7 +380,7 @@ export function MapScreen() {
             paddingVertical: 16,
           }}
         >
-          <Text style={{ color: colors.bg, fontSize: 18, fontWeight: '800' }}>러닝 시작</Text>
+          <Text style={{ color: colors.bg, fontSize: 18, fontWeight: '800' }}>러닝 준비</Text>
         </TouchableOpacity>
       </View>
 
