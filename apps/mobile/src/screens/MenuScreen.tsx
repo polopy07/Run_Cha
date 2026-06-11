@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, Alert, Switch, Image } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, Alert, Switch, Image, TextInput, ActivityIndicator } from 'react-native';
 import { getCharacterImageSource } from '../assets/characters/characterImages';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { StackScreenProps } from '@react-navigation/stack';
@@ -12,8 +12,39 @@ type Props = StackScreenProps<MenuStackParamList, 'MenuHome'>;
 
 export function MenuScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const { user, logout } = useAuthStore();
+  const { user, logout, updateNickname } = useAuthStore();
   const { colors, isDark, toggle } = useTheme();
+
+  const [isEditingNickname, setIsEditingNickname] = useState(false);
+  const [nicknameInput, setNicknameInput] = useState('');
+  const [nicknameLoading, setNicknameLoading] = useState(false);
+
+  const handleNicknameEdit = () => {
+    setNicknameInput(user?.nickname ?? '');
+    setIsEditingNickname(true);
+  };
+
+  const handleNicknameConfirm = async () => {
+    const trimmed = nicknameInput.trim();
+    if (!trimmed || trimmed === user?.nickname) {
+      setIsEditingNickname(false);
+      return;
+    }
+    if (trimmed.length > 50) {
+      Alert.alert('닉네임 오류', '닉네임은 50자 이하로 입력해주세요.');
+      return;
+    }
+    setNicknameLoading(true);
+    try {
+      await updateNickname(trimmed);
+      setIsEditingNickname(false);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '닉네임 변경에 실패했습니다.';
+      Alert.alert('오류', msg);
+    } finally {
+      setNicknameLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert('로그아웃', '정말 로그아웃하시겠습니까?', [
@@ -50,7 +81,43 @@ export function MenuScreen({ navigation }: Props) {
               <Text style={{ fontSize: 24, fontWeight: '800', color: colors.bg }}>{user.nickname[0]}</Text>
             )}
           </View>
-          <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text }}>{user.nickname}</Text>
+          {isEditingNickname ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+              <TextInput
+                value={nicknameInput}
+                onChangeText={setNicknameInput}
+                autoFocus
+                maxLength={50}
+                style={{
+                  fontSize: 16, fontWeight: '700', color: colors.text,
+                  borderBottomWidth: 1.5, borderBottomColor: colors.primary,
+                  paddingVertical: 2, minWidth: 100, textAlign: 'center',
+                }}
+                returnKeyType="done"
+                onSubmitEditing={handleNicknameConfirm}
+              />
+              {nicknameLoading ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <>
+                  <TouchableOpacity onPress={handleNicknameConfirm}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: colors.primary }}>확인</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setIsEditingNickname(false)}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textMuted }}>취소</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          ) : (
+            <TouchableOpacity
+              onPress={handleNicknameEdit}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
+            >
+              <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text }}>{user.nickname}</Text>
+              <Text style={{ fontSize: 12, color: colors.primary }}>✎</Text>
+            </TouchableOpacity>
+          )}
           <Text style={{ fontSize: 13, color: colors.textMuted, marginTop: 2 }}>{user.email}</Text>
 
           <View style={{ flexDirection: 'row', marginTop: 20, gap: 24 }}>
