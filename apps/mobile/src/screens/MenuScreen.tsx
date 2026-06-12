@@ -25,11 +25,13 @@ export function MenuScreen({ navigation }: Props) {
   };
 
   const handleNicknameConfirm = async () => {
+    if (nicknameLoading) return;
     const trimmed = nicknameInput.trim();
     if (!trimmed || trimmed === user?.nickname) {
       setIsEditingNickname(false);
       return;
     }
+    // maxLength={50}으로 대부분 차단되지만 붙여넣기 시 초과 가능
     if (trimmed.length > 50) {
       Alert.alert('닉네임 오류', '닉네임은 50자 이하로 입력해주세요.');
       return;
