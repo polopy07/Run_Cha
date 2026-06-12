@@ -43,6 +43,7 @@ type AuthState = {
   restoreSession: () => Promise<void>;
   fetchMe: () => Promise<void>;
   setRepresentative: (userCharacterId: number | null) => Promise<void>;
+  updateNickname: (nickname: string) => Promise<void>;
 };
 
 async function authenticateWithServer(
@@ -120,6 +121,14 @@ const useAuthStore = create<AuthState>((set) => ({
     const data = await apiFetch<User>('/users/me/representative', {
       method: 'PUT',
       body: JSON.stringify({ userCharacterId }),
+    });
+    set({ user: data });
+  },
+
+  updateNickname: async (nickname) => {
+    const data = await apiFetch<User>('/users/me/nickname', {
+      method: 'PATCH',
+      body: JSON.stringify({ nickname }),
     });
     set({ user: data });
   },
