@@ -33,6 +33,12 @@ describe('estimateRunningPoints', () => {
     expect(estimateRunningPoints(1000, 420)).toBe(88);
   });
 
+  it('fast_walk 페이스(≤8min/km) 에서 올바른 포인트 계산', () => {
+    // 1km, 8분(480초) = 페이스 8.0 min/km → paceMultiplier 0.6
+    // floor(1 * 100 * 0.6 * 1.1) = 66
+    expect(estimateRunningPoints(1000, 480)).toBe(66);
+  });
+
   it('거리가 길수록 distanceMultiplier 증가 (최대 3배)', () => {
     const short = estimateRunningPoints(1000, 300);   // 1km
     const medium = estimateRunningPoints(3000, 900);  // 3km

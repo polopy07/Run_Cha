@@ -338,6 +338,7 @@ export function RunningScreen() {
         showsUserLocation={!(user && myLocation)}
         showsMyLocationButton={false}
         followsUserLocation={Platform.OS === 'ios'}
+        onRegionChange={(r) => { regionRef.current = r; }}
         onRegionChangeComplete={(r) => { regionRef.current = r; fetchNearbyTerritories(r); }}
       >
         {territories.map((t) => {
