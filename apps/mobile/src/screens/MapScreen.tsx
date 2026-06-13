@@ -348,39 +348,39 @@ export function MapScreen() {
           { label: '−', onPress: zoomOut },
         ].map((btn) => (
           <TouchableOpacity key={btn.label} onPress={btn.onPress} style={{
-            width: 40, height: 40, backgroundColor: colors.overlayLight,
+            width: 32, height: 32, backgroundColor: colors.overlayLight, opacity: 0.55,
             borderRadius: radius.sm, justifyContent: 'center', alignItems: 'center', marginBottom: 4,
             ...mapCardShadow(isDark),
           }}>
-            <Text style={{ fontSize: 20, color: colors.text, fontWeight: '600' }}>{btn.label}</Text>
+            <Text style={{ fontSize: 15, color: colors.text, fontWeight: '600' }}>{btn.label}</Text>
           </TouchableOpacity>
         ))}
         <View style={{ height: 8 }} />
         <TouchableOpacity onPress={goToMyLocation} style={{
-          width: 40, height: 40, backgroundColor: colors.overlayLight,
+          width: 32, height: 32, backgroundColor: colors.overlayLight, opacity: 0.55,
           borderRadius: radius.sm, justifyContent: 'center', alignItems: 'center',
           ...mapCardShadow(isDark),
         }}>
-          <Text style={{ fontSize: 20, color: colors.text, fontWeight: '600' }}>◎</Text>
+          <Text style={{ fontSize: 15, color: colors.text, fontWeight: '600' }}>◎</Text>
         </TouchableOpacity>
       </View>
 
       {/* 하단 액션 */}
       <View style={{
         position: 'absolute', bottom: 0, left: 0, right: 0,
-        paddingHorizontal: 12,
+        paddingHorizontal: 24,
         paddingBottom: insets.bottom + 8,
       }}>
         <TouchableOpacity
           onPress={() => navigation.navigate('러닝')}
           activeOpacity={0.85}
           style={{
-            flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-            backgroundColor: colors.primary, borderRadius: radius.lg,
+            alignItems: 'center',
+            backgroundColor: colors.primary, borderRadius: radius.xl,
             paddingVertical: 16,
           }}
         >
-          <Text style={{ color: colors.bg, fontSize: 16, fontWeight: '800' }}>러닝 시작</Text>
+          <Text style={{ color: colors.bg, fontSize: 18, fontWeight: '800' }}>러닝 준비</Text>
         </TouchableOpacity>
       </View>
 

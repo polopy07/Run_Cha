@@ -3,6 +3,7 @@ import {
   View, Text, TouchableOpacity,
   Alert, ActivityIndicator, Platform, StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, { Polygon, Polyline, PROVIDER_GOOGLE, PROVIDER_DEFAULT, type Region } from 'react-native-maps';
 import { CharacterMarker } from '../components/CharacterMarker';
 import useRunningStore from '../store/runningStore';
@@ -14,6 +15,7 @@ import { useGPS, getLastLocation } from '../hooks/useGPS';
 import { getTerritories, type Territory } from '../api/territory';
 import useAuthStore from '../store/authStore';
 import { getUserColor } from '../utils/colorUtils';
+import { estimateRunningPoints } from '../utils/runningPointUtils';
 
 const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 
@@ -38,7 +40,9 @@ const DEFAULT_REGION = {
 
 export function RunningScreen() {
   const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView>(null);
+  const regionRef = useRef(DEFAULT_REGION);
   const gps = useGPS();
   const initialMoveDone = useRef(false);
 
@@ -115,6 +119,20 @@ export function RunningScreen() {
       );
     }
   }, [phase, lastCoord]);
+
+  const zoomIn = () => {
+    const r = regionRef.current;
+    mapRef.current?.animateToRegion(
+      { ...r, latitudeDelta: r.latitudeDelta * 0.5, longitudeDelta: r.longitudeDelta * 0.5 }, 200,
+    );
+  };
+
+  const zoomOut = () => {
+    const r = regionRef.current;
+    mapRef.current?.animateToRegion(
+      { ...r, latitudeDelta: r.latitudeDelta * 2, longitudeDelta: r.longitudeDelta * 2 }, 200,
+    );
+  };
 
   const handleStart = async () => {
     try {
@@ -320,7 +338,8 @@ export function RunningScreen() {
         showsUserLocation={!(user && myLocation)}
         showsMyLocationButton={false}
         followsUserLocation={Platform.OS === 'ios'}
-        onRegionChangeComplete={(r) => fetchNearbyTerritories(r)}
+        onRegionChange={(r) => { regionRef.current = r; }}
+        onRegionChangeComplete={(r) => { regionRef.current = r; fetchNearbyTerritories(r); }}
       >
         {territories.map((t) => {
           const isMine = t.userId === user?.id;
@@ -358,24 +377,32 @@ export function RunningScreen() {
       {phase === 'running' && (
         <View style={{
           position: 'absolute', top: 0, left: 0, right: 0,
-          flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center',
           backgroundColor: colors.overlay,
-          paddingBottom: 16, paddingHorizontal: 16, paddingTop: STATUS_BAR_HEIGHT + 12,
+          paddingBottom: 14, paddingHorizontal: 16, paddingTop: STATUS_BAR_HEIGHT + 12,
           ...mapCardShadow(isDark),
         }}>
-          <View style={{ alignItems: 'center', flex: 1 }}>
-            <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>시간</Text>
-            <Text style={{ color: colors.text, fontSize: 24, fontWeight: '800' }}>{formatTime(elapsed)}</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' }}>
+            <View style={{ alignItems: 'center', flex: 1 }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>시간</Text>
+              <Text style={{ color: colors.text, fontSize: 24, fontWeight: '800' }}>{formatTime(elapsed)}</Text>
+            </View>
+            <View style={{ width: 1, height: 36, backgroundColor: colors.divider }} />
+            <View style={{ alignItems: 'center', flex: 1 }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>거리</Text>
+              <Text style={{ color: colors.text, fontSize: 24, fontWeight: '800' }}>{formatDist(distance)}</Text>
+            </View>
+            <View style={{ width: 1, height: 36, backgroundColor: colors.divider }} />
+            <View style={{ alignItems: 'center', flex: 1 }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>페이스</Text>
+              <Text style={{ color: colors.text, fontSize: 24, fontWeight: '800' }}>{formatPace(distance, elapsed)}</Text>
+            </View>
           </View>
-          <View style={{ width: 1, height: 36, backgroundColor: colors.divider }} />
-          <View style={{ alignItems: 'center', flex: 1 }}>
-            <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>거리</Text>
-            <Text style={{ color: colors.text, fontSize: 24, fontWeight: '800' }}>{formatDist(distance)}</Text>
-          </View>
-          <View style={{ width: 1, height: 36, backgroundColor: colors.divider }} />
-          <View style={{ alignItems: 'center', flex: 1 }}>
-            <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>페이스</Text>
-            <Text style={{ color: colors.text, fontSize: 24, fontWeight: '800' }}>{formatPace(distance, elapsed)}</Text>
+          <View style={{ height: 1, backgroundColor: colors.divider, marginTop: 12, marginBottom: 8 }} />
+          <View style={{ alignItems: 'center' }}>
+            <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 2 }}>예상 포인트</Text>
+            <Text style={{ color: colors.primary, fontSize: 18, fontWeight: '800' }}>
+              +{estimateRunningPoints(distance, elapsed).toLocaleString()} P
+            </Text>
           </View>
         </View>
       )}
@@ -395,31 +422,45 @@ export function RunningScreen() {
       )}
 
       {phase !== 'result' && (
-        <TouchableOpacity
-          style={{
-            position: 'absolute', right: 12, top: '42%',
-            width: 40, height: 40, backgroundColor: colors.overlayLight,
-            borderRadius: radius.sm, justifyContent: 'center', alignItems: 'center',
-            ...mapCardShadow(isDark),
-          }}
-          onPress={() => {
-            const loc = gps.currentLocation ?? getLastLocation();
-            if (!loc) {
-              Alert.alert('위치 오류', '현재 위치를 확인할 수 없습니다.');
-              return;
-            }
-            mapRef.current?.animateToRegion(
-              { latitude: loc.latitude, longitude: loc.longitude,
-                latitudeDelta: phase === 'running' ? 0.002 : 0.01,
-                longitudeDelta: phase === 'running' ? 0.002 : 0.01 }, 500,
-            );
-          }}
-        >
-          <Text style={{ fontSize: 20, color: colors.text, fontWeight: '600' }}>◎</Text>
-        </TouchableOpacity>
+        <View style={{ position: 'absolute', right: 12, top: '42%' }}>
+          {[
+            { label: '+', onPress: zoomIn },
+            { label: '−', onPress: zoomOut },
+          ].map((btn) => (
+            <TouchableOpacity key={btn.label} onPress={btn.onPress} style={{
+              width: 32, height: 32, backgroundColor: colors.overlayLight, opacity: 0.55,
+              borderRadius: radius.sm, justifyContent: 'center', alignItems: 'center', marginBottom: 4,
+              ...mapCardShadow(isDark),
+            }}>
+              <Text style={{ fontSize: 15, color: colors.text, fontWeight: '600' }}>{btn.label}</Text>
+            </TouchableOpacity>
+          ))}
+          <View style={{ height: 8 }} />
+          <TouchableOpacity
+            style={{
+              width: 32, height: 32, backgroundColor: colors.overlayLight, opacity: 0.55,
+              borderRadius: radius.sm, justifyContent: 'center', alignItems: 'center',
+              ...mapCardShadow(isDark),
+            }}
+            onPress={() => {
+              const loc = gps.currentLocation ?? getLastLocation();
+              if (!loc) {
+                Alert.alert('위치 오류', '현재 위치를 확인할 수 없습니다.');
+                return;
+              }
+              mapRef.current?.animateToRegion(
+                { latitude: loc.latitude, longitude: loc.longitude,
+                  latitudeDelta: phase === 'running' ? 0.002 : 0.01,
+                  longitudeDelta: phase === 'running' ? 0.002 : 0.01 }, 500,
+              );
+            }}
+          >
+            <Text style={{ fontSize: 15, color: colors.text, fontWeight: '600' }}>◎</Text>
+          </TouchableOpacity>
+        </View>
       )}
 
-      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, alignItems: 'center', paddingHorizontal: 24, paddingBottom: 28 }}>
+      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 24, paddingBottom: insets.bottom + 8 }}>
         {phase === 'ready' && (
           <TouchableOpacity
             style={{ backgroundColor: colors.primary, borderRadius: radius.xl, paddingVertical: 16, width: '100%', alignItems: 'center' }}
