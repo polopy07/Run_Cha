@@ -3,7 +3,33 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Territory } from '../territories/entities/territory.entity';
-import { DAY_IN_MS, TERRITORY_DECAY_TIERS } from './territory-decay.constants';
+import {
+  DEFENSE_DECAY_GRACE_LEVEL_STEP,
+  MAX_DEFENSE_DECAY_GRACE_DAYS,
+  TERRITORY_DECAY_TIERS,
+} from './territory-decay.constants';
+
+const DEFENSE_DECAY_GRACE_DAYS_SQL = `
+  LEAST(
+    FLOOR(
+      GREATEST(
+        COALESCE((
+          SELECT MAX(uc.defense_lv)
+          FROM user_characters uc
+          INNER JOIN characters c ON c.id = uc.character_id
+          WHERE uc.deployed_territory_id = territories.id
+            AND c.type = 'defense'
+        ), 1) - 1,
+        0
+      ) / :defenseDecayGraceLevelStep
+    ),
+    :maxDefenseDecayGraceDays
+  )
+`;
+
+function inactiveBoundary(daysParam: string) {
+  return `DATE_SUB(:now, INTERVAL (:${daysParam} + ${DEFENSE_DECAY_GRACE_DAYS_SQL}) DAY)`;
+}
 
 @Injectable()
 export class TerritoryDecayService {
@@ -21,11 +47,7 @@ export class TerritoryDecayService {
 
     const [neutralizedResult, ...decayResults] = await Promise.all(
       TERRITORY_DECAY_TIERS.map((tier, index) => {
-        const cutoff = new Date(now.getTime() - tier.inactiveDays * DAY_IN_MS);
         const longerInactiveTier = TERRITORY_DECAY_TIERS[index - 1];
-        const previousCutoff = longerInactiveTier
-          ? new Date(now.getTime() - longerInactiveTier.inactiveDays * DAY_IN_MS)
-          : null;
 
         const query = this.territoryRepo
           .createQueryBuilder()
@@ -39,12 +61,23 @@ export class TerritoryDecayService {
           .andWhere('occupation_rate > :occupationRate', {
             occupationRate: tier.occupationRate,
           })
-          .andWhere('last_active_at <= :cutoff', { cutoff });
-
-        if (previousCutoff) {
-          query.andWhere('last_active_at > :previousCutoff', {
-            previousCutoff,
+          .andWhere(`last_active_at <= ${inactiveBoundary('inactiveDays')}`, {
+            now,
+            inactiveDays: tier.inactiveDays,
+            defenseDecayGraceLevelStep: DEFENSE_DECAY_GRACE_LEVEL_STEP,
+            maxDefenseDecayGraceDays: MAX_DEFENSE_DECAY_GRACE_DAYS,
           });
+
+        if (longerInactiveTier) {
+          query.andWhere(
+            `last_active_at > ${inactiveBoundary('previousInactiveDays')}`,
+            {
+              now,
+              previousInactiveDays: longerInactiveTier.inactiveDays,
+              defenseDecayGraceLevelStep: DEFENSE_DECAY_GRACE_LEVEL_STEP,
+              maxDefenseDecayGraceDays: MAX_DEFENSE_DECAY_GRACE_DAYS,
+            },
+          );
         }
 
         return query.execute();
