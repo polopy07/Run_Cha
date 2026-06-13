@@ -6,11 +6,10 @@ type RunningState = {
   distance: number;
   path: Coordinate[];
   startedAt: string | null;
-  earnedPoints: number;
 
   startRunning: () => void;
   updatePosition: (coord: Coordinate) => void;
-  finishRunning: () => { path: Coordinate[]; distance: number; startedAt: string | null; earnedPoints: number };
+  finishRunning: () => { path: Coordinate[]; distance: number; startedAt: string | null };
   resetRunning: () => void;
 };
 
@@ -19,7 +18,6 @@ const useRunningStore = create<RunningState>((set, get) => ({
   distance: 0,
   path: [],
   startedAt: null,
-  earnedPoints: 0,
 
   startRunning: () => {
     set({
@@ -27,7 +25,6 @@ const useRunningStore = create<RunningState>((set, get) => ({
       distance: 0,
       path: [],
       startedAt: new Date().toISOString(),
-      earnedPoints: 0,
     });
   },
 
@@ -46,11 +43,10 @@ const useRunningStore = create<RunningState>((set, get) => ({
     });
   },
 
-  // TODO: earnedPoints는 서버 러닝 완료 API 연동 시 응답값으로 업데이트 예정
   finishRunning: () => {
-    const { path, distance, startedAt, earnedPoints } = get();
+    const { path, distance, startedAt } = get();
     set({ isRunning: false });
-    return { path, distance, startedAt, earnedPoints };
+    return { path, distance, startedAt };
   },
 
   resetRunning: () => {
@@ -59,7 +55,6 @@ const useRunningStore = create<RunningState>((set, get) => ({
       distance: 0,
       path: [],
       startedAt: null,
-      earnedPoints: 0,
     });
   },
 }));
