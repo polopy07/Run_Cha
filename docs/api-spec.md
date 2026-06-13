@@ -408,7 +408,7 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | occupationRateAfter | number | 침략 후 대상 영토 점령률. 방어력 보정/자연 감소 관리를 위한 상태값 |
 | acquiredAreaSqm | number | 침략 성공 시 공격자 소유로 이전된 실제 겹침 폴리곤 면적 |
 | neutralAreaSqm | number | 기존 점령 영토에 포함되지 않아 일반 규칙으로 처리된 면적 |
-| nextAttackAvailableAt | string \| null | 다음 침략 가능 시각. 침략 로그 저장 시각 기준 5분 쿨타임이 적용되며, 침략 로그가 없거나 쿨타임이 끝났으면 `null` |
+| nextAttackAvailableAt | string | 다음 침략 가능 시각. 침략 로그 저장 시각 기준 5분 뒤 시각을 반환 |
 | remainingDailyAttacks | number | 당일 남은 침략 횟수 |
 | message | string | 처리 결과 메시지 |
 
@@ -470,7 +470,7 @@ const attackerPolygonAfter = success
 
 ### 영토 자연 감소 구현 기준
 
-영토 자연 감소 스케줄러는 매일 자정 실행되며, `last_active_at` 기준 비활동 기간에 따라 점령률을 단계적으로 낮춘다.
+영토 자연 감소 스케줄러는 매일 UTC 00:00(KST 09:00)에 실행되며, `last_active_at` 기준 비활동 기간에 따라 점령률을 단계적으로 낮춘다.
 
 | 비활동 기간 | 적용 점령률 |
 |---|---:|
