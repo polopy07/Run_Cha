@@ -9,6 +9,7 @@ import {
   TERRITORY_DECAY_TIERS,
 } from './territory-decay.constants';
 
+// Keep this SQL formula in sync with calculateDefenseDecayGraceDays().
 const DEFENSE_DECAY_GRACE_DAYS_SQL = `
   LEAST(
     FLOOR(

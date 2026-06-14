@@ -9,3 +9,10 @@ export const TERRITORY_DECAY_TIERS = [
 
 export const DEFENSE_DECAY_GRACE_LEVEL_STEP = 5;
 export const MAX_DEFENSE_DECAY_GRACE_DAYS = 3;
+
+export function calculateDefenseDecayGraceDays(defenseLevel: number) {
+  return Math.min(
+    Math.floor(Math.max(defenseLevel - 1, 0) / DEFENSE_DECAY_GRACE_LEVEL_STEP),
+    MAX_DEFENSE_DECAY_GRACE_DAYS,
+  );
+}

@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { TerritoryDecayService } from './territory-decay.service';
 import { Territory } from '../territories/entities/territory.entity';
 import {
+  calculateDefenseDecayGraceDays,
   DEFENSE_DECAY_GRACE_LEVEL_STEP,
   MAX_DEFENSE_DECAY_GRACE_DAYS,
 } from './territory-decay.constants';
@@ -201,6 +202,18 @@ describe('TerritoryDecayService', () => {
           }) as QueryParams,
         );
       }
+    });
+
+    it('수비형 방어 레벨별 자연 감소 유예일을 공식대로 계산한다', () => {
+      expect(calculateDefenseDecayGraceDays(0)).toBe(0);
+      expect(calculateDefenseDecayGraceDays(1)).toBe(0);
+      expect(calculateDefenseDecayGraceDays(5)).toBe(0);
+      expect(calculateDefenseDecayGraceDays(6)).toBe(1);
+      expect(calculateDefenseDecayGraceDays(10)).toBe(1);
+      expect(calculateDefenseDecayGraceDays(11)).toBe(2);
+      expect(calculateDefenseDecayGraceDays(15)).toBe(2);
+      expect(calculateDefenseDecayGraceDays(16)).toBe(3);
+      expect(calculateDefenseDecayGraceDays(30)).toBe(3);
     });
   });
 
