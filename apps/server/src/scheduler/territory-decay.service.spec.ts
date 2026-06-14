@@ -14,6 +14,7 @@ type QueryBuilderMock = {
   set: jest.Mock<QueryBuilderMock, [Record<string, unknown>]>;
   where: jest.Mock<QueryBuilderMock, [string, QueryParams?]>;
   andWhere: jest.Mock<QueryBuilderMock, [string, QueryParams?]>;
+  setParameters: jest.Mock<QueryBuilderMock, [QueryParams]>;
   execute: jest.Mock<Promise<{ affected: number }>, []>;
 };
 
@@ -30,6 +31,7 @@ function makeQb(): QueryBuilderMock {
   qb.set = jest.fn<QueryBuilderMock, [Record<string, unknown>]>(() => qb);
   qb.where = jest.fn<QueryBuilderMock, [string, QueryParams?]>(() => qb);
   qb.andWhere = jest.fn<QueryBuilderMock, [string, QueryParams?]>(() => qb);
+  qb.setParameters = jest.fn<QueryBuilderMock, [QueryParams]>(() => qb);
   qb.execute = jest.fn<Promise<{ affected: number }>, []>(() =>
     Promise.resolve({ affected: 0 }),
   );
@@ -185,14 +187,15 @@ describe('TerritoryDecayService', () => {
       for (const qb of [neutralizeQb, qb25, qb50, qb75]) {
         expect(qb.andWhere).toHaveBeenCalledWith(
           expect.stringContaining('user_characters uc'),
-          expect.objectContaining({
-            defenseDecayGraceLevelStep: DEFENSE_DECAY_GRACE_LEVEL_STEP,
-            maxDefenseDecayGraceDays: MAX_DEFENSE_DECAY_GRACE_DAYS,
-          }) as QueryParams,
+          expect.any(Object) as QueryParams,
         );
         expect(qb.andWhere).toHaveBeenCalledWith(
           expect.stringContaining("c.type = 'defense'"),
+          expect.any(Object) as QueryParams,
+        );
+        expect(qb.setParameters).toHaveBeenCalledWith(
           expect.objectContaining({
+            now: expect.any(Date) as unknown,
             defenseDecayGraceLevelStep: DEFENSE_DECAY_GRACE_LEVEL_STEP,
             maxDefenseDecayGraceDays: MAX_DEFENSE_DECAY_GRACE_DAYS,
           }) as QueryParams,
@@ -241,10 +244,7 @@ function expectBoundaryCondition(
   expect(qb.andWhere).toHaveBeenCalledWith(
     expect.stringContaining(`last_active_at ${operator}`),
     expect.objectContaining({
-      now: expect.any(Date) as unknown,
       [daysParam]: expect.any(Number) as unknown,
-      defenseDecayGraceLevelStep: DEFENSE_DECAY_GRACE_LEVEL_STEP,
-      maxDefenseDecayGraceDays: MAX_DEFENSE_DECAY_GRACE_DAYS,
     }) as QueryParams,
   );
 }

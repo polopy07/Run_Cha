@@ -7,6 +7,5 @@ export const TERRITORY_DECAY_TIERS = [
   { inactiveDays: 4, occupationRate: 75 },
 ] as const;
 
-export const DAY_IN_MS = 86_400_000;
 export const DEFENSE_DECAY_GRACE_LEVEL_STEP = 5;
 export const MAX_DEFENSE_DECAY_GRACE_DAYS = 3;

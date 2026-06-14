@@ -31,6 +31,14 @@ function inactiveBoundary(daysParam: string) {
   return `DATE_SUB(:now, INTERVAL (:${daysParam} + ${DEFENSE_DECAY_GRACE_DAYS_SQL}) DAY)`;
 }
 
+function decayGraceParameters(now: Date) {
+  return {
+    now,
+    defenseDecayGraceLevelStep: DEFENSE_DECAY_GRACE_LEVEL_STEP,
+    maxDefenseDecayGraceDays: MAX_DEFENSE_DECAY_GRACE_DAYS,
+  };
+}
+
 @Injectable()
 export class TerritoryDecayService {
   private readonly logger = new Logger(TerritoryDecayService.name);
@@ -62,20 +70,15 @@ export class TerritoryDecayService {
             occupationRate: tier.occupationRate,
           })
           .andWhere(`last_active_at <= ${inactiveBoundary('inactiveDays')}`, {
-            now,
             inactiveDays: tier.inactiveDays,
-            defenseDecayGraceLevelStep: DEFENSE_DECAY_GRACE_LEVEL_STEP,
-            maxDefenseDecayGraceDays: MAX_DEFENSE_DECAY_GRACE_DAYS,
-          });
+          })
+          .setParameters(decayGraceParameters(now));
 
         if (longerInactiveTier) {
           query.andWhere(
             `last_active_at > ${inactiveBoundary('previousInactiveDays')}`,
             {
-              now,
               previousInactiveDays: longerInactiveTier.inactiveDays,
-              defenseDecayGraceLevelStep: DEFENSE_DECAY_GRACE_LEVEL_STEP,
-              maxDefenseDecayGraceDays: MAX_DEFENSE_DECAY_GRACE_DAYS,
             },
           );
         }
