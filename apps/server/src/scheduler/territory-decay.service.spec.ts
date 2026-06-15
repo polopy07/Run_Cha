@@ -2,6 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { TerritoryDecayService } from './territory-decay.service';
 import { Territory } from '../territories/entities/territory.entity';
+import {
+  calculateDefenseDecayGraceDays,
+  DEFENSE_DECAY_GRACE_LEVEL_STEP,
+  MAX_DEFENSE_DECAY_GRACE_DAYS,
+} from './territory-decay.constants';
 
 type QueryParams = Record<string, unknown>;
 
@@ -10,6 +15,7 @@ type QueryBuilderMock = {
   set: jest.Mock<QueryBuilderMock, [Record<string, unknown>]>;
   where: jest.Mock<QueryBuilderMock, [string, QueryParams?]>;
   andWhere: jest.Mock<QueryBuilderMock, [string, QueryParams?]>;
+  setParameters: jest.Mock<QueryBuilderMock, [QueryParams]>;
   execute: jest.Mock<Promise<{ affected: number }>, []>;
 };
 
@@ -26,6 +32,7 @@ function makeQb(): QueryBuilderMock {
   qb.set = jest.fn<QueryBuilderMock, [Record<string, unknown>]>(() => qb);
   qb.where = jest.fn<QueryBuilderMock, [string, QueryParams?]>(() => qb);
   qb.andWhere = jest.fn<QueryBuilderMock, [string, QueryParams?]>(() => qb);
+  qb.setParameters = jest.fn<QueryBuilderMock, [QueryParams]>(() => qb);
   qb.execute = jest.fn<Promise<{ affected: number }>, []>(() =>
     Promise.resolve({ affected: 0 }),
   );
@@ -125,12 +132,9 @@ describe('TerritoryDecayService', () => {
 
       await service.handleDecay();
 
-      expect(neutralizeQb.andWhere).toHaveBeenCalledWith(
-        'last_active_at <= :cutoff',
-        { cutoff: expect.any(Date) as unknown },
-      );
+      expectBoundaryCondition(neutralizeQb, '<=', 'inactiveDays');
       expect(neutralizeQb.andWhere).not.toHaveBeenCalledWith(
-        'last_active_at > :previousCutoff',
+        expect.stringContaining('previousInactiveDays'),
         expect.any(Object),
       );
     });
@@ -140,13 +144,8 @@ describe('TerritoryDecayService', () => {
 
       await service.handleDecay();
 
-      expect(qb25.andWhere).toHaveBeenCalledWith('last_active_at <= :cutoff', {
-        cutoff: expect.any(Date) as unknown,
-      });
-      expect(qb25.andWhere).toHaveBeenCalledWith(
-        'last_active_at > :previousCutoff',
-        { previousCutoff: expect.any(Date) as unknown },
-      );
+      expectBoundaryCondition(qb25, '<=', 'inactiveDays');
+      expectBoundaryCondition(qb25, '>', 'previousInactiveDays');
     });
 
     it('50% 구간은 8일 이하부터 15일 초과 사이다', async () => {
@@ -154,13 +153,8 @@ describe('TerritoryDecayService', () => {
 
       await service.handleDecay();
 
-      expect(qb50.andWhere).toHaveBeenCalledWith('last_active_at <= :cutoff', {
-        cutoff: expect.any(Date) as unknown,
-      });
-      expect(qb50.andWhere).toHaveBeenCalledWith(
-        'last_active_at > :previousCutoff',
-        { previousCutoff: expect.any(Date) as unknown },
-      );
+      expectBoundaryCondition(qb50, '<=', 'inactiveDays');
+      expectBoundaryCondition(qb50, '>', 'previousInactiveDays');
     });
 
     it('75% 구간은 4일 이하부터 8일 초과 사이다', async () => {
@@ -168,43 +162,58 @@ describe('TerritoryDecayService', () => {
 
       await service.handleDecay();
 
-      expect(qb75.andWhere).toHaveBeenCalledWith('last_active_at <= :cutoff', {
-        cutoff: expect.any(Date) as unknown,
-      });
-      expect(qb75.andWhere).toHaveBeenCalledWith(
-        'last_active_at > :previousCutoff',
-        { previousCutoff: expect.any(Date) as unknown },
-      );
+      expectBoundaryCondition(qb75, '<=', 'inactiveDays');
+      expectBoundaryCondition(qb75, '>', 'previousInactiveDays');
     });
 
-    it('각 cutoff는 스펙 기준 일수(4/8/15/22일)로 계산된다', async () => {
+    it('각 구간은 스펙 기준 일수(4/8/15/22일)를 파라미터로 사용한다', async () => {
       const [neutralizeQb, qb25, qb50, qb75] = setupQbs();
-      const before = Date.now();
 
       await service.handleDecay();
 
-      const tolerance = 1000;
-      const after = Date.now();
-      const cutoff22 = getDateParam(neutralizeQb, 'cutoff');
-      const cutoff15 = getDateParam(qb25, 'cutoff');
-      const cutoff8 = getDateParam(qb50, 'cutoff');
-      const cutoff4 = getDateParam(qb75, 'cutoff');
+      expect(getParam(neutralizeQb, 'inactiveDays')).toBe(22);
+      expect(getParam(qb25, 'inactiveDays')).toBe(15);
+      expect(getParam(qb50, 'inactiveDays')).toBe(8);
+      expect(getParam(qb75, 'inactiveDays')).toBe(4);
+      expect(getParam(qb25, 'previousInactiveDays')).toBe(22);
+      expect(getParam(qb50, 'previousInactiveDays')).toBe(15);
+      expect(getParam(qb75, 'previousInactiveDays')).toBe(8);
+    });
 
-      expect(
-        Math.abs(cutoff22.getTime() - (before - 22 * 86_400_000)),
-      ).toBeLessThan(tolerance);
-      expect(
-        Math.abs(cutoff15.getTime() - (before - 15 * 86_400_000)),
-      ).toBeLessThan(tolerance);
-      expect(
-        Math.abs(cutoff8.getTime() - (before - 8 * 86_400_000)),
-      ).toBeLessThan(tolerance);
-      expect(
-        Math.abs(cutoff4.getTime() - (before - 4 * 86_400_000)),
-      ).toBeLessThan(tolerance);
-      expect(cutoff22.getTime()).toBeGreaterThanOrEqual(
-        after - 22 * 86_400_000 - tolerance,
-      );
+    it('수비형 캐릭터 방어 레벨에 따른 자연 감소 유예 파라미터를 포함한다', async () => {
+      const [neutralizeQb, qb25, qb50, qb75] = setupQbs();
+
+      await service.handleDecay();
+
+      for (const qb of [neutralizeQb, qb25, qb50, qb75]) {
+        expect(qb.andWhere).toHaveBeenCalledWith(
+          expect.stringContaining('user_characters uc'),
+          expect.any(Object) as QueryParams,
+        );
+        expect(qb.andWhere).toHaveBeenCalledWith(
+          expect.stringContaining("c.type = 'defense'"),
+          expect.any(Object) as QueryParams,
+        );
+        expect(qb.setParameters).toHaveBeenCalledWith(
+          expect.objectContaining({
+            now: expect.any(Date) as unknown,
+            defenseDecayGraceLevelStep: DEFENSE_DECAY_GRACE_LEVEL_STEP,
+            maxDefenseDecayGraceDays: MAX_DEFENSE_DECAY_GRACE_DAYS,
+          }) as QueryParams,
+        );
+      }
+    });
+
+    it('수비형 방어 레벨별 자연 감소 유예일을 공식대로 계산한다', () => {
+      expect(calculateDefenseDecayGraceDays(0)).toBe(0);
+      expect(calculateDefenseDecayGraceDays(1)).toBe(0);
+      expect(calculateDefenseDecayGraceDays(5)).toBe(0);
+      expect(calculateDefenseDecayGraceDays(6)).toBe(1);
+      expect(calculateDefenseDecayGraceDays(10)).toBe(1);
+      expect(calculateDefenseDecayGraceDays(11)).toBe(2);
+      expect(calculateDefenseDecayGraceDays(15)).toBe(2);
+      expect(calculateDefenseDecayGraceDays(16)).toBe(3);
+      expect(calculateDefenseDecayGraceDays(30)).toBe(3);
     });
   });
 
@@ -227,7 +236,7 @@ describe('TerritoryDecayService', () => {
   });
 });
 
-function getDateParam(qb: QueryBuilderMock, key: string) {
+function getParam(qb: QueryBuilderMock, key: string) {
   const call = qb.andWhere.mock.calls.find(([, params]) => {
     return params && Object.prototype.hasOwnProperty.call(params, key);
   });
@@ -237,11 +246,18 @@ function getDateParam(qb: QueryBuilderMock, key: string) {
   }
 
   const params = call[1];
-  const value = params?.[key];
+  return params?.[key];
+}
 
-  if (!(value instanceof Date)) {
-    throw new Error(`Invalid ${key} param`);
-  }
-
-  return value;
+function expectBoundaryCondition(
+  qb: QueryBuilderMock,
+  operator: '<=' | '>',
+  daysParam: 'inactiveDays' | 'previousInactiveDays',
+) {
+  expect(qb.andWhere).toHaveBeenCalledWith(
+    expect.stringContaining(`last_active_at ${operator}`),
+    expect.objectContaining({
+      [daysParam]: expect.any(Number) as unknown,
+    }) as QueryParams,
+  );
 }
