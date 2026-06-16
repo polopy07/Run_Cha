@@ -241,6 +241,13 @@ export class CharactersService {
 
       user.stat_points += earnedStatPoints;
 
+      if (
+        user.representative_character_id !== null &&
+        uniqueIds.includes(user.representative_character_id)
+      ) {
+        user.representative_character_id = null;
+      }
+
       await userCharactersRepository.delete({
         id: In(uniqueIds),
         user_id: userId,
