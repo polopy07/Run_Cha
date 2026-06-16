@@ -15,8 +15,6 @@ export class TerritoriesService {
   constructor(
     @InjectRepository(Territory)
     private readonly territoryRepo: Repository<Territory>,
-    @InjectRepository(UserCharacter)
-    private readonly userCharactersRepo: Repository<UserCharacter>,
   ) {}
 
   async findMine(userId: number) {
@@ -59,35 +57,29 @@ export class TerritoriesService {
   }
 
   async findOne(id: number, currentUserId: number | null) {
-    const territory = await this.territoryRepo.findOne({
-      where: {
-        id,
-        area_sqm: MoreThan(0),
-        occupation_rate: MoreThan(0),
-      },
-      relations: ['user'],
-      select: {
-        id: true,
-        user_id: true,
-        name: true,
-        coordinates: true,
-        area_sqm: true,
-        occupation_rate: true,
-        last_active_at: true,
-        protected_until: true,
-        user: { id: true, nickname: true },
-      },
-    });
+    const territory = await this.territoryRepo
+      .createQueryBuilder('t')
+      .leftJoinAndSelect('t.user', 'u')
+      .leftJoinAndMapMany(
+        't.deployedCharacters',
+        UserCharacter,
+        'uc',
+        'uc.deployed_territory_id = t.id',
+      )
+      .leftJoinAndSelect('uc.character', 'c')
+      .where('t.id = :id', { id })
+      .andWhere('t.area_sqm > 0')
+      .andWhere('t.occupation_rate > 0')
+      .orderBy('uc.id', 'ASC')
+      .getOne();
 
     if (!territory) {
       throw new NotFoundException('영토를 찾을 수 없습니다.');
     }
 
-    const deployedCharacters = await this.userCharactersRepo.find({
-      where: { deployed_territory_id: id },
-      relations: { character: true },
-      order: { id: 'ASC' },
-    });
+    const deployedCharacters =
+      (territory as Territory & { deployedCharacters?: UserCharacter[] })
+        .deployedCharacters ?? [];
 
     return {
       id: territory.id,

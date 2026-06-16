@@ -40,9 +40,12 @@ describe('TerritoriesService', () => {
 
   const mockQb = {
     leftJoinAndSelect: jest.fn().mockReturnThis(),
+    leftJoinAndMapMany: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
     getMany: jest.fn().mockResolvedValue([]),
+    getOne: jest.fn().mockResolvedValue(null),
   };
 
   const mockRepo = {
@@ -55,25 +58,17 @@ describe('TerritoriesService', () => {
     ),
   };
 
-  const mockUserCharactersRepo = {
-    find: jest.fn(),
-  };
-
   beforeEach(async () => {
     jest.clearAllMocks();
     mockRepo.find.mockResolvedValue([]);
     mockRepo.findOne.mockResolvedValue(null);
     mockQb.getMany.mockResolvedValue([]);
-    mockUserCharactersRepo.find.mockResolvedValue([]);
+    mockQb.getOne.mockResolvedValue(null);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TerritoriesService,
         { provide: getRepositoryToken(Territory), useValue: mockRepo },
-        {
-          provide: getRepositoryToken(UserCharacter),
-          useValue: mockUserCharactersRepo,
-        },
       ],
     }).compile();
 
@@ -213,35 +208,29 @@ describe('TerritoriesService', () => {
         defense_lv: 2,
         point_lv: 3,
       } as UserCharacter;
-      mockRepo.findOne.mockResolvedValue(territory);
-      mockUserCharactersRepo.find.mockResolvedValue([userCharacter]);
+      mockQb.getOne.mockResolvedValue({
+        ...territory,
+        deployedCharacters: [userCharacter],
+      });
 
       const result = await service.findOne(1, 1);
 
-      expect(mockRepo.findOne).toHaveBeenCalledWith({
-        where: {
-          id: 1,
-          area_sqm: MoreThan(0),
-          occupation_rate: MoreThan(0),
-        },
-        relations: ['user'],
-        select: {
-          id: true,
-          user_id: true,
-          name: true,
-          coordinates: true,
-          area_sqm: true,
-          occupation_rate: true,
-          last_active_at: true,
-          protected_until: true,
-          user: { id: true, nickname: true },
-        },
-      });
-      expect(mockUserCharactersRepo.find).toHaveBeenCalledWith({
-        where: { deployed_territory_id: 1 },
-        relations: { character: true },
-        order: { id: 'ASC' },
-      });
+      expect(mockRepo.createQueryBuilder).toHaveBeenCalledWith('t');
+      expect(mockQb.leftJoinAndSelect).toHaveBeenCalledWith('t.user', 'u');
+      expect(mockQb.leftJoinAndMapMany).toHaveBeenCalledWith(
+        't.deployedCharacters',
+        UserCharacter,
+        'uc',
+        'uc.deployed_territory_id = t.id',
+      );
+      expect(mockQb.leftJoinAndSelect).toHaveBeenCalledWith(
+        'uc.character',
+        'c',
+      );
+      expect(mockQb.where).toHaveBeenCalledWith('t.id = :id', { id: 1 });
+      expect(mockQb.andWhere).toHaveBeenCalledWith('t.area_sqm > 0');
+      expect(mockQb.andWhere).toHaveBeenCalledWith('t.occupation_rate > 0');
+      expect(mockQb.orderBy).toHaveBeenCalledWith('uc.id', 'ASC');
       expect(result).toEqual({
         id: territory.id,
         name: territory.name,
@@ -269,7 +258,7 @@ describe('TerritoriesService', () => {
     });
 
     it('returns isMine false when the current user is not the owner', async () => {
-      mockRepo.findOne.mockResolvedValue(makeTerritory(37.5, 127.0));
+      mockQb.getOne.mockResolvedValue(makeTerritory(37.5, 127.0));
 
       const result = await service.findOne(1, 2);
 
@@ -278,7 +267,7 @@ describe('TerritoriesService', () => {
     });
 
     it('returns isMine false for unauthenticated users', async () => {
-      mockRepo.findOne.mockResolvedValue(makeTerritory(37.5, 127.0));
+      mockQb.getOne.mockResolvedValue(makeTerritory(37.5, 127.0));
 
       const result = await service.findOne(1, null);
 
@@ -289,7 +278,6 @@ describe('TerritoriesService', () => {
       await expect(service.findOne(999, 1)).rejects.toThrow(
         '영토를 찾을 수 없습니다.',
       );
-      expect(mockUserCharactersRepo.find).not.toHaveBeenCalled();
     });
 
     it('guards detail lookup with active territory filters', async () => {
@@ -297,15 +285,9 @@ describe('TerritoriesService', () => {
         '영토를 찾을 수 없습니다.',
       );
 
-      expect(mockRepo.findOne).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: {
-            id: 1,
-            area_sqm: MoreThan(0),
-            occupation_rate: MoreThan(0),
-          },
-        }),
-      );
+      expect(mockQb.where).toHaveBeenCalledWith('t.id = :id', { id: 1 });
+      expect(mockQb.andWhere).toHaveBeenCalledWith('t.area_sqm > 0');
+      expect(mockQb.andWhere).toHaveBeenCalledWith('t.occupation_rate > 0');
     });
   });
 
