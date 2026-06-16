@@ -312,7 +312,7 @@ const earnedPoints = isClosedLoop ? basePoints : Math.floor(basePoints * 1.3);
 11. 서버가 `difference(방어자 영토, 겹침 폴리곤)`로 방어자 영토를 갱신
 12. 서버가 `union(공격자 기존 영토, 겹침 폴리곤)`으로 공격자 영토에 병합
 13. 서버가 방어자/공격자 영토의 `coordinates`, `area_sqm`, `center_lat`, `center_lng`를 재계산
-14. 방어자 영토 면적이 0이면 해당 영토를 삭제
+14. 방어자 영토 면적이 0이면 `area_sqm = 0`, `occupation_rate = 0`으로 중립화하고 DB 레코드는 보존
 15. 서버가 침략 결과를 `attack_logs`에 저장
 16. 대상 영토 밖의 새 면적은 일반 러닝 영토 생성 규칙에 따라 처리
 17. 서버가 침략 결과, 다음 가능 시각, 남은 횟수를 응답
