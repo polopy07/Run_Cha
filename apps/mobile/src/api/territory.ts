@@ -36,6 +36,7 @@ export type TerritoryDetail = Omit<Territory, 'userId' | 'lastActiveAt'> & {
   };
   isMine: boolean;
   lastActiveAt: string;
+  protectedUntil: string | null;
   deployedCharacters: TerritoryDeployedCharacter[];
 };
 
