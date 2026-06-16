@@ -74,6 +74,7 @@ export class TerritoriesService {
         area_sqm: true,
         occupation_rate: true,
         last_active_at: true,
+        protected_until: true,
         user: { id: true, nickname: true },
       },
     });
@@ -95,6 +96,7 @@ export class TerritoriesService {
       areaSqm: territory.area_sqm,
       occupationRate: territory.occupation_rate,
       lastActiveAt: territory.last_active_at,
+      protectedUntil: territory.protected_until ?? null,
       owner: {
         id: territory.user.id,
         nickname: territory.user.nickname,

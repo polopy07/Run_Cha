@@ -233,6 +233,7 @@ describe('TerritoriesService', () => {
           area_sqm: true,
           occupation_rate: true,
           last_active_at: true,
+          protected_until: true,
           user: { id: true, nickname: true },
         },
       });
@@ -248,6 +249,7 @@ describe('TerritoriesService', () => {
         areaSqm: territory.area_sqm,
         occupationRate: territory.occupation_rate,
         lastActiveAt: territory.last_active_at,
+        protectedUntil: null,
         owner: { id: 1, nickname: 'tester' },
         isMine: true,
         deployedCharacters: [

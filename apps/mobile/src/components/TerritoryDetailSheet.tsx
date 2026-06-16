@@ -21,7 +21,7 @@ import {
 import { deployCharacter } from '../api/character';
 import { useTheme } from '../contexts/ThemeContext';
 import { radius, GRADE_LABEL } from '../constants/theme';
-import { formatArea } from '../utils/formatUtils';
+import { formatArea, formatProtectionRemaining } from '../utils/formatUtils';
 import {
   canDeployCharacter,
   DEPLOY_SORT_OPTIONS,
@@ -268,6 +268,13 @@ export function TerritoryDetailSheet({ visible, territoryId, territory, onClose,
       setIsDeploying(false);
     }
   };
+
+  const isProtected =
+    !!detail?.protectedUntil &&
+    new Date(detail.protectedUntil).getTime() > Date.now();
+  const protectionRemaining = isProtected
+    ? formatProtectionRemaining(detail!.protectedUntil!)
+    : '';
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -704,16 +711,45 @@ export function TerritoryDetailSheet({ visible, territoryId, territory, onClose,
                 )}
 
                 {!detail.isMine && onAttack && (
-                  <TouchableOpacity
-                    onPress={() => onAttack(detail.id)}
-                    activeOpacity={0.85}
-                    style={{
-                      backgroundColor: colors.danger, borderRadius: radius.lg,
-                      paddingVertical: 14, alignItems: 'center', marginBottom: 8,
-                    }}
-                  >
-                    <Text style={{ color: '#fff', fontSize: 16, fontWeight: '800' }}>침략하기</Text>
-                  </TouchableOpacity>
+                  <>
+                    {isProtected && (
+                      <View style={{
+                        backgroundColor: colors.surface,
+                        borderRadius: radius.md,
+                        paddingVertical: 10,
+                        paddingHorizontal: 14,
+                        marginBottom: 8,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}>
+                        <Text style={{ fontSize: 14 }}>🛡️</Text>
+                        <Text style={{ color: colors.textSecondary, fontSize: 13, fontWeight: '600' }}>
+                          보호 중 · {protectionRemaining} 남음
+                        </Text>
+                      </View>
+                    )}
+                    <TouchableOpacity
+                      onPress={() => onAttack(detail.id)}
+                      disabled={isProtected}
+                      activeOpacity={isProtected ? 1 : 0.85}
+                      style={{
+                        backgroundColor: isProtected ? colors.surface : colors.danger,
+                        borderRadius: radius.lg,
+                        paddingVertical: 14,
+                        alignItems: 'center',
+                        marginBottom: 8,
+                      }}
+                    >
+                      <Text style={{
+                        color: isProtected ? colors.textMuted : '#fff',
+                        fontSize: 16,
+                        fontWeight: '800',
+                      }}>
+                        침략하기
+                      </Text>
+                    </TouchableOpacity>
+                  </>
                 )}
               </>
             ) : null}
