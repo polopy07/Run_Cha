@@ -407,7 +407,7 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | occupationRateBefore | number | 침략 전 대상 영토 점령률 |
 | occupationRateAfter | number | 침략 후 대상 영토 점령률. 방어력 보정/자연 감소 관리를 위한 상태값 |
 | acquiredAreaSqm | number | 침략 성공 시 공격자 소유로 이전된 실제 겹침 폴리곤 면적 |
-| neutralAreaSqm | number | 기존 점령 영토에 포함되지 않아 일반 규칙으로 처리된 면적 |
+| ~~neutralAreaSqm~~ | ~~number~~ | ~~기존 점령 영토에 포함되지 않아 일반 규칙으로 처리된 면적~~ (1차 스코프 제외) |
 | nextAttackAvailableAt | string | 다음 침략 가능 시각. 침략 로그 저장 시각 기준 5분 뒤 시각을 반환 |
 | remainingDailyAttacks | number | 당일 남은 침략 횟수 |
 | message | string | 처리 결과 메시지 |
@@ -426,7 +426,7 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | 404 | 현재 사용자의 러닝 로그가 아닌 경우 또는 러닝 로그가 없는 경우 | `러닝 기록을 찾을 수 없습니다.` |
 | 404 | 현재 사용자의 보유 캐릭터가 아닌 경우 또는 캐릭터가 없는 경우 | `보유 캐릭터를 찾을 수 없습니다.` |
 
-> `neutralAreaSqm`은 대상 점령 영토 밖의 새 면적 처리 정책이 별도 구현되기 전까지 `0`으로 반환한다.
+> ~~`neutralAreaSqm`은 대상 점령 영토 밖의 새 면적 처리 정책이 별도 구현되기 전까지 `0`으로 반환한다.~~ (1차 스코프 제외)
 
 #### 침략 계산 기준
 

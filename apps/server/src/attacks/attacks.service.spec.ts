@@ -225,7 +225,6 @@ describe('AttacksService', () => {
     expect(result.occupationRateBefore).toBe(100);
     expect(result.occupationRateAfter).toBe(75);
     expect(result.acquiredAreaSqm).toBeGreaterThan(9000);
-    expect(result.neutralAreaSqm).toBe(0);
     expect(result.remainingDailyAttacks).toBe(4);
     expect(result.nextAttackAvailableAt).toEqual(expect.any(String));
     expect(result.message).toBe('침략에 성공했습니다.');
