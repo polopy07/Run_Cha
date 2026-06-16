@@ -423,6 +423,50 @@ describe('CharactersService', () => {
     expect(userCharactersRepository.delete).not.toHaveBeenCalled();
   });
 
+  it('clears representative_character_id when dismantling the representative character', async () => {
+    const user = {
+      id: 1,
+      stat_points: 5,
+      representative_character_id: 10,
+    } as User;
+    usersRepository.findOne.mockResolvedValue(user);
+    userCharactersQueryBuilder.getMany.mockResolvedValue([{ ...userCharacter }]);
+    userCharactersRepository.delete.mockResolvedValue({ affected: 1 });
+    usersRepository.save.mockResolvedValue(user);
+    userCharactersQueryBuilder.getCount.mockResolvedValue(4);
+    userCharactersRepository.count.mockResolvedValueOnce(3);
+
+    await expect(service.dismantle(1, [10])).resolves.toEqual({
+      dismantledCount: 1,
+      earnedStatPoints: 1,
+      statPoints: 6,
+      remainingCharacterCount: 3,
+    });
+    expect(usersRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ representative_character_id: null }),
+    );
+  });
+
+  it('keeps representative_character_id when dismantling a non-representative character', async () => {
+    const user = {
+      id: 1,
+      stat_points: 5,
+      representative_character_id: 99,
+    } as User;
+    usersRepository.findOne.mockResolvedValue(user);
+    userCharactersQueryBuilder.getMany.mockResolvedValue([{ ...userCharacter }]);
+    userCharactersRepository.delete.mockResolvedValue({ affected: 1 });
+    usersRepository.save.mockResolvedValue(user);
+    userCharactersQueryBuilder.getCount.mockResolvedValue(4);
+    userCharactersRepository.count.mockResolvedValueOnce(3);
+
+    await service.dismantle(1, [10]);
+
+    expect(usersRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ representative_character_id: 99 }),
+    );
+  });
+
   it('rejects upgrade for missing user character', async () => {
     userCharactersRepository.findOne.mockResolvedValue(null);
 
