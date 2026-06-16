@@ -74,6 +74,7 @@ export class TerritoriesService {
         area_sqm: true,
         occupation_rate: true,
         last_active_at: true,
+        protected_until: true,
         user: { id: true, nickname: true },
       },
     });
