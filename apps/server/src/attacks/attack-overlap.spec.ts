@@ -37,6 +37,22 @@ const INNER_SQUARE = [
   { lat: 37.00025, lng: 127.00025 },
 ];
 
+const VERTICAL_CUT = [
+  { lat: 36.9999, lng: 127.0007 },
+  { lat: 36.9999, lng: 127.0008 },
+  { lat: 37.0011, lng: 127.0008 },
+  { lat: 37.0011, lng: 127.0007 },
+  { lat: 36.9999, lng: 127.0007 },
+];
+
+const LARGER_REMAINING_PIECE = [
+  { lat: 37.0, lng: 127.0 },
+  { lat: 37.0, lng: 127.0007 },
+  { lat: 37.001, lng: 127.0007 },
+  { lat: 37.001, lng: 127.0 },
+  { lat: 37.0, lng: 127.0 },
+];
+
 describe('attack overlap', () => {
   const territoryAreaSqm = turf.area(toPolygon(SQUARE));
 
@@ -76,6 +92,27 @@ describe('attack overlap', () => {
       turf.area(toPolygon(result.defenderRemainingCoordinates ?? [])),
       5,
     );
+  });
+
+  it('stores only the largest defender piece when difference returns MultiPolygon', () => {
+    const result = calculateAttackOverlap(
+      VERTICAL_CUT,
+      SQUARE,
+      territoryAreaSqm,
+    );
+
+    const expectedLargestAreaSqm = turf.area(toPolygon(LARGER_REMAINING_PIECE));
+
+    expect(result.defenderRemainingCoordinates).toHaveLength(5);
+    expect(result.defenderRemainingAreaSqm).toBeCloseTo(
+      expectedLargestAreaSqm,
+      0,
+    );
+    expect(
+      Math.max(
+        ...(result.defenderRemainingCoordinates ?? []).map(({ lng }) => lng),
+      ),
+    ).toBeLessThanOrEqual(127.0007);
   });
 
   it('returns zero overlap when polygons do not intersect', () => {
