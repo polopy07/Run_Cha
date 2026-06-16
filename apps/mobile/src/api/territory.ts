@@ -53,7 +53,6 @@ export type AttackTerritoryResponse = {
   occupationRateBefore: number;
   occupationRateAfter: number;
   acquiredAreaSqm: number;
-  neutralAreaSqm: number;
   nextAttackAvailableAt: string | null;
   remainingDailyAttacks: number;
   message: string;

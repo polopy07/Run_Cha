@@ -26,7 +26,6 @@ import { ATTACK_COOLDOWN_MS } from './attack-timing.constants';
 
 const MIN_ATTACK_OVERLAP_RATE = 30;
 const DAILY_ATTACK_LIMIT = 5;
-const NEUTRAL_AREA_SQM_PENDING_POLICY = 0;
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -38,7 +37,6 @@ export type AttackTerritoryResponse = {
   occupationRateBefore: number;
   occupationRateAfter: number;
   acquiredAreaSqm: number;
-  neutralAreaSqm: number;
   nextAttackAvailableAt: string | null;
   remainingDailyAttacks: number;
   message: string;
@@ -196,7 +194,6 @@ export class AttacksService {
       occupationRateBefore: outcome.occupationRateBefore,
       occupationRateAfter: outcome.occupationRateAfter,
       acquiredAreaSqm: outcome.success ? contestedAreaSqm : 0,
-      neutralAreaSqm: NEUTRAL_AREA_SQM_PENDING_POLICY,
       nextAttackAvailableAt,
       remainingDailyAttacks,
       message: outcome.success
