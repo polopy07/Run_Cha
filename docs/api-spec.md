@@ -293,6 +293,8 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 
 점령된 영토를 선택했을 때 영토 상세 정보를 조회한다.
 
+서버는 보유자 정보와 배치 캐릭터 상세를 단일 상세 조회 흐름에서 JOIN해 내려준다.
+
 #### Response
 
 | 필드 | 타입 | 설명 |
@@ -757,4 +759,3 @@ const attackerPolygonAfter = success
 3. 공통 에러 메시지 세부 코드 정의
 4. `difference()` 결과가 `MultiPolygon`일 때의 장기 처리 방식
 5. ~~겹치는 영토 포인트 수입 패널티 적용 여부와 `territory_overlaps` 캐시 테이블 도입 여부~~ (1차 스코프 제외)
-6. `GET /territories/:id` 상세 응답의 보유자/배치 캐릭터 JOIN 최적화 방식
