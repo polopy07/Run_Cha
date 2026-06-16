@@ -487,6 +487,7 @@ const attackerPolygonAfter = success
 - ~~영토 활동 조건은 러닝 경로와 해당 영토의 겹침 비율 등을 기준으로 후속 구현에서 확정한다.~~ (1차 스코프 제외)
 - 영토에 배치된 수비형 캐릭터는 방어 레벨에 따라 자연 감소 기준일을 최대 3일 늦춘다.
 - 수비형 자연 감소 유예일은 `Math.min(Math.floor((defenseLv - 1) / 5), 3)`으로 계산한다.
+  - `defenseLv`는 API 응답 표기이며, 서버 내부 DB 컬럼 `defense_lv`와 같은 방어 레벨 값을 의미한다.
   - `defenseLv` 1~5: 추가 유예 없음
   - `defenseLv` 6~10: 기준일 +1일
   - `defenseLv` 11~15: 기준일 +2일

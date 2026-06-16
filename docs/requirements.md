@@ -226,6 +226,7 @@ const earnedPoints = isClosedLoop ? basePoints : Math.floor(basePoints * 1.3);
 - 자연 감소 업데이트는 `last_active_at`을 변경하지 않는다.
 - 영토에 배치된 수비형 캐릭터는 방어 레벨에 따라 자연 감소 기준일을 최대 3일 늦춘다.
 - 수비형 자연 감소 유예일은 `Math.min(Math.floor((defenseLv - 1) / 5), 3)`으로 계산한다.
+  - `defenseLv`는 API/요구사항 표기이며, 서버 내부 DB 컬럼 `defense_lv`와 같은 방어 레벨 값을 의미한다.
   - `defenseLv` 1~5: 추가 유예 없음
   - `defenseLv` 6~10: 기준일 +1일
   - `defenseLv` 11~15: 기준일 +2일
