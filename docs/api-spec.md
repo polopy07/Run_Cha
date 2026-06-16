@@ -130,6 +130,7 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 | points | number | 보유 포인트 |
 | statPoints | number | 보유 스탯 포인트 |
 | totalDistance | number | 누적 러닝 거리 |
+| representativeCharacter | RepresentativeCharacter \| null | 대표 캐릭터 정보 |
 
 ### PATCH `/users/me/nickname`
 
