@@ -186,7 +186,7 @@ const earnedPoints = isClosedLoop ? basePoints : Math.floor(basePoints * 1.3);
 - 방어자 영토의 `coordinates`, `area_sqm`, `center_lat`, `center_lng`는 차집합 결과 기준으로 재계산한다.
 - 공격자 영토의 `coordinates`, `area_sqm`, `center_lat`, `center_lng`는 병합 결과 기준으로 재계산한다.
 - 차집합 결과 방어자 영토 면적이 0이면 해당 영토는 삭제한다.
-- 차집합 결과가 `MultiPolygon`이면 임시 정책으로 가장 큰 조각만 보존하고 나머지 조각은 삭제해 단일 폴리곤 구조를 유지한다.
+- 차집합 결과가 `MultiPolygon`이면 1차 스코프 확정 정책으로 가장 큰 조각만 보존하고 나머지 조각은 삭제해 단일 폴리곤 구조를 유지한다.
 - 지도에서는 변경된 방어자/공격자 영토 폴리곤이 즉시 반영되어 침략 결과가 드러나야 한다.
 - 침략 실패 시 겹침 후보 영역은 소유권 이전 없이 그대로 유지된다.
 - 점령률은 소유 면적을 직접 나타내는 값이 아니라 방어력 보정과 자연 감소 관리를 위한 별도 상태값으로 유지한다.
@@ -226,6 +226,7 @@ const earnedPoints = isClosedLoop ? basePoints : Math.floor(basePoints * 1.3);
 - 자연 감소 업데이트는 `last_active_at`을 변경하지 않는다.
 - 영토에 배치된 수비형 캐릭터는 방어 레벨에 따라 자연 감소 기준일을 최대 3일 늦춘다.
 - 수비형 자연 감소 유예일은 `Math.min(Math.floor((defenseLv - 1) / 5), 3)`으로 계산한다.
+  - `defenseLv`는 API/요구사항 표기이며, 서버 내부 DB 컬럼 `defense_lv`와 같은 방어 레벨 값을 의미한다.
   - `defenseLv` 1~5: 추가 유예 없음
   - `defenseLv` 6~10: 기준일 +1일
   - `defenseLv` 11~15: 기준일 +2일
@@ -256,5 +257,4 @@ const earnedPoints = isClosedLoop ? basePoints : Math.floor(basePoints * 1.3);
 1. `/running/start` API 필요 여부
 2. ~~직접 러닝으로 `last_active_at`을 갱신하기 위한 영토 활동 조건과 추가 점령률 회복/완화 필요 여부~~ (1차 스코프 제외)
 3. 장시간 연속 러닝 보상 보정 공식
-4. 방어자 영토 차집합 결과가 `MultiPolygon`이 될 때의 장기 처리 방식
-5. ~~겹치는 영토 포인트 수입 패널티 적용 여부와 `territory_overlaps` 캐시 테이블 도입 여부~~ (1차 스코프 제외)
+4. ~~겹치는 영토 포인트 수입 패널티 적용 여부와 `territory_overlaps` 캐시 테이블 도입 여부~~ (1차 스코프 제외)
