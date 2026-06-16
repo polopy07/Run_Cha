@@ -58,26 +58,17 @@ describe('TerritoriesService', () => {
     ),
   };
 
-  const mockUserCharactersRepo = {
-    find: jest.fn(),
-  };
-
   beforeEach(async () => {
     jest.clearAllMocks();
     mockRepo.find.mockResolvedValue([]);
     mockRepo.findOne.mockResolvedValue(null);
     mockQb.getMany.mockResolvedValue([]);
     mockQb.getOne.mockResolvedValue(null);
-    mockUserCharactersRepo.find.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TerritoriesService,
         { provide: getRepositoryToken(Territory), useValue: mockRepo },
-        {
-          provide: getRepositoryToken(UserCharacter),
-          useValue: mockUserCharactersRepo,
-        },
       ],
     }).compile();
 
@@ -240,7 +231,6 @@ describe('TerritoriesService', () => {
       expect(mockQb.andWhere).toHaveBeenCalledWith('t.area_sqm > 0');
       expect(mockQb.andWhere).toHaveBeenCalledWith('t.occupation_rate > 0');
       expect(mockQb.orderBy).toHaveBeenCalledWith('uc.id', 'ASC');
-      expect(mockUserCharactersRepo.find).not.toHaveBeenCalled();
       expect(result).toEqual({
         id: territory.id,
         name: territory.name,
@@ -288,7 +278,6 @@ describe('TerritoriesService', () => {
       await expect(service.findOne(999, 1)).rejects.toThrow(
         '영토를 찾을 수 없습니다.',
       );
-      expect(mockUserCharactersRepo.find).not.toHaveBeenCalled();
     });
 
     it('guards detail lookup with active territory filters', async () => {
