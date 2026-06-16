@@ -103,6 +103,8 @@ function extractLargestPolygon(
     return turf.polygon(feature.geometry.coordinates);
   }
 
+  // 1차 스코프는 단일 Polygon 저장 구조를 유지한다.
+  // MultiPolygon 결과는 가장 큰 조각만 보존하고 나머지 조각은 버린다.
   let largest: Feature<Polygon> | null = null;
   let largestArea = 0;
 
