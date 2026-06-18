@@ -185,7 +185,8 @@ const earnedPoints = isClosedLoop ? basePoints : Math.floor(basePoints * 1.3);
 - 침략 성공 시 획득 폴리곤은 공격자 기존 영토와 인접한 것으로 간주하며, 별도 새 영토 생성 분기는 두지 않는다.
 - 방어자 영토의 `coordinates`, `area_sqm`, `center_lat`, `center_lng`는 차집합 결과 기준으로 재계산한다.
 - 공격자 영토의 `coordinates`, `area_sqm`, `center_lat`, `center_lng`는 병합 결과 기준으로 재계산한다.
-- 차집합 결과 방어자 영토 면적이 0이면 해당 영토는 삭제한다.
+- 차집합 결과 방어자 영토 면적이 0이면 해당 영토는 `area_sqm = 0`, `occupation_rate = 0`으로 중립화하고 DB 레코드는 보존한다.
+- 0% 중립화 영토는 지도/목록/랭킹/침략 대상 조회에서 `area_sqm > 0`과 `occupation_rate > 0` 조건으로 제외한다.
 - 차집합 결과가 `MultiPolygon`이면 1차 스코프 확정 정책으로 가장 큰 조각만 보존하고 나머지 조각은 삭제해 단일 폴리곤 구조를 유지한다.
 - 지도에서는 변경된 방어자/공격자 영토 폴리곤이 즉시 반영되어 침략 결과가 드러나야 한다.
 - 침략 실패 시 겹침 후보 영역은 소유권 이전 없이 그대로 유지된다.

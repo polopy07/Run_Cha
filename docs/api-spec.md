@@ -387,7 +387,8 @@ Firebase 이메일 정보가 없는 토큰은 서버에서 인증 실패로 처�
 - 서버는 `turf.difference(방어자 영토, 겹침 폴리곤)`로 방어자 영토를 갱신하고, `turf.union(공격자 기존 영토, 겹침 폴리곤)`으로 공격자 영토에 병합한다.
 - 침략 성공 시 획득 폴리곤은 공격자 기존 영토와 인접한 것으로 간주하며, 별도 새 영토 생성 분기는 두지 않는다.
 - 방어자/공격자 영토의 `coordinates`, `area_sqm`, `center_lat`, `center_lng`는 각각 차집합/합집합 결과 기준으로 재계산한다.
-- 방어자 영토 차집합 결과 면적이 0이면 해당 영토는 삭제한다.
+- 방어자 영토 차집합 결과 면적이 0이면 해당 영토는 `area_sqm = 0`, `occupation_rate = 0`으로 중립화해 DB 레코드는 보존한다.
+- 0% 중립화 영토는 지도/목록/랭킹/침략 대상 조회에서 `area_sqm > 0`과 `occupation_rate > 0` 조건으로 제외한다.
 - 차집합 결과가 `MultiPolygon`이면 1차 스코프 확정 정책으로 가장 큰 조각만 보존하고 나머지는 삭제해 단일 폴리곤 구조를 유지한다.
 - 침략 실패 시 겹침 후보 영역은 소유권 이전 없이 유지된다.
 - 대상 영토에 포함되지 않은 새 폐곡선 면적은 일반 러닝 보상/영토 생성 규칙에 따라 처리한다.
@@ -460,7 +461,8 @@ const attackerPolygonAfter = success
 - 공격/방어 기본 스탯은 `UserCharacter`의 `character` relation을 통해 `characters.base_attack`, `characters.base_defense`에서 조회한다.
 - 최종 구현에서는 `turf.intersect`로 겹친 영역을 산출하고, 침략 성공 시 해당 겹침 폴리곤을 방어자 영토에서 제거한 뒤 공격자 영토에 병합한다.
 - 방어자 영토는 `turf.difference`, 공격자 영토는 `turf.union` 결과 기준으로 `coordinates`, `area_sqm`, `center_lat`, `center_lng`를 갱신한다.
-- 방어자 영토 면적이 0이 되면 해당 영토는 삭제한다.
+- 방어자 영토 면적이 0이 되면 해당 영토는 `area_sqm = 0`, `occupation_rate = 0`으로 중립화해 DB 레코드는 보존한다.
+- 0% 중립화 영토는 지도/목록/랭킹/침략 대상 조회에서 `area_sqm > 0`과 `occupation_rate > 0` 조건으로 제외한다.
 - `difference()` 결과가 `MultiPolygon`이면 1차 스코프 확정 정책으로 가장 큰 조각만 보존하고 나머지는 삭제한다.
 - 점령률은 방어력 보정, 시간당 포인트 수입, 자연 감소, 랭킹 필터에 사용하며 폴리곤 이전 면적 계산에는 사용하지 않는다.
 - 획득 면적은 `area(contestedPolygon)` 기준으로 계산한다.
