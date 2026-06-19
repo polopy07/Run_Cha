@@ -1,7 +1,7 @@
-# 런챠 (Run Cha)
+# Run Cha
 
 <p align="center">
-  <img src="docs/icon.png" width="120" alt="런챠"/>
+  <img src="docs/icon.png" width="120" alt="Run Cha"/>
 </p>
 
 > 러닝 + 가챠 — 실제 러닝으로 지도 위 영토를 점령하는 위치 기반 모바일 게임
