@@ -34,7 +34,7 @@ GPS로 달린 경로가 폐곡선을 이루면 해당 면적이 내 영토가 �
 | DB | MySQL |
 | 인증 | Firebase Auth + Server JWT |
 | 지리 연산 | turf.js |
-| 배포 | Railway |
+| 배포 | tailscale |
 
 ---
 
