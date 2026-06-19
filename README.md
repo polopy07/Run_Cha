@@ -1,5 +1,9 @@
 # RUN TERRITORY
 
+<p align="center">
+  <img src="docs/icon.png" width="120" alt="RUN TERRITORY"/>
+</p>
+
 > 실제 러닝으로 지도 위 영토를 점령하는 위치 기반 모바일 게임
 
 GPS로 달린 경로가 폐곡선을 이루면 해당 면적이 내 영토가 됩니다. 캐릭터를 배치해 영토를 지키고, 다른 유저의 영토를 침략하세요.
@@ -93,7 +97,7 @@ GMSServices.provideAPIKey("your_google_maps_api_key")
 React Native App
   ├── Firebase Auth   →  로그인 / ID Token 발급
   ├── NestJS REST API →  비즈니스 로직 / JWT 인증
-  │      └── MySQL      →  덴 휬터 영구 저장
+  │     └── MySQL     →  데이터 영구 저장
   └── Socket.io       →  실시간 위치 / 랭킹 / 영토 이벤트
 ```
 
