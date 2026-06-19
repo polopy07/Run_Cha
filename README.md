@@ -1,10 +1,10 @@
-# RUN TERRITORY
+# 런챠 (Run Cha)
 
 <p align="center">
-  <img src="docs/icon.png" width="120" alt="RUN TERRITORY"/>
+  <img src="docs/icon.png" width="120" alt="런챠"/>
 </p>
 
-> 실제 러닝으로 지도 위 영토를 점령하는 위치 기반 모바일 게임
+> 러닝 + 가챠 — 실제 러닝으로 지도 위 영토를 점령하는 위치 기반 모바일 게임
 
 GPS로 달린 경로가 폐곡선을 이루면 해당 면적이 내 영토가 됩니다. 캐릭터를 배치해 영토를 지키고, 다른 유저의 영토를 침략하세요.
 
@@ -34,7 +34,7 @@ GPS로 달린 경로가 폐곡선을 이루면 해당 면적이 내 영토가 �
 | DB | MySQL |
 | 인증 | Firebase Auth + Server JWT |
 | 지리 연산 | turf.js |
-| 배포 | tailscale |
+| 배포 | Railway |
 
 ---
 
@@ -77,16 +77,11 @@ npm run ios
 
 `.env.example` / `apps/mobile/.env.example` 파일을 참고하세요.
 
-### Google Maps API 키 추가 설정
+### Google Maps API 키 추가 설정 (Android)
 
-**Android** — `apps/mobile/android/local.properties`
+`apps/mobile/android/local.properties`
 ```properties
 GOOGLE_MAPS_API_KEY=your_google_maps_api_key
-```
-
-**iOS** — `apps/mobile/ios/mobile/AppDelegate.swift`
-```swift
-GMSServices.provideAPIKey("your_google_maps_api_key")
 ```
 
 ---
