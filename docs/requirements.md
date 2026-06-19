@@ -255,7 +255,6 @@ const earnedPoints = isClosedLoop ? basePoints : Math.floor(basePoints * 1.3);
 
 ## 6. 앱 연동 전 필수 결정 사항
 
-1. `/running/start` API 필요 여부
-2. ~~직접 러닝으로 `last_active_at`을 갱신하기 위한 영토 활동 조건과 추가 점령률 회복/완화 필요 여부~~ (1차 스코프 제외)
-3. 장시간 연속 러닝 보상 보정 공식
-4. ~~겹치는 영토 포인트 수입 패널티 적용 여부와 `territory_overlaps` 캐시 테이블 도입 여부~~ (1차 스코프 제외)
+1. ~~직접 러닝으로 `last_active_at`을 갱신하기 위한 영토 활동 조건과 추가 점령률 회복/완화 필요 여부~~ (1차 스코프 제외)
+2. 장시간 연속 러닝 보상 보정 공식
+3. ~~겹치는 영토 포인트 수입 패널티 적용 여부와 `territory_overlaps` 캐시 테이블 도입 여부~~ (1차 스코프 제외)
