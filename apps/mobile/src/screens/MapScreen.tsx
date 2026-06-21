@@ -171,6 +171,7 @@ export function MapScreen() {
                 fillColor={color + '40'}
                 strokeColor={color}
                 strokeWidth={isMine ? 3 : 2}
+                zIndex={isMine ? 2 : 1}
                 tappable
                 onPress={() => {
                   setSelectedTerritoryId(t.id);

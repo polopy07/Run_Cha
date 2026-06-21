@@ -35,11 +35,14 @@ export function calculateAttackOverlap(
   const contestedAreaSqm = storableContestedPolygon
     ? turf.area(storableContestedPolygon)
     : 0;
-  const remaining = contestedPolygon
+  const diffResult = contestedPolygon
     ? turf.difference(
         turf.featureCollection([territoryPolygon, contestedPolygon]),
       )
-    : territoryPolygon;
+    : null;
+  const remaining = diffResult
+    ? fixSelfIntersection(diffResult)
+    : (contestedPolygon ? null : territoryPolygon);
   const defenderRemainingPolygon = remaining
     ? extractLargestPolygon(remaining)
     : null;
@@ -129,4 +132,28 @@ function toStorablePolygon(feature: Feature<Polygon>): Feature<Polygon> {
 
 function toCoordinates(feature: Feature<Polygon>): Coordinate[] {
   return feature.geometry.coordinates[0].map(([lng, lat]) => ({ lat, lng }));
+}
+
+// turf.difference() 결과가 자기교차(self-intersecting) 폴리곤일 경우
+// 렌더링 시 fill 없는 선만 보이는 현상이 발생한다.
+// unkinkPolygon으로 정리한 뒤 가장 큰 조각을 반환한다.
+function fixSelfIntersection(
+  feature: Feature<Polygon | MultiPolygon>,
+): Feature<Polygon | MultiPolygon> {
+  if (feature.geometry.type !== 'Polygon') {
+    return feature;
+  }
+
+  const unkinked = turf.unkinkPolygon(feature as Feature<Polygon>);
+  if (unkinked.features.length === 0) {
+    return feature;
+  }
+  if (unkinked.features.length === 1) {
+    return unkinked.features[0];
+  }
+
+  // 여러 조각으로 분리됐으면 가장 큰 조각 반환
+  return unkinked.features.reduce((a, b) =>
+    turf.area(a) >= turf.area(b) ? a : b,
+  );
 }
