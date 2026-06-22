@@ -1,6 +1,7 @@
 import * as turf from '@turf/turf';
 import {
-  calculateAttackOverlap,
+  calculateTerritoryOverlap,
+  fixSelfIntersection,
   mergePolygons,
   toPolygon,
 } from './attack-overlap';
@@ -57,7 +58,7 @@ describe('attack overlap', () => {
   const territoryAreaSqm = turf.area(toPolygon(SQUARE));
 
   it('calculates full overlap when running path covers territory', () => {
-    const result = calculateAttackOverlap(SQUARE, SQUARE, territoryAreaSqm);
+    const result = calculateTerritoryOverlap(SQUARE, SQUARE, territoryAreaSqm);
 
     expect(result.contestedAreaSqm).toBeCloseTo(territoryAreaSqm, 5);
     expect(result.overlapRate).toBeCloseTo(100, 5);
@@ -67,7 +68,7 @@ describe('attack overlap', () => {
   });
 
   it('calculates partial overlap based on territory area', () => {
-    const result = calculateAttackOverlap(
+    const result = calculateTerritoryOverlap(
       HALF_SQUARE,
       SQUARE,
       territoryAreaSqm,
@@ -81,7 +82,7 @@ describe('attack overlap', () => {
   });
 
   it('keeps stored defender coordinates and area consistent when remaining polygon has a hole', () => {
-    const result = calculateAttackOverlap(
+    const result = calculateTerritoryOverlap(
       INNER_SQUARE,
       SQUARE,
       territoryAreaSqm,
@@ -95,7 +96,7 @@ describe('attack overlap', () => {
   });
 
   it('stores only the largest defender piece when difference returns MultiPolygon', () => {
-    const result = calculateAttackOverlap(
+    const result = calculateTerritoryOverlap(
       VERTICAL_CUT,
       SQUARE,
       territoryAreaSqm,
@@ -116,7 +117,7 @@ describe('attack overlap', () => {
   });
 
   it('returns zero overlap when polygons do not intersect', () => {
-    const result = calculateAttackOverlap(FAR_SQUARE, SQUARE, territoryAreaSqm);
+    const result = calculateTerritoryOverlap(FAR_SQUARE, SQUARE, territoryAreaSqm);
 
     expect(result.contestedAreaSqm).toBe(0);
     expect(result.overlapRate).toBe(0);
@@ -126,7 +127,7 @@ describe('attack overlap', () => {
   });
 
   it('returns zero rate when territory area is zero', () => {
-    const result = calculateAttackOverlap(SQUARE, SQUARE, 0);
+    const result = calculateTerritoryOverlap(SQUARE, SQUARE, 0);
 
     expect(result.contestedAreaSqm).toBeGreaterThan(0);
     expect(result.overlapRate).toBe(0);
@@ -137,6 +138,41 @@ describe('attack overlap', () => {
 
     expect(result.areaSqm).toBeCloseTo(territoryAreaSqm, 0);
     expect(result.coordinates).toHaveLength(5);
+    expect(result.isAdjacent).toBe(true);
+  });
+
+  it('returns isAdjacent false when polygons do not touch', () => {
+    const result = mergePolygons(HALF_SQUARE, FAR_SQUARE);
+
+    expect(result.isAdjacent).toBe(false);
+    expect(result.coordinates).not.toBeNull();
+  });
+
+  it('fixes self-intersecting bowtie polygon', () => {
+    const BOWTIE = [
+      { lat: 37.0, lng: 127.0 },
+      { lat: 37.001, lng: 127.001 },
+      { lat: 37.001, lng: 127.0 },
+      { lat: 37.0, lng: 127.001 },
+      { lat: 37.0, lng: 127.0 },
+    ];
+    const bowtieArea = turf.area(toPolygon(BOWTIE));
+    const squareArea = turf.area(toPolygon(SQUARE));
+    const fixed = fixSelfIntersection(toPolygon(BOWTIE));
+
+    expect(turf.area(fixed)).toBeGreaterThan(0);
+    expect(turf.area(fixed)).toBeLessThan(squareArea);
+    expect(turf.area(fixed)).not.toBeCloseTo(bowtieArea, 0);
+  });
+
+  it('returns MultiPolygon input unchanged from fixSelfIntersection', () => {
+    const multiPolygon = turf.multiPolygon([
+      [SQUARE.map(({ lat, lng }) => [lng, lat])],
+      [FAR_SQUARE.map(({ lat, lng }) => [lng, lat])],
+    ]);
+    const result = fixSelfIntersection(multiPolygon);
+
+    expect(result).toBe(multiPolygon);
   });
 
   it('closes an open ring automatically', () => {

@@ -14,15 +14,16 @@ export type AttackOverlapResult = {
 export type PolygonMergeResult = {
   areaSqm: number;
   coordinates: Coordinate[] | null;
+  isAdjacent: boolean;
 };
 
-export function calculateAttackOverlap(
-  runningPath: Coordinate[],
-  territoryCoordinates: Coordinate[],
-  territoryAreaSqm: number,
+export function calculateTerritoryOverlap(
+  attackerCoordinates: Coordinate[],
+  defenderCoordinates: Coordinate[],
+  defenderAreaSqm: number,
 ): AttackOverlapResult {
-  const runningPolygon = toPolygon(runningPath);
-  const territoryPolygon = toPolygon(territoryCoordinates);
+  const runningPolygon = toPolygon(attackerCoordinates);
+  const territoryPolygon = toPolygon(defenderCoordinates);
   const intersection = turf.intersect(
     turf.featureCollection([runningPolygon, territoryPolygon]),
   );
@@ -53,7 +54,7 @@ export function calculateAttackOverlap(
     ? turf.area(storableDefenderRemainingPolygon)
     : 0;
   const overlapRate =
-    territoryAreaSqm > 0 ? (contestedAreaSqm / territoryAreaSqm) * 100 : 0;
+    defenderAreaSqm > 0 ? (contestedAreaSqm / defenderAreaSqm) * 100 : 0;
 
   return {
     overlapRate,
@@ -75,11 +76,16 @@ export function mergePolygons(
   const basePolygon = toPolygon(baseCoordinates);
   const addedPolygon = toPolygon(addedCoordinates);
   const union = turf.union(turf.featureCollection([basePolygon, addedPolygon]));
-  const mergedPolygon = union ? extractLargestPolygon(union) : null;
+
+  // union이 Polygon이면 두 영토가 인접/겹침, MultiPolygon이면 비인접
+  const isAdjacent = union?.geometry.type === 'Polygon';
+  const fixedUnion = union ? fixSelfIntersection(union) : null;
+  const mergedPolygon = fixedUnion ? extractLargestPolygon(fixedUnion) : null;
 
   return {
     areaSqm: mergedPolygon ? turf.area(mergedPolygon) : 0,
     coordinates: mergedPolygon ? toCoordinates(mergedPolygon) : null,
+    isAdjacent,
   };
 }
 
@@ -134,10 +140,10 @@ function toCoordinates(feature: Feature<Polygon>): Coordinate[] {
   return feature.geometry.coordinates[0].map(([lng, lat]) => ({ lat, lng }));
 }
 
-// turf.difference() 결과가 자기교차(self-intersecting) 폴리곤일 경우
+// turf.difference() / turf.union() 결과가 자기교차(self-intersecting) 폴리곤일 경우
 // 렌더링 시 fill 없는 선만 보이는 현상이 발생한다.
 // unkinkPolygon으로 정리한 뒤 가장 큰 조각을 반환한다.
-function fixSelfIntersection(
+export function fixSelfIntersection(
   feature: Feature<Polygon | MultiPolygon>,
 ): Feature<Polygon | MultiPolygon> {
   if (feature.geometry.type !== 'Polygon') {

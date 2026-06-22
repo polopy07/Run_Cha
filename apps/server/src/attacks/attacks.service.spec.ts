@@ -1,12 +1,13 @@
+import * as turf from '@turf/turf';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, MoreThan } from 'typeorm';
 import { AttacksService, getKstDayRange } from './attacks.service';
+import { toPolygon } from './attack-overlap';
 import { AttackLog } from './entities/attack-log.entity';
 import { AttackResult } from './enums/attack-result.enum';
 import { CharacterType } from '../characters/entities/character.entity';
 import { UserCharacter } from '../characters/entities/user-character.entity';
-import { RunningLog } from '../running/entities/running-log.entity';
 import { Territory } from '../territories/entities/territory.entity';
 import { EventsGateway } from '../socket/events.gateway';
 
@@ -25,6 +26,17 @@ const HALF_SQUARE = [
   { lat: 37.001, lng: 127.0 },
   { lat: 37.0, lng: 127.0 },
 ];
+
+const FAR_SQUARE = [
+  { lat: 37.01, lng: 127.01 },
+  { lat: 37.01, lng: 127.011 },
+  { lat: 37.011, lng: 127.011 },
+  { lat: 37.011, lng: 127.01 },
+  { lat: 37.01, lng: 127.01 },
+];
+
+const SQUARE_AREA_SQM = turf.area(toPolygon(SQUARE));
+const HALF_SQUARE_AREA_SQM = turf.area(toPolygon(HALF_SQUARE));
 
 function makeRepository() {
   return {
@@ -52,12 +64,6 @@ type SavedTerritoryCall = [
     center_lng?: number;
   },
 ];
-type FindOneCall = [
-  {
-    lock?: { mode?: string };
-    where?: { user_id?: number };
-  },
-];
 
 function getSavedTerritory(
   repo: MockRepository,
@@ -73,22 +79,9 @@ function getSavedTerritory(
   return savedTerritory;
 }
 
-function expectLockedAttackerTerritoryFind(repo: MockRepository) {
-  const calls = repo.findOne.mock.calls as unknown;
-  const hasLockedAttackerFind = (calls as FindOneCall[]).some(([options]) => {
-    return (
-      options?.lock?.mode === 'pessimistic_write' &&
-      options?.where?.user_id === 1
-    );
-  });
-
-  expect(hasLockedAttackerFind).toBe(true);
-}
-
 describe('AttacksService', () => {
   let service: AttacksService;
   let territoryRepo: MockRepository;
-  let runningLogRepo: MockRepository;
   let userCharacterRepo: MockRepository;
   let attackLogRepo: MockRepository;
   let transactionTerritoryRepo: MockRepository;
@@ -103,25 +96,20 @@ describe('AttacksService', () => {
     id: 10,
     user_id: 2,
     coordinates: SQUARE,
-    area_sqm: 12364,
+    area_sqm: SQUARE_AREA_SQM,
     occupation_rate: 100,
   } as Territory;
 
+  // 공격자 영토는 상대 영토(SQUARE)의 왼쪽 절반과 겹침 → overlapRate ≈ 50%
   const attackerOwnedTerritory = {
     id: 11,
     user_id: 1,
     coordinates: HALF_SQUARE,
-    area_sqm: 6182,
+    area_sqm: HALF_SQUARE_AREA_SQM,
     occupation_rate: 100,
     center_lat: 37.0005,
     center_lng: 127.00025,
   } as Territory;
-
-  const runningLog = {
-    id: 20,
-    user_id: 1,
-    path: SQUARE,
-  } as RunningLog;
 
   const attackerCharacter = {
     id: 30,
@@ -146,7 +134,6 @@ describe('AttacksService', () => {
 
   beforeEach(async () => {
     territoryRepo = makeRepository();
-    runningLogRepo = makeRepository();
     userCharacterRepo = makeRepository();
     attackLogRepo = makeRepository();
     transactionTerritoryRepo = makeRepository();
@@ -165,16 +152,12 @@ describe('AttacksService', () => {
         return Promise.resolve(null);
       },
     );
-    runningLogRepo.findOne.mockResolvedValue(runningLog);
     userCharacterRepo.findOne.mockResolvedValue(attackerCharacter);
     userCharacterRepo.find.mockResolvedValue([]);
     transactionAttackLogRepo.count.mockResolvedValue(0);
     transactionAttackLogRepo.save.mockImplementation((value: unknown) =>
       Promise.resolve({ ...(value as object), created_at: new Date() }),
     );
-    transactionTerritoryRepo.findOne.mockResolvedValue({
-      ...attackerOwnedTerritory,
-    });
     dataSource.transaction.mockImplementation(
       (callback: (manager: MockTransactionManager) => void) =>
         callback({
@@ -191,7 +174,6 @@ describe('AttacksService', () => {
         AttacksService,
         { provide: DataSource, useValue: dataSource },
         { provide: getRepositoryToken(Territory), useValue: territoryRepo },
-        { provide: getRepositoryToken(RunningLog), useValue: runningLogRepo },
         {
           provide: getRepositoryToken(UserCharacter),
           useValue: userCharacterRepo,
@@ -214,9 +196,8 @@ describe('AttacksService', () => {
     jest.clearAllMocks();
   });
 
-  it('updates occupation rate and saves attack log on success', async () => {
+  it('updates defender territory and saves attack log on success', async () => {
     const result = await service.attack(1, 10, {
-      runningLogId: 20,
       attackerCharacterId: 30,
     });
 
@@ -224,7 +205,9 @@ describe('AttacksService', () => {
     expect(result.damage).toBe(25);
     expect(result.occupationRateBefore).toBe(100);
     expect(result.occupationRateAfter).toBe(75);
-    expect(result.acquiredAreaSqm).toBeGreaterThan(9000);
+    expect(result.overlapRate).toBeGreaterThan(49);
+    expect(result.overlapRate).toBeLessThan(51);
+    expect(result.acquiredAreaSqm).toBeGreaterThan(0);
     expect(result.remainingDailyAttacks).toBe(4);
     expect(result.nextAttackAvailableAt).toEqual(expect.any(String));
     expect(result.message).toBe('침략에 성공했습니다.');
@@ -235,29 +218,21 @@ describe('AttacksService', () => {
         occupation_rate: MoreThan(0),
       },
     });
-    expect(transactionTerritoryRepo.save).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({ area_sqm: 0, occupation_rate: 0 }),
+
+    // 공격자 영토는 이미 겹친 영역을 포함하므로 저장 없음 — defender만 1회 저장
+    expect(transactionTerritoryRepo.save).toHaveBeenCalledTimes(1);
+    const savedDefender = getSavedTerritory(transactionTerritoryRepo, 0);
+    expect(savedDefender).toEqual(
+      expect.objectContaining({ user_id: 2, occupation_rate: 75 }),
     );
-    const mergedAttackerTerritory = getSavedTerritory(
-      transactionTerritoryRepo,
-      1,
-    );
-    expect(mergedAttackerTerritory).toEqual(
-      expect.objectContaining({
-        id: 11,
-        user_id: 1,
-        occupation_rate: 100,
-      }),
-    );
-    expect(typeof mergedAttackerTerritory.area_sqm).toBe('number');
-    expect(transactionTerritoryRepo.create).not.toHaveBeenCalled();
+    expect(typeof savedDefender.area_sqm).toBe('number');
+    expect(savedDefender.area_sqm).toBeGreaterThan(0);
+
     expect(transactionAttackLogRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({
         attacker_id: 1,
         defender_id: 2,
         territory_id: 10,
-        running_log_id: 20,
         attacker_character_id: 30,
         defender_character_id: null,
         result: AttackResult.ATTACKER_WIN,
@@ -274,91 +249,41 @@ describe('AttacksService', () => {
       'SELECT RELEASE_LOCK(?)',
       expect.any(Array),
     );
-    expectLockedAttackerTerritoryFind(transactionTerritoryRepo);
   });
 
-  it('moves the overlapped polygon to attacker territory on partial success', async () => {
-    runningLogRepo.findOne.mockResolvedValue({
-      ...runningLog,
-      path: HALF_SQUARE,
-    });
+  it('removes defender territory entirely when fully overlapped', async () => {
+    // 공격자 영토가 상대 영토와 동일 → 100% 겹침
+    territoryRepo.findOne.mockImplementation(
+      (options?: { where?: Record<string, unknown> }) => {
+        if (options?.where && 'id' in options.where) {
+          return Promise.resolve({ ...territory });
+        }
+        if (options?.where && 'user_id' in options.where) {
+          return Promise.resolve({ ...attackerOwnedTerritory, coordinates: SQUARE });
+        }
+
+        return Promise.resolve(null);
+      },
+    );
 
     const result = await service.attack(1, 10, {
-      runningLogId: 20,
       attackerCharacterId: 30,
     });
 
     expect(result.success).toBe(true);
-    expect(result.overlapRate).toBeGreaterThan(39);
-    expect(result.overlapRate).toBeLessThan(41);
-    expect(result.acquiredAreaSqm).toBeGreaterThan(4800);
-    expect(result.acquiredAreaSqm).toBeLessThan(5100);
-    const defenderTerritory = getSavedTerritory(transactionTerritoryRepo, 0);
-    expect(defenderTerritory).toEqual(
-      expect.objectContaining({
-        user_id: 2,
-        occupation_rate: 75,
-      }),
+    expect(result.overlapRate).toBeCloseTo(100, 0);
+
+    expect(transactionTerritoryRepo.save).toHaveBeenCalledTimes(1);
+    const savedDefender = getSavedTerritory(transactionTerritoryRepo, 0);
+    expect(savedDefender).toEqual(
+      expect.objectContaining({ area_sqm: 0, occupation_rate: 0 }),
     );
-    expect(typeof defenderTerritory.area_sqm).toBe('number');
-    expect(Array.isArray(defenderTerritory.coordinates)).toBe(true);
-    expect(typeof defenderTerritory.center_lat).toBe('number');
-    expect(typeof defenderTerritory.center_lng).toBe('number');
-
-    const mergedAttackerTerritory = getSavedTerritory(
-      transactionTerritoryRepo,
-      1,
-    );
-    expect(mergedAttackerTerritory).toEqual(
-      expect.objectContaining({
-        id: 11,
-        user_id: 1,
-        occupation_rate: 100,
-      }),
-    );
-    expect(Array.isArray(mergedAttackerTerritory.coordinates)).toBe(true);
-    expect(typeof mergedAttackerTerritory.area_sqm).toBe('number');
-    expect(typeof mergedAttackerTerritory.center_lat).toBe('number');
-    expect(typeof mergedAttackerTerritory.center_lng).toBe('number');
-  });
-
-  it('rejects successful transfer when attacker territory is missing', async () => {
-    territoryRepo.findOne
-      .mockResolvedValueOnce({ ...territory })
-      .mockResolvedValueOnce(null);
-
-    await expect(
-      service.attack(1, 10, {
-        runningLogId: 20,
-        attackerCharacterId: 30,
-      }),
-    ).rejects.toThrow('침략하려면 먼저 자신의 영토가 있어야 합니다.');
-
-    expect(dataSource.transaction).not.toHaveBeenCalled();
-    expect(transactionTerritoryRepo.create).not.toHaveBeenCalled();
-    expect(transactionAttackLogRepo.create).not.toHaveBeenCalled();
-  });
-
-  it('rejects when attacker territory disappears before locked transfer', async () => {
-    transactionTerritoryRepo.findOne.mockResolvedValue(null);
-
-    await expect(
-      service.attack(1, 10, {
-        runningLogId: 20,
-        attackerCharacterId: 30,
-      }),
-    ).rejects.toThrow('침략하려면 먼저 자신의 영토가 있어야 합니다.');
-
-    expect(dataSource.transaction).toHaveBeenCalled();
-    expectLockedAttackerTerritoryFind(transactionTerritoryRepo);
-    expect(transactionAttackLogRepo.create).not.toHaveBeenCalled();
   });
 
   it('saves deployed defender character id when defender is deployed', async () => {
     userCharacterRepo.find.mockResolvedValue([defenderCharacter]);
 
     await service.attack(1, 10, {
-      runningLogId: 20,
       attackerCharacterId: 30,
     });
 
@@ -385,7 +310,6 @@ describe('AttacksService', () => {
     ]);
 
     const result = await service.attack(1, 10, {
-      runningLogId: 20,
       attackerCharacterId: 30,
     });
 
@@ -409,7 +333,7 @@ describe('AttacksService', () => {
     territoryRepo.findOne.mockResolvedValue({ ...territory, user_id: 1 });
 
     await expect(
-      service.attack(1, 10, { runningLogId: 20, attackerCharacterId: 30 }),
+      service.attack(1, 10, { attackerCharacterId: 30 }),
     ).rejects.toThrow('자신의 영토는 침략할 수 없습니다.');
     expect(dataSource.transaction).not.toHaveBeenCalled();
   });
@@ -421,8 +345,41 @@ describe('AttacksService', () => {
     });
 
     await expect(
-      service.attack(1, 10, { runningLogId: 20, attackerCharacterId: 30 }),
+      service.attack(1, 10, { attackerCharacterId: 30 }),
     ).rejects.toThrow('새로 생성된 영토는');
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects when attacker has no territory', async () => {
+    territoryRepo.findOne
+      .mockResolvedValueOnce({ ...territory })
+      .mockResolvedValueOnce(null);
+
+    await expect(
+      service.attack(1, 10, { attackerCharacterId: 30 }),
+    ).rejects.toThrow('침략하려면 먼저 자신의 영토가 있어야 합니다.');
+
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects when attacker territory does not overlap defender territory by 30%', async () => {
+    territoryRepo.findOne.mockImplementation(
+      (options?: { where?: Record<string, unknown> }) => {
+        if (options?.where && 'id' in options.where) {
+          return Promise.resolve({ ...territory });
+        }
+        if (options?.where && 'user_id' in options.where) {
+          return Promise.resolve({ ...attackerOwnedTerritory, coordinates: FAR_SQUARE });
+        }
+
+        return Promise.resolve(null);
+      },
+    );
+
+    await expect(
+      service.attack(1, 10, { attackerCharacterId: 30 }),
+    ).rejects.toThrow('30% 이상이 내 영토와 겹쳐야 합니다.');
+
     expect(dataSource.transaction).not.toHaveBeenCalled();
   });
 
@@ -430,7 +387,7 @@ describe('AttacksService', () => {
     transactionAttackLogRepo.count.mockResolvedValueOnce(5);
 
     await expect(
-      service.attack(1, 10, { runningLogId: 20, attackerCharacterId: 30 }),
+      service.attack(1, 10, { attackerCharacterId: 30 }),
     ).rejects.toThrow('오늘의 침략 가능 횟수를 모두 사용했습니다.');
     expect(transactionTerritoryRepo.save).not.toHaveBeenCalled();
   });
@@ -442,28 +399,17 @@ describe('AttacksService', () => {
     });
 
     await expect(
-      service.attack(1, 10, { runningLogId: 20, attackerCharacterId: 30 }),
+      service.attack(1, 10, { attackerCharacterId: 30 }),
     ).rejects.toThrow('침략 쿨타임 중입니다.');
     expect(transactionTerritoryRepo.save).not.toHaveBeenCalled();
     expect(transactionAttackLogRepo.create).not.toHaveBeenCalled();
-  });
-
-  it('rejects when running log was already used for attack', async () => {
-    transactionAttackLogRepo.count
-      .mockResolvedValueOnce(0)
-      .mockResolvedValueOnce(1);
-
-    await expect(
-      service.attack(1, 10, { runningLogId: 20, attackerCharacterId: 30 }),
-    ).rejects.toThrow('이미 침략에 사용한 러닝 기록입니다.');
-    expect(transactionTerritoryRepo.save).not.toHaveBeenCalled();
   });
 
   it('rejects when daily attack lock cannot be acquired', async () => {
     managerQuery.mockResolvedValueOnce([{ acquired: 0 }]);
 
     await expect(
-      service.attack(1, 10, { runningLogId: 20, attackerCharacterId: 30 }),
+      service.attack(1, 10, { attackerCharacterId: 30 }),
     ).rejects.toThrow(
       '침략 요청을 처리하는 중입니다. 잠시 후 다시 시도해주세요.',
     );
@@ -477,40 +423,33 @@ describe('AttacksService', () => {
     });
 
     await expect(
-      service.attack(1, 10, { runningLogId: 20, attackerCharacterId: 30 }),
+      service.attack(1, 10, { attackerCharacterId: 30 }),
     ).rejects.toThrow('공격형 캐릭터만 침략에 사용할 수 있습니다.');
     expect(dataSource.transaction).not.toHaveBeenCalled();
   });
 
-  it('rejects insufficient running overlap', async () => {
-    runningLogRepo.findOne.mockResolvedValue({
-      ...runningLog,
-      path: [
-        { lat: 37.01, lng: 127.01 },
-        { lat: 37.01, lng: 127.011 },
-        { lat: 37.011, lng: 127.011 },
-        { lat: 37.011, lng: 127.01 },
-        { lat: 37.01, lng: 127.01 },
-      ],
-    });
-
-    await expect(
-      service.attack(1, 10, { runningLogId: 20, attackerCharacterId: 30 }),
-    ).rejects.toThrow('대상 영토의 30% 이상을 직접 러닝해야 합니다.');
-    expect(dataSource.transaction).not.toHaveBeenCalled();
-  });
-
   it('converts invalid polygon error to BadRequestException', async () => {
-    runningLogRepo.findOne.mockResolvedValue({
-      ...runningLog,
-      path: [
-        { lat: 37.0, lng: 127.0 },
-        { lat: 37.0, lng: 127.001 },
-      ],
-    });
+    territoryRepo.findOne.mockImplementation(
+      (options?: { where?: Record<string, unknown> }) => {
+        if (options?.where && 'id' in options.where) {
+          return Promise.resolve({ ...territory });
+        }
+        if (options?.where && 'user_id' in options.where) {
+          return Promise.resolve({
+            ...attackerOwnedTerritory,
+            coordinates: [
+              { lat: 37.0, lng: 127.0 },
+              { lat: 37.0, lng: 127.001 },
+            ],
+          });
+        }
+
+        return Promise.resolve(null);
+      },
+    );
 
     await expect(
-      service.attack(1, 10, { runningLogId: 20, attackerCharacterId: 30 }),
+      service.attack(1, 10, { attackerCharacterId: 30 }),
     ).rejects.toThrow('폐곡선 좌표가 부족합니다.');
     expect(dataSource.transaction).not.toHaveBeenCalled();
   });
@@ -519,23 +458,15 @@ describe('AttacksService', () => {
     territoryRepo.findOne.mockResolvedValue(null);
 
     await expect(
-      service.attack(1, 10, { runningLogId: 20, attackerCharacterId: 30 }),
+      service.attack(1, 10, { attackerCharacterId: 30 }),
     ).rejects.toThrow('영토를 찾을 수 없습니다.');
-  });
-
-  it('throws NotFoundException when running log does not exist', async () => {
-    runningLogRepo.findOne.mockResolvedValue(null);
-
-    await expect(
-      service.attack(1, 10, { runningLogId: 20, attackerCharacterId: 30 }),
-    ).rejects.toThrow('러닝 기록을 찾을 수 없습니다.');
   });
 
   it('throws NotFoundException when attacker character does not exist', async () => {
     userCharacterRepo.findOne.mockResolvedValue(null);
 
     await expect(
-      service.attack(1, 10, { runningLogId: 20, attackerCharacterId: 30 }),
+      service.attack(1, 10, { attackerCharacterId: 30 }),
     ).rejects.toThrow('보유 캐릭터를 찾을 수 없습니다.');
   });
 
